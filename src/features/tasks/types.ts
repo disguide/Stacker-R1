@@ -11,6 +11,7 @@ export interface Task {
     // Legacy/Optional fields we might still need for UI
     deadline?: string;
     estimatedTime?: string;
+    reminderTime?: string; // HH:mm format for notification time
     subtasks?: Subtask[];
     progress?: number;
     completed?: boolean; // For single tasks
@@ -40,4 +41,5 @@ export interface CalendarItem {
     estimatedTime?: string;
     subtasks?: Subtask[];
     progress?: number;
+    rrule?: string; // Pass through for recurrence indicator
 }

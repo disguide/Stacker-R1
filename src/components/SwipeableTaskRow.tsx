@@ -322,11 +322,15 @@ export default function SwipeableTaskRow({
                         <View style={styles.taskMetaRow}>
                             {deadline && (
                                 <View style={styles.metaItem}>
-                                    <Text style={[
-                                        styles.metaText,
-                                        { color: (formatDeadline(deadline).includes('-') || formatDeadline(deadline).includes('ago')) ? '#E53E3E' : THEME.textSecondary }
-                                    ]}>
-                                        {formatDeadline(deadline)}
+                                    <Ionicons name="calendar-outline" size={12} color={THEME.textSecondary} />
+                                    <Text style={styles.metaText}>
+                                        {(() => {
+                                            try {
+                                                return formatDeadline(deadline);
+                                            } catch {
+                                                return deadline;
+                                            }
+                                        })()}
                                     </Text>
                                 </View>
                             )}
@@ -339,7 +343,7 @@ export default function SwipeableTaskRow({
                             {daysRolled > 0 && (
                                 <View style={styles.rolledOverTag}>
                                     <MaterialCommunityIcons name="redo-variant" size={14} color="#C05621" style={{ marginRight: 2 }} />
-                                    <Text style={styles.rolledOverText}>Rolled x{daysRolled}</Text>
+                                    <Text style={styles.rolledOverText}>Roll x{daysRolled}</Text>
                                 </View>
                             )}
                             {/* Recurrence Tag */}

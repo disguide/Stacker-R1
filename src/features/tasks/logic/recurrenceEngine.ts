@@ -47,7 +47,8 @@ export const RecurrenceEngine = {
                             deadline: task.deadline,
                             estimatedTime: task.estimatedTime,
                             subtasks: task.subtasks,
-                            progress: task.progress || 0
+                            progress: task.progress || 0,
+                            rrule: task.rrule // Pass through for recurrence indicator
                         });
                     });
                 } catch (e) {
