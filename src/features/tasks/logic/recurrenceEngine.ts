@@ -1,5 +1,6 @@
 import { RRule } from 'rrule';
 import { Task, CalendarItem } from '../types';
+import { toISODateString } from '../../../utils/dateHelpers';
 
 /**
  * Domain Logic for generating "Ghost" instances from "Master" tasks.
@@ -27,13 +28,15 @@ export const RecurrenceEngine = {
                     const dates = rule.between(startDate, endDate, true);
 
                     dates.forEach(dateObj => {
-                        const dateString = dateObj.toISOString().split('T')[0];
+                        // Use local YYYY-MM-DD to avoid checking UTC previous day
+                        const dateString = toISODateString(dateObj);
 
                         // Skip Exceptions (Detached/Deleted instances)
                         if (task.exceptionDates?.includes(dateString)) return;
 
                         // Check Completion
                         const isCompleted = task.completedDates?.includes(dateString) || false;
+
                         if (isCompleted) return; // Completed instances vanish in this design
 
                         items.push({

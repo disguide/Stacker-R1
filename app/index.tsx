@@ -23,6 +23,7 @@ import { RRule } from 'rrule';
 // Import extracted modules
 import { THEME, ViewMode, VIEW_CONFIG } from '../src/constants/theme';
 import { toISODateString, isToday, getDayName, generateDates, formatDeadline, parseEstimatedTime, formatMinutesAsTime } from '../src/utils/dateHelpers';
+import { resolveId } from '../src/utils/taskHelpers';
 import { styles } from '../src/styles/taskListStyles';
 
 // ============================================================================
@@ -148,14 +149,11 @@ export default function TaskListScreen() {
         let dateString = dateContext || todayString;
         let isRecurrenceInstance = false;
 
-        if (taskId.includes('_')) {
-            const parts = taskId.split('_');
-            const potentialDate = parts[parts.length - 1];
-            if (potentialDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                dateString = potentialDate;
-                targetId = parts.slice(0, parts.length - 1).join('_');
-                isRecurrenceInstance = true;
-            }
+        const { masterId, date: resolvedDate, isInstance } = resolveId(taskId);
+        if (isInstance && resolvedDate) {
+            dateString = resolvedDate;
+            targetId = masterId;
+            isRecurrenceInstance = true;
         } else {
             const task = tasks.find(t => t.id === taskId);
             if (task) {
@@ -351,14 +349,8 @@ export default function TaskListScreen() {
                 estimatedTime: newTaskEstimatedTime || undefined,
             };
 
-            let targetMasterId = addingSubtaskToParentId;
-            if (addingSubtaskToParentId.includes('_')) {
-                const parts = addingSubtaskToParentId.split('_');
-                const potentialDate = parts[parts.length - 1];
-                if (potentialDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    targetMasterId = parts.slice(0, parts.length - 1).join('_');
-                }
-            }
+            const { masterId } = resolveId(addingSubtaskToParentId);
+            const targetMasterId = masterId;
 
             const parentTask = tasks.find(t => t.id === targetMasterId);
             if (parentTask) {
@@ -442,14 +434,12 @@ export default function TaskListScreen() {
         let realTaskId = taskId;
         let isRecurrenceInstance = false;
 
-        if (taskId.includes('_')) {
-            const parts = taskId.split('_');
-            const potentialDate = parts[parts.length - 1];
-            if (potentialDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                dateString = potentialDate;
-                realTaskId = parts.slice(0, parts.length - 1).join('_');
-                isRecurrenceInstance = true;
-            }
+        const { masterId, date, isInstance } = resolveId(taskId);
+
+        if (isInstance && date) {
+            dateString = date;
+            realTaskId = masterId;
+            isRecurrenceInstance = true;
         } else {
             const task = tasks.find(t => t.id === taskId);
             if (task) {
@@ -485,13 +475,11 @@ export default function TaskListScreen() {
         let taskId = itemId;
         let dateString = todayString;
 
-        if (itemId.includes('_')) {
-            const parts = itemId.split('_');
-            const potentialDate = parts[parts.length - 1];
-            if (potentialDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                dateString = potentialDate;
-                taskId = parts.slice(0, parts.length - 1).join('_');
-            }
+        const { masterId, date } = resolveId(itemId);
+
+        if (date) {
+            dateString = date;
+            taskId = masterId;
         } else {
             const task = tasks.find(t => t.id === itemId);
             if (task) {
@@ -661,14 +649,12 @@ export default function TaskListScreen() {
                 isSeries = true;
             }
 
-            if (taskId.includes('_')) {
-                const parts = taskId.split('_');
-                const potentialDate = parts[parts.length - 1];
-                if (potentialDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    dateStr = potentialDate;
-                    taskId = parts.slice(0, parts.length - 1).join('_');
-                    isSeries = true;
-                }
+            const { masterId, date, isInstance } = resolveId(taskId);
+
+            if (isInstance && date) {
+                dateStr = date;
+                taskId = masterId;
+                isSeries = true;
             }
 
             const updates: Partial<Task> = {
@@ -730,15 +716,8 @@ export default function TaskListScreen() {
                 updateTask(editingSubtask.parentId, { subtasks: updatedSubtasks });
             }
         } else if (addingSubtaskToParentId) {
-            let targetMasterId = addingSubtaskToParentId;
-
-            if (addingSubtaskToParentId.includes('_')) {
-                const parts = addingSubtaskToParentId.split('_');
-                const potentialDate = parts[parts.length - 1];
-                if (potentialDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    targetMasterId = parts.slice(0, parts.length - 1).join('_');
-                }
-            }
+            const { masterId } = resolveId(addingSubtaskToParentId);
+            const targetMasterId = masterId;
 
             const parentTask = tasks.find(t => t.id === targetMasterId);
             if (parentTask) {
@@ -757,14 +736,11 @@ export default function TaskListScreen() {
         let dateString = dateContext || todayString;
         let isRecurrenceInstance = false;
 
-        if (parentId.includes('_')) {
-            const parts = parentId.split('_');
-            const potentialDate = parts[parts.length - 1];
-            if (potentialDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                dateString = potentialDate;
-                targetId = parts.slice(0, parts.length - 1).join('_');
-                isRecurrenceInstance = true;
-            }
+        const { masterId, date, isInstance } = resolveId(parentId);
+        if (isInstance && date) {
+            dateString = date;
+            targetId = masterId;
+            isRecurrenceInstance = true;
         } else {
             const task = tasks.find(t => t.id === parentId);
             if (task) {
@@ -789,15 +765,8 @@ export default function TaskListScreen() {
     };
 
     const deleteSubtask = (parentId: string, subtaskId: string) => {
-        let targetMasterId = parentId;
-
-        if (parentId.includes('_')) {
-            const parts = parentId.split('_');
-            const potentialDate = parts[parts.length - 1];
-            if (potentialDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                targetMasterId = parts.slice(0, parts.length - 1).join('_');
-            }
-        }
+        const { masterId } = resolveId(parentId);
+        const targetMasterId = masterId;
 
         const parentTask = tasks.find(t => t.id === targetMasterId);
         if (parentTask) {
@@ -967,6 +936,7 @@ export default function TaskListScreen() {
             {/* Date List using FlashList */}
             <FlashList
                 data={dates}
+                extraData={calendarItems}
                 estimatedItemSize={150}
                 keyExtractor={(item) => toISODateString(item)}
                 scrollEnabled={isListScrollEnabled}
