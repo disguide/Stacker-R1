@@ -53,11 +53,12 @@ interface TaskEditDrawerProps {
     task: Task | null;
     onSave: (updatedTask: Task) => void;
     onClose: () => void;
-    onRequestCalendar: () => void;
+    onRequestCalendar: (currentDeadline: string | null) => void;
     onRequestDuration: () => void;
+    onRequestTime: (currentDeadline: string | null) => void;
 }
 
-export default function TaskEditDrawer({ visible, task, onSave, onClose, onRequestCalendar, onRequestDuration }: TaskEditDrawerProps) {
+export default function TaskEditDrawer({ visible, task, onSave, onClose, onRequestCalendar, onRequestDuration, onRequestTime }: TaskEditDrawerProps) {
     const [title, setTitle] = useState('');
     const [deadline, setDeadline] = useState<string | null>(null);
     const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
@@ -67,9 +68,9 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
     const [newSubtaskTitle, setNewSubtaskTitle] = useState(''); // New State for Input
 
     const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
-    const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
-    const [selectedHour, setSelectedHour] = useState(9);
-    const [selectedMinute, setSelectedMinute] = useState(0);
+    // const [isTimePickerVisible, setIsTimePickerVisible] = useState(false); // Removed
+    // const [selectedHour, setSelectedHour] = useState(9); // Removed
+    // const [selectedMinute, setSelectedMinute] = useState(0); // Removed
 
     // Helper to format time as 12-hour
     const formatTime = (time: string) => {
@@ -77,23 +78,6 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
         const period = hours >= 12 ? 'PM' : 'AM';
         const displayHours = hours % 12 || 12;
         return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
-    };
-
-    // Handle time selection
-    const handleTimeConfirm = () => {
-        const hours = selectedHour.toString().padStart(2, '0');
-        const mins = selectedMinute.toString().padStart(2, '0');
-        const timeStr = `${hours}:${mins}`;
-
-        if (deadline && !deadline.match(/^\d{2}:\d{2}$/)) {
-            // Has date - append time
-            const datePart = deadline.split('T')[0];
-            setDeadline(`${datePart}T${timeStr}`);
-        } else {
-            // Time only
-            setDeadline(timeStr);
-        }
-        setIsTimePickerVisible(false);
     };
 
     // Subtask Handlers
@@ -308,7 +292,7 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                     {/* Compact Mode: Buttons under input */}
                     {task?.id.startsWith('new_temp_') ? (
                         <View style={styles.compactRow}>
-                            <TouchableOpacity style={styles.compactChip} onPress={onRequestCalendar}>
+                            <TouchableOpacity style={styles.compactChip} onPress={() => onRequestCalendar(deadline)}>
                                 <Text style={styles.compactChipText}>{deadline ? formatDateShort(deadline) : '📅 Deadline'}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.compactChip} onPress={onRequestDuration}>
@@ -328,7 +312,7 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                                     {/* Date Button */}
                                     <TouchableOpacity
                                         style={[styles.calendarButton, { flex: 1, marginRight: 6 }]}
-                                        onPress={onRequestCalendar}
+                                        onPress={() => onRequestCalendar(deadline)}
                                     >
                                         <Text style={[styles.calendarButtonText, { fontSize: 13 }]} numberOfLines={1}>
                                             {deadline && !deadline.match(/^\d{2}:\d{2}$/)
@@ -340,7 +324,7 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                                     {/* Time Button */}
                                     <TouchableOpacity
                                         style={[styles.calendarButton, { flex: 1 }]}
-                                        onPress={() => setIsTimePickerVisible(true)}
+                                        onPress={() => onRequestTime(deadline)}
                                     >
                                         <Text style={[styles.calendarButtonText, { fontSize: 13 }]} numberOfLines={1}>
                                             {deadline
@@ -467,70 +451,12 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                 </ScrollView>
             </Animated.View>
 
-            {/* Inline Time Picker Modal */}
-            <Modal
-                visible={isTimePickerVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setIsTimePickerVisible(false)}
-            >
-                <TouchableOpacity
-                    style={{ flex: 1, backgroundColor: 'rgba(51,51,51,0.4)', justifyContent: 'center', alignItems: 'center' }}
-                    activeOpacity={1}
-                    onPress={() => setIsTimePickerVisible(false)}
-                >
-                    <View style={{ backgroundColor: '#FAFAF6', padding: 24, borderRadius: 8, borderWidth: 2, borderColor: '#333', width: 280 }} onStartShouldSetResponder={() => true}>
-                        <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 }}>Set Time</Text>
-
-                        {/* Time Selectors */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}>
-                            {/* Hour */}
-                            <View style={{ alignItems: 'center', width: 60 }}>
-                                <TouchableOpacity onPress={() => setSelectedHour(h => Math.min(23, h + 1))} style={{ padding: 8 }}>
-                                    <Text style={{ fontSize: 24 }}>▲</Text>
-                                </TouchableOpacity>
-                                <Text style={{ fontSize: 32, fontWeight: 'bold', marginVertical: 8 }}>
-                                    {selectedHour.toString().padStart(2, '0')}
-                                </Text>
-                                <TouchableOpacity onPress={() => setSelectedHour(h => Math.max(0, h - 1))} style={{ padding: 8 }}>
-                                    <Text style={{ fontSize: 24 }}>▼</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <Text style={{ fontSize: 32, fontWeight: 'bold', marginHorizontal: 8 }}>:</Text>
-
-                            {/* Minute */}
-                            <View style={{ alignItems: 'center', width: 60 }}>
-                                <TouchableOpacity onPress={() => setSelectedMinute(m => (m + 5) % 60)} style={{ padding: 8 }}>
-                                    <Text style={{ fontSize: 24 }}>▲</Text>
-                                </TouchableOpacity>
-                                <Text style={{ fontSize: 32, fontWeight: 'bold', marginVertical: 8 }}>
-                                    {selectedMinute.toString().padStart(2, '0')}
-                                </Text>
-                                <TouchableOpacity onPress={() => setSelectedMinute(m => (m - 5 + 60) % 60)} style={{ padding: 8 }}>
-                                    <Text style={{ fontSize: 24 }}>▼</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        {/* Buttons */}
-                        <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <TouchableOpacity
-                                style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderWidth: 1.5, borderColor: '#333', borderRadius: 4 }}
-                                onPress={() => setIsTimePickerVisible(false)}
-                            >
-                                <Text style={{ fontWeight: '600', color: '#666' }}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={{ flex: 1, paddingVertical: 12, alignItems: 'center', backgroundColor: '#E3F2FD', borderWidth: 1.5, borderColor: '#333', borderRadius: 4 }}
-                                onPress={handleTimeConfirm}
-                            >
-                                <Text style={{ fontWeight: 'bold' }}>Confirm</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
+            <RecurrencePickerModal
+                visible={isRecurrencePickerVisible}
+                onClose={() => setIsRecurrencePickerVisible(false)}
+                onSave={setRecurrence}
+                initialRule={recurrence}
+            />
 
             <RecurrencePickerModal
                 visible={isRecurrencePickerVisible}

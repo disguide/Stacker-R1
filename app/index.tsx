@@ -112,6 +112,8 @@ export default function TaskListScreen() {
 
     // Advanced Add State
     const [isCalendarVisible, setIsCalendarVisible] = useState(false);
+    const [calendarInitialPage, setCalendarInitialPage] = useState(0);
+    const [calendarTempDate, setCalendarTempDate] = useState<string | null>(null); // Draft deadline from drawer
     const [isDurationPickerVisible, setIsDurationPickerVisible] = useState(false);
 
     // Generate dates based on view mode and offset
@@ -276,37 +278,34 @@ export default function TaskListScreen() {
         setNewTaskRecurrence(null);
     };
 
-    const handleSelectDate = (date: Date) => {
+    const handleSelectDate = (date: Date, includeTime: boolean = false) => {
         const dateStr = toISODateString(date);
 
         if (calendarMode === 'new') {
-            if (newTaskDeadline && newTaskDeadline.includes('T')) {
-                const timePart = newTaskDeadline.split('T')[1];
-                setNewTaskDeadline(`${dateStr}T${timePart}`);
-            } else if (newTaskDeadline && newTaskDeadline.match(/^\d{2}:\d{2}$/)) {
-                setNewTaskDeadline(`${dateStr}T${newTaskDeadline}`);
+            if (includeTime) {
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                setNewTaskDeadline(`${dateStr}T${hours}:${minutes}`);
             } else {
                 setNewTaskDeadline(dateStr);
             }
         } else if (editingSubtask) {
-            const existing = editingSubtask.subtask.deadline;
             let newDeadline = dateStr;
-            if (existing && existing.includes('T')) {
-                newDeadline = `${dateStr}T${existing.split('T')[1]}`;
-            } else if (existing && existing.match(/^\d{2}:\d{2}$/)) {
-                newDeadline = `${dateStr}T${existing}`;
+            if (includeTime) {
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                newDeadline = (`${dateStr}T${hours}:${minutes}`);
             }
             setEditingSubtask({
                 ...editingSubtask,
                 subtask: { ...editingSubtask.subtask, deadline: newDeadline }
             });
         } else if (editingTask) {
-            const existing = editingTask.deadline;
             let newDeadline = dateStr;
-            if (existing && existing.includes('T')) {
-                newDeadline = `${dateStr}T${existing.split('T')[1]}`;
-            } else if (existing && existing.match(/^\d{2}:\d{2}$/)) {
-                newDeadline = `${dateStr}T${existing}`;
+            if (includeTime) {
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                newDeadline = `${dateStr}T${hours}:${minutes}`;
             }
             setEditingTask({ ...editingTask, deadline: newDeadline });
         }
@@ -1288,13 +1287,21 @@ export default function TaskListScreen() {
                     setIsDrawerVisible(false);
                     setEditingTask(null);
                 }}
-                onRequestCalendar={() => {
+                onRequestCalendar={(currentDeadline) => {
+                    setCalendarInitialPage(0);
                     setCalendarMode('edit');
+                    setCalendarTempDate(currentDeadline);
                     setIsCalendarVisible(true);
                 }}
                 onRequestDuration={() => {
                     setDurationMode('edit');
                     setIsDurationPickerVisible(true);
+                }}
+                onRequestTime={(currentDeadline) => {
+                    setCalendarInitialPage(1); // Open Time Picker directly
+                    setCalendarMode('edit');
+                    setCalendarTempDate(currentDeadline);
+                    setIsCalendarVisible(true);
                 }}
             />
 
@@ -1312,7 +1319,12 @@ export default function TaskListScreen() {
                 visible={isCalendarVisible}
                 onClose={() => setIsCalendarVisible(false)}
                 onSelectDate={handleSelectDate}
-                selectedDate={calendarMode === 'new' ? newTaskDeadline : editingTask?.deadline}
+                selectedDate={
+                    calendarMode === 'new'
+                        ? newTaskDeadline
+                        : (calendarTempDate !== null ? calendarTempDate : editingTask?.deadline)
+                }
+                initialPage={calendarInitialPage}
             />
 
             <DurationPickerModal

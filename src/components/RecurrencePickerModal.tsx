@@ -11,10 +11,10 @@ interface RecurrencePickerModalProps {
 }
 
 const FREQUENCIES: { label: string; value: RecurrenceFrequency }[] = [
-    { label: 'Daily', value: 'daily' },
-    { label: 'Weekly', value: 'weekly' },
-    { label: 'Monthly', value: 'monthly' },
-    { label: 'Yearly', value: 'yearly' },
+    { label: 'Day', value: 'daily' },
+    { label: 'Week', value: 'weekly' },
+    { label: 'Month', value: 'monthly' },
+    { label: 'Year', value: 'yearly' },
 ];
 
 const WEEKDAYS: { label: string; value: WeekDay }[] = [
@@ -125,16 +125,16 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
                                     {initialRule === null && <Ionicons name="checkmark" size={20} color="blue" />}
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('daily')}>
-                                    <Text style={styles.presetText}>Daily</Text>
+                                    <Text style={styles.presetText}>Every day</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('weekly')}>
-                                    <Text style={styles.presetText}>Weekly</Text>
+                                    <Text style={styles.presetText}>Every week</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('monthly')}>
-                                    <Text style={styles.presetText}>Monthly</Text>
+                                    <Text style={styles.presetText}>Every month</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('yearly')}>
-                                    <Text style={styles.presetText}>Yearly</Text>
+                                    <Text style={styles.presetText}>Every year</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('weekdays')}>
                                     <Text style={styles.presetText}>Every weekday (Mon-Fri)</Text>
