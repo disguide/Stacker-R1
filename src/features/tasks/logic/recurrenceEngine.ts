@@ -49,16 +49,20 @@ export const RecurrenceEngine = {
                             type: 'task',
                             deadline: task.deadline,
                             estimatedTime: task.estimatedTime,
-                            subtasks: task.subtasks,
-                            progress: task.progress || 0,
-                            rrule: task.rrule // Pass through for recurrence indicator
+                            // Use instance subtasks if available, otherwise use Template (all unchecked)
+                            subtasks: (task.instanceSubtasks && task.instanceSubtasks[dateString])
+                                ? task.instanceSubtasks[dateString]
+                                : (task.subtasks?.map(s => ({ ...s, completed: false })) || []),
+                            progress: (task.instanceProgress && task.instanceProgress[dateString]) || 0,
+                            rrule: task.rrule, // Pass through for recurrence indicator
+                            tagIds: task.tagIds // Copy tags
                         });
                     });
                 } catch (e) {
                     console.warn(`[RecurrenceEngine] Failed to parse RRule for task ${task.id}`, e);
                 }
             }
-            // 2. SINGLE TASKS
+            // 2. SINGLE TASKS (Non-Recurring Only)
             else {
                 if (task.date >= startDateStr) {
                     // Check Completion (handling both new array and legacy boolean)
@@ -79,7 +83,8 @@ export const RecurrenceEngine = {
                         deadline: task.deadline,
                         estimatedTime: task.estimatedTime,
                         subtasks: task.subtasks,
-                        progress: task.progress || 0
+                        progress: task.progress || 0,
+                        tagIds: task.tagIds
                     });
                 }
             }
@@ -90,25 +95,41 @@ export const RecurrenceEngine = {
 
     /**
      * Resolves collisions: Real Task > Ghost Task for the same ID/Date
+     * AND ensures strict ID uniqueness.
      */
     deduplicateAndSort(items: CalendarItem[]): CalendarItem[] {
-        const uniqueItems = new Map<string, CalendarItem>();
+        // 1. Semantic Deduplication (Master vs Exception)
+        const semanticMap = new Map<string, CalendarItem>();
 
         items.forEach(item => {
-            if (!uniqueItems.has(item.id)) {
-                uniqueItems.set(item.id, item);
+            // Unify key to be "OriginalTaskId_Date" to catch both Ghost and Real collisions
+            const uniqueKey = `${item.originalTaskId}_${item.date}`;
+
+            if (!semanticMap.has(uniqueKey)) {
+                semanticMap.set(uniqueKey, item);
             } else {
-                // If collision, prefer valid object? 
-                // Logic: A 'detached' task has a new ID, so it won't collide with Ghost `${Master}_${Date}`.
-                // Collisions mainly happen if logic error or duplicate keys.
-                // We keep existing unless current is Real and existing was Ghost (unlikely with ID suffix).
-                const existing = uniqueItems.get(item.id)!;
+                const existing = semanticMap.get(uniqueKey)!;
+                // If collision, prefer Real Task over Ghost Task
                 if (!item.isGhost && existing.isGhost) {
-                    uniqueItems.set(item.id, item);
+                    semanticMap.set(uniqueKey, item);
                 }
             }
         });
 
-        return Array.from(uniqueItems.values()).sort((a, b) => a.date.localeCompare(b.date));
+        // 2. Strict ID Uniqueness (Safety Net)
+        // Even after semantic dedup, verify we don't have two items with same ID
+        const finalItems: CalendarItem[] = [];
+        const seenIds = new Set<string>();
+
+        Array.from(semanticMap.values()).forEach(item => {
+            if (!seenIds.has(item.id)) {
+                seenIds.add(item.id);
+                finalItems.push(item);
+            } else {
+                console.warn(`[RecurrenceEngine] Duplicate ID filtered out: ${item.id}`);
+            }
+        });
+
+        return finalItems.sort((a, b) => a.date.localeCompare(b.date));
     }
 };

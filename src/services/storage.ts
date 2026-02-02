@@ -4,7 +4,18 @@ export const STORAGE_KEYS = {
     ACTIVE_TASKS: '@stacker_tasks_active',
     HISTORY: '@stacker_tasks_history_v1',
     SPRINT_TASKS: '@stacker_sprint_tasks_temp',
+    TAGS: '@stacker_tags_v1',
+    USER_PROFILE: '@stacker_user_profile_v1', // New Key
 };
+
+export interface UserProfile {
+    name: string;
+    handle: string;
+    avatar?: string; // URL or local path
+    banner?: string; // URL or Hex color
+    bio?: string;
+    goals?: string[]; // Array of strings
+}
 
 export interface Task {
     id: string;
@@ -22,6 +33,16 @@ export interface Task {
     rrule?: string;
     completedDates?: string[];
     exceptionDates?: string[];
+    tagIds?: string[]; // New: Array of tag IDs
+    instanceProgress?: Record<string, number>; // Map of date -> progress (0-100) for recurring instances
+    instanceSubtasks?: Record<string, { id: string; title: string; completed: boolean; }[]>; // Map of date -> subtasks
+}
+
+export interface TagDefinition {
+    id: string;
+    label: string;
+    color: string;
+    symbol: string; // Emoji
 }
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -157,6 +178,44 @@ export const StorageService = {
             await AsyncStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(updatedHistory));
         } catch (e) {
             console.error('Failed to delete from history', e);
+        }
+    },
+
+    // TAGS
+    async loadTags(): Promise<TagDefinition[]> {
+        try {
+            const jsonValue = await AsyncStorage.getItem(STORAGE_KEYS.TAGS);
+            return jsonValue != null ? JSON.parse(jsonValue) : [];
+        } catch (e) {
+            console.error('Failed to load tags', e);
+            return [];
+        }
+    },
+
+    async saveTags(tags: TagDefinition[]) {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.TAGS, JSON.stringify(tags));
+        } catch (e) {
+            console.error('Failed to save tags', e);
+        }
+    },
+
+    // USER PROFILE
+    async loadProfile(): Promise<UserProfile | null> {
+        try {
+            const jsonValue = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+            return jsonValue != null ? JSON.parse(jsonValue) : null;
+        } catch (e) {
+            console.error('Failed to load profile', e);
+            return null;
+        }
+    },
+
+    async saveProfile(profile: UserProfile) {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
+        } catch (e) {
+            console.error('Failed to save profile', e);
         }
     }
 };

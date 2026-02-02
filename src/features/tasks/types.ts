@@ -15,6 +15,9 @@ export interface Task {
     subtasks?: Subtask[];
     progress?: number;
     completed?: boolean; // For single tasks
+    tagIds?: string[];
+    instanceProgress?: Record<string, number>;
+    instanceSubtasks?: Record<string, Subtask[]>;
 }
 
 export interface Subtask {
@@ -42,4 +45,5 @@ export interface CalendarItem {
     subtasks?: Subtask[];
     progress?: number;
     rrule?: string; // Pass through for recurrence indicator
+    tagIds?: string[];
 }

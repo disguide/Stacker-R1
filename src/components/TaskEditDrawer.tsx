@@ -14,7 +14,8 @@ import {
     ScrollView, // Import ScrollView
 } from 'react-native';
 import RecurrencePickerModal from './RecurrencePickerModal';
-import { RecurrenceRule } from '../services/storage';
+import { RecurrenceRule, TagDefinition } from '../services/storage'; // Import TagDefinition
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -44,6 +45,7 @@ interface Task {
     completed?: boolean;
     subtasks?: { id: string; title: string; completed: boolean; }[];
     recurrence?: RecurrenceRule;
+    tagIds?: string[];
     originalTaskId?: string;
     seriesId?: string;
 }
@@ -56,9 +58,23 @@ interface TaskEditDrawerProps {
     onRequestCalendar: (currentDeadline: string | null) => void;
     onRequestDuration: () => void;
     onRequestTime: (currentDeadline: string | null) => void;
+
+    // Tag Props
+    availableTags?: TagDefinition[];
+    onManageTags?: () => void;
 }
 
-export default function TaskEditDrawer({ visible, task, onSave, onClose, onRequestCalendar, onRequestDuration, onRequestTime }: TaskEditDrawerProps) {
+export default function TaskEditDrawer({
+    visible,
+    task,
+    onSave,
+    onClose,
+    onRequestCalendar,
+    onRequestDuration,
+    onRequestTime,
+    availableTags,
+    onManageTags
+}: TaskEditDrawerProps) {
     const [title, setTitle] = useState('');
     const [deadline, setDeadline] = useState<string | null>(null);
     const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
@@ -66,6 +82,7 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
     const [completed, setCompleted] = useState(false);
     const [subtasks, setSubtasks] = useState<{ id: string; title: string; completed: boolean; }[]>([]); // New State
     const [newSubtaskTitle, setNewSubtaskTitle] = useState(''); // New State for Input
+    const [tagIds, setTagIds] = useState<string[]>([]); // Local tag state
 
     const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
     // const [isTimePickerVisible, setIsTimePickerVisible] = useState(false); // Removed
@@ -123,6 +140,7 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                 setRecurrence(task.recurrence || null);
                 setCompleted(task.completed || false);
                 setSubtasks(task.subtasks || []); // Initialize subtasks
+                setTagIds(task.tagIds || []); // Initialize tags
                 // Slide up
                 panY.setValue(SCREEN_HEIGHT);
                 Animated.spring(panY, {
@@ -144,6 +162,9 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                 }
                 if (JSON.stringify(task.subtasks) !== JSON.stringify(prevTask.subtasks)) {
                     setSubtasks(task.subtasks || []);
+                }
+                if (JSON.stringify(task.tagIds) !== JSON.stringify(prevTask.tagIds)) {
+                    setTagIds(task.tagIds || []);
                 }
                 // Do NOT overwrite title or subtasks to preserve unsaved edits
             }
@@ -187,6 +208,7 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                 recurrence: recurrence || undefined,
                 completed: completed,
                 subtasks: subtasks, // Save updated subtasks
+                tagIds: tagIds, // Save updated tags
                 seriesId: finalSeriesId,
                 originalTaskId: finalSeriesId // Keep consistent
             });
@@ -204,7 +226,13 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
         });
     };
 
-
+    const toggleTag = (id: string) => {
+        if (tagIds.includes(id)) {
+            setTagIds(tagIds.filter(t => t !== id));
+        } else {
+            setTagIds([...tagIds, id]);
+        }
+    };
 
     const panResponder = useRef(
         PanResponder.create({
@@ -274,7 +302,9 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                             >
                                 {completed && <View style={styles.headerCheckboxInner} />}
                             </TouchableOpacity>
+
                             <Text style={styles.title}>Edit Task</Text>
+
                             <TouchableOpacity onPress={handleSave}>
                                 <Text style={styles.saveButton}>Done</Text>
                             </TouchableOpacity>
@@ -373,6 +403,32 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                                 </View>
                             </View>
 
+                            {/* Tags Section */}
+                            <View style={styles.section}>
+                                <View style={{ marginBottom: 8 }}>
+                                    <Text style={styles.sectionTitle}>🏷 Tags</Text>
+                                </View>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagScroll}>
+                                    {availableTags && availableTags.map(tag => {
+                                        const isSelected = tagIds.includes(tag.id);
+                                        return (
+                                            <TouchableOpacity
+                                                key={tag.id}
+                                                style={[
+                                                    styles.tagChip,
+                                                    { backgroundColor: isSelected ? tag.color + '33' : '#F3F4F6' }, // Light bg
+                                                    isSelected && { borderColor: tag.color, borderWidth: 1 }
+                                                ]}
+                                                onPress={() => toggleTag(tag.id)}
+                                            >
+                                                <Text style={styles.tagEmoji}>{tag.symbol}</Text>
+                                                <Text style={[styles.tagLabel, { color: isSelected ? tag.color : '#333' }]}>{tag.label}</Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+                            </View>
+
                             {/* Recurrence Section */}
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>🔁 Recurrence</Text>
@@ -458,12 +514,6 @@ export default function TaskEditDrawer({ visible, task, onSave, onClose, onReque
                 initialRule={recurrence}
             />
 
-            <RecurrencePickerModal
-                visible={isRecurrencePickerVisible}
-                onClose={() => setIsRecurrencePickerVisible(false)}
-                onSave={setRecurrence}
-                initialRule={recurrence}
-            />
         </KeyboardAvoidingView >
     );
 }
@@ -586,6 +636,17 @@ const styles = StyleSheet.create({
         height: 12,
         backgroundColor: '#FFF',
         borderRadius: 2,
+    },
+    headerTagBanner: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginHorizontal: 2,
+    },
+    headerTagSymbol: {
+        fontSize: 16,
     },
     title: {
         flex: 1,
@@ -744,4 +805,31 @@ const styles = StyleSheet.create({
         color: THEME.textPrimary,
         fontWeight: '400',
     },
+
+    // New Action Buttons (Tags)
+    actionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 10,
+        marginBottom: 12
+    },
+    actionIconContainer: { marginRight: 10 },
+    actionText: { flex: 1, fontSize: 16, fontWeight: '500', color: '#333' },
+    divider: { height: 1, backgroundColor: '#EEE', marginVertical: 10 },
+
+    // Tag Styles
+    tagScroll: { marginVertical: 8, maxHeight: 40 },
+    tagChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginRight: 8,
+    },
+    tagEmoji: { fontSize: 14, marginRight: 4 },
+    tagLabel: { fontSize: 13, fontWeight: '600' },
 });

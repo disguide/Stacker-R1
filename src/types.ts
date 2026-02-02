@@ -13,6 +13,8 @@ export interface Task {
     estimatedTime?: string;
     subtasks?: Subtask[];
     progress?: number;
+    instanceProgress?: Record<string, number>;
+    instanceSubtasks?: Record<string, Subtask[]>;
 }
 
 export interface Subtask {

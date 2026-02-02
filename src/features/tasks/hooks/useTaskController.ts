@@ -53,9 +53,12 @@ export const useTaskController = () => {
      */
     const toggleTask = useCallback((taskId: string, dateString: string) => {
         setTasks(prev => {
-            const index = prev.findIndex(t => t.id === taskId);
+            // Handle Ghost IDs (e.g., "task123_2023-10-27")
+            const originalId = taskId.includes('_') ? taskId.split('_')[0] : taskId;
+
+            const index = prev.findIndex(t => t.id === originalId);
             if (index === -1) {
-                console.error(`[toggleTask] Task not found: ${taskId}`);
+                console.error(`[toggleTask] Task not found: ${taskId} (original: ${originalId})`);
                 return prev;
             }
 
@@ -81,7 +84,10 @@ export const useTaskController = () => {
      */
     const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
         setTasks(prev => {
-            const index = prev.findIndex(t => t.id === taskId);
+            // Handle Ghost IDs for updates too
+            const originalId = taskId.includes('_') ? taskId.split('_')[0] : taskId;
+
+            const index = prev.findIndex(t => t.id === originalId);
             if (index === -1) return prev;
 
             const updatedTasks = [...prev];

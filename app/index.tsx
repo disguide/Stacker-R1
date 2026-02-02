@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Keyboard, Modal, Platform, KeyboardAvoidingView, Alert } from 'react-native';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Keyboard, Platform, KeyboardAvoidingView, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import ProfileButton from '../src/components/ProfileButton';
 import SettingsButton from '../src/components/SettingsButton';
@@ -13,7 +13,8 @@ import CompletedTasksModal from '../src/components/CompletedTasksModal';
 import SwipeableTaskRow from '../src/components/SwipeableTaskRow';
 import RecurrencePickerModal from '../src/components/RecurrencePickerModal';
 import TimePickerModal from '../src/components/TimePickerModal';
-import { StorageService, RecurrenceRule } from '../src/services/storage';
+import TagSettingsModal from '../src/components/TagSettingsModal'; // Import TagSettingsModal
+import { StorageService, RecurrenceRule, RecurrenceFrequency, WeekDay, TagDefinition } from '../src/services/storage';
 import { RecurrenceEngine } from '../src/features/tasks/logic/recurrenceEngine';
 import { useTaskController } from '../src/features/tasks/hooks/useTaskController';
 import { Task, Subtask } from '../src/features/tasks/types';
@@ -36,7 +37,7 @@ export default function TaskListScreen() {
     const router = useRouter();
 
     // Task Controller Hook
-    const { tasks, loading, addTask, toggleTask, deleteTask, updateTask } = useTaskController();
+    const { tasks, loading, addTask, toggleTask, deleteTask, updateTask, refresh } = useTaskController();
 
     // UI State
     const [viewMode, setViewMode] = useState<ViewMode>('3days');
@@ -83,22 +84,27 @@ export default function TaskListScreen() {
     const [editingSubtask, setEditingSubtask] = useState<{ parentId: string, subtask: Subtask } | null>(null);
     const [addingSubtaskToParentId, setAddingSubtaskToParentId] = useState<string | null>(null);
 
-    // Input Ref
-    const inputRef = useRef<TextInput>(null);
+    // Tags State
+    const [tags, setTags] = useState<TagDefinition[]>([]);
 
-    useEffect(() => {
-        if (addingTaskForDate || addingSubtaskToParentId) {
-            setTimeout(() => {
-                inputRef.current?.focus();
-            }, 100);
-        }
-    }, [addingTaskForDate, addingSubtaskToParentId]);
+    // Profile State
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
 
-    useEffect(() => {
-        if (isHistoryVisible) {
-            StorageService.loadHistory().then(setHistoryTasks);
-        }
-    }, [isHistoryVisible]);
+    // Reload tags/profile whenever screen focuses
+    useFocusEffect(
+        useCallback(() => {
+            StorageService.loadTags().then(setTags);
+            StorageService.loadProfile().then(p => {
+                if (p?.avatar) setUserAvatar(p.avatar);
+            });
+            refresh(); // Reload tasks
+        }, [refresh])
+    );
+
+    const handleSaveTags = (updatedTags: TagDefinition[]) => {
+        setTags(updatedTags);
+        StorageService.saveTags(updatedTags);
+    };
 
     // Scroll Locking
     const [isListScrollEnabled, setIsListScrollEnabled] = useState(true);
@@ -139,9 +145,21 @@ export default function TaskListScreen() {
     // ============================================================================
 
     const updateTaskProgress = (taskId: string, value: number) => {
-        if (value >= 100) {
-            completeTask(taskId);
+        // Just update progress, don't auto-complete.
+        // Let onComplete (release) handle the toggle to ensure consistent "Undo" behavior.
+
+        const { masterId, date, isInstance } = resolveId(taskId);
+
+        if (isInstance && date) {
+            // Update instance-specific progress on Master Task
+            const masterTask = tasks.find(t => t.id === masterId);
+            if (masterTask) {
+                const newInstanceProgress = { ...(masterTask.instanceProgress || {}) };
+                newInstanceProgress[date] = value;
+                updateTask(masterId, { instanceProgress: newInstanceProgress });
+            }
         } else {
+            // Standard update for single tasks
             updateTask(taskId, { progress: value });
         }
     };
@@ -585,91 +603,7 @@ export default function TaskListScreen() {
         setIsMenuVisible(true);
     };
 
-    const saveEditedTask = (updatedTask: any) => {
-        if (!editingTask) return;
 
-        if (updatedTask.completed !== editingTask.completed) {
-            completeTask(updatedTask.id);
-        }
-
-        const recurrenceChanged = JSON.stringify(updatedTask.recurrence) !== JSON.stringify(editingTask.recurrence);
-        const subtasksChanged = JSON.stringify(updatedTask.subtasks) !== JSON.stringify(editingTask.subtasks);
-        const hasChanges =
-            updatedTask.title !== editingTask.title ||
-            updatedTask.deadline !== editingTask.deadline ||
-            updatedTask.estimatedTime !== editingTask.estimatedTime ||
-            recurrenceChanged ||
-            subtasksChanged;
-
-        if (hasChanges) {
-            let taskId = updatedTask.id;
-            let dateStr = updatedTask.date;
-            let isSeries = false;
-
-            let newRRuleString: string | undefined = undefined;
-
-            if (recurrenceChanged && updatedTask.recurrence) {
-                try {
-                    const freqMap: { [key: string]: any } = {
-                        'daily': RRule.DAILY,
-                        'weekly': RRule.WEEKLY,
-                        'monthly': RRule.MONTHLY,
-                        'yearly': RRule.YEARLY
-                    };
-
-                    const startDt = new Date(dateStr + 'T00:00:00');
-
-                    const options: any = {
-                        freq: freqMap[updatedTask.recurrence.frequency],
-                        interval: updatedTask.recurrence.interval || 1,
-                        dtstart: startDt
-                    };
-                    if (updatedTask.recurrence.endDate) options.until = new Date(updatedTask.recurrence.endDate);
-                    if (updatedTask.recurrence.occurrenceCount) options.count = updatedTask.recurrence.occurrenceCount;
-                    if (updatedTask.recurrence.daysOfWeek?.length) {
-                        const dayCodeMap: { [key: string]: any } = {
-                            'SU': RRule.SU, 'MO': RRule.MO, 'TU': RRule.TU, 'WE': RRule.WE,
-                            'TH': RRule.TH, 'FR': RRule.FR, 'SA': RRule.SA
-                        };
-                        options.byweekday = updatedTask.recurrence.daysOfWeek.map((d: string | number) => {
-                            if (typeof d === 'string') return dayCodeMap[d];
-                            const numDayMap = [RRule.SU, RRule.MO, RRule.TU, RRule.WE, RRule.TH, RRule.FR, RRule.SA];
-                            return numDayMap[d];
-                        }).filter(Boolean);
-                    }
-
-                    newRRuleString = new RRule(options).toString();
-                    isSeries = true;
-                } catch (e) {
-                    console.error("Failed to generate rrule in edit", e);
-                }
-            } else if (recurrenceChanged && !updatedTask.recurrence) {
-                newRRuleString = '';
-                isSeries = true;
-            }
-
-            const { masterId, date, isInstance } = resolveId(taskId);
-
-            if (isInstance && date) {
-                dateStr = date;
-                taskId = masterId;
-                isSeries = true;
-            }
-
-            const updates: Partial<Task> = {
-                title: updatedTask.title,
-                deadline: updatedTask.deadline,
-                estimatedTime: updatedTask.estimatedTime,
-                subtasks: updatedTask.subtasks,
-            };
-
-            if (recurrenceChanged) {
-                updates.rrule = newRRuleString;
-            }
-
-            updateTask(taskId, updates);
-        }
-    };
 
     const handleMenuDelete = () => {
         if (activeMenuTask) {
@@ -697,6 +631,72 @@ export default function TaskListScreen() {
             setActiveMenuTask(null);
             setIsMenuVisible(false);
         }
+    };
+
+    const saveEditedTask = (updatedTask: Task) => {
+        // Handle "New Task" creation
+        if (updatedTask.id.startsWith('new_temp_')) {
+            const finalTask = { ...updatedTask, id: Date.now().toString() };
+            addTask(finalTask);
+            setEditingTask(null);
+            setIsDrawerVisible(false);
+            return;
+        }
+
+        // Handle Editing Existing Task
+        let masterTaskId = updatedTask.id;
+        let dateString = updatedTask.date;
+        let isRecurrenceInstance = false;
+
+        // Check if we are editing a "Ghost" or "Instance"
+        if (editingTask?.id.includes('_')) {
+            // Ghost ID: masterId_date
+            const parts = editingTask.id.split('_');
+            masterTaskId = parts[0];
+            dateString = parts[1];
+            isRecurrenceInstance = true;
+        } else if (editingTask?.rrule && editingTask.date) {
+            // Real recurring task instance? (Usually ghosts carry the rrule)
+            // But if we edited a real task that HAS rrule, it's the Master itself?
+            // If user wants to edit "This Instance", we need `isRecurrenceInstance` flag passed from UI.
+            // But our `editingTask` state comes from `openEditDrawer`.
+        }
+
+        if (isRecurrenceInstance) {
+            // DETACH PATTERN (Exception)
+            // 1. Create New Single Task for this date
+            const detachedTask: Task = {
+                ...updatedTask,
+                id: Date.now().toString(), // New ID
+                date: dateString,
+                rrule: undefined, // Detached successfully
+                completedDates: [], // Reset for single task
+                exceptionDates: []
+            };
+
+            // 2. Add Exclusion to Master Task
+            const masterTask = tasks.find(t => t.id === masterTaskId);
+            if (masterTask) {
+                const newExceptions = new Set(masterTask.exceptionDates || []);
+                newExceptions.add(dateString);
+
+                // Update Master (Exclusion)
+                updateTask(masterTaskId, { exceptionDates: Array.from(newExceptions) });
+
+                // Add Detached Task
+                addTask(detachedTask);
+            } else {
+                console.warn("Master task not found for detach", masterTaskId);
+                // Fallback: just add the new task? But then ghost duplicates?
+                addTask(detachedTask);
+            }
+        } else {
+            // Standard Update (Master or Single)
+            updateTask(updatedTask.id, updatedTask);
+        }
+
+        setEditingTask(null);
+        setIsDrawerVisible(false);
     };
 
     const saveSubtask = (subtaskData: any) => {
@@ -748,12 +748,23 @@ export default function TaskListScreen() {
             }
         }
 
-        if (isRecurrenceInstance) {
-            const masterTask = tasks.find(t => t.id === targetId);
+        if (isRecurrenceInstance && masterId && dateString) {
+            const masterTask = tasks.find(t => t.id === masterId);
             if (!masterTask) return;
 
-            const newSubtasks = masterTask.subtasks?.map(s => s.id === subtaskId ? { ...s, completed: !s.completed } : s) || [];
-            updateTask(targetId, { subtasks: newSubtasks });
+            // Get current subtasks for this instance (or fallback to template reset)
+            const currentInstanceSubtasks = (masterTask.instanceSubtasks && masterTask.instanceSubtasks[dateString])
+                ? masterTask.instanceSubtasks[dateString]
+                : (masterTask.subtasks?.map(s => ({ ...s, completed: false })) || []);
+
+            // Toggle the specific subtask
+            const newSubtasks = currentInstanceSubtasks.map(s => s.id === subtaskId ? { ...s, completed: !s.completed } : s);
+
+            // Save back to instanceSubtasks
+            const newInstanceSubtasksMap = { ...(masterTask.instanceSubtasks || {}) };
+            newInstanceSubtasksMap[dateString] = newSubtasks;
+
+            updateTask(masterId, { instanceSubtasks: newInstanceSubtasksMap });
         } else {
             const task = tasks.find(t => t.id === parentId);
             if (task) {
@@ -816,7 +827,7 @@ export default function TaskListScreen() {
         <SafeAreaView style={[styles.container, isSprintSelectionMode && styles.sprintContainer]}>
             {/* Top Header Row */}
             <View style={[styles.header, isSprintSelectionMode && styles.sprintHeader]}>
-                <ProfileButton />
+                <ProfileButton avatarUri={userAvatar} />
 
                 <View style={styles.toolbar}>
                     <TouchableOpacity
@@ -839,9 +850,9 @@ export default function TaskListScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.toolbarButton}
-                        onPress={() => setIsHistoryVisible(true)}
+                        onPress={() => router.push('/long-term')}
                     >
-                        <Ionicons name="checkmark-done-circle-outline" size={24} color="#333" />
+                        <Ionicons name="telescope-outline" size={24} color="#333" />
                     </TouchableOpacity>
                 </View>
 
@@ -933,6 +944,7 @@ export default function TaskListScreen() {
             </Modal>
 
             {/* Date List using FlashList */}
+            {/* @ts-ignore */}
             <FlashList
                 data={dates}
                 extraData={calendarItems}
@@ -1043,6 +1055,7 @@ export default function TaskListScreen() {
                                             isSelectionMode={isSprintSelectionMode}
                                             isSelected={selectedSprintTaskIds.has(item.id)}
                                             onSelect={() => toggleTaskSelection(item.id)}
+                                            activeTags={item.tagIds ? tags.filter(t => item.tagIds?.includes(t.id)) : []}
                                         />
 
                                         {/* Subtasks */}
@@ -1064,6 +1077,8 @@ export default function TaskListScreen() {
                                                 onSwipeStart={handleSwipeStart}
                                                 onSwipeEnd={handleSwipeEnd}
                                                 isSelectionMode={isSprintSelectionMode}
+                                                // Subtasks don't usually have their own tags, but if they did:
+                                                activeTags={[]}
                                             />
                                         ))}
                                     </View>
@@ -1303,6 +1318,8 @@ export default function TaskListScreen() {
                     setCalendarTempDate(currentDeadline);
                     setIsCalendarVisible(true);
                 }}
+                availableTags={tags}
+            // No onManageTags prop (removes the button capability)
             />
 
             {/* Task Menu */}
@@ -1341,16 +1358,9 @@ export default function TaskListScreen() {
                 initialRule={newTaskRecurrence}
             />
 
-            <CompletedTasksModal
-                visible={isHistoryVisible}
-                onClose={() => setIsHistoryVisible(false)}
-                tasks={historyTasks}
-                onRestore={handleRestoreTask}
-                onDelete={async (id) => {
-                    await StorageService.deleteFromHistory(id);
-                    setHistoryTasks(prev => prev.filter(t => t.id !== id));
-                }}
-            />
+            {/* Removed TagSettingsModal from here */}
+
+
 
             <TimePickerModal
                 visible={isTimePickerVisible}

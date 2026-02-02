@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated, Platform } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { TagDefinition } from '../services/storage'; // Import type
 
 // Theme - mirroring the one in index.tsx
 const THEME = {
@@ -23,6 +24,7 @@ interface SwipeableTaskRowProps {
     progress?: number;
     daysRolled?: number;
     recurrence?: any; // Avoiding strict type import for now to keep component decoupled, or import RecurrenceRule
+    activeTags?: TagDefinition[]; // New Prop
 
     // Customization
     menuIcon?: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -122,13 +124,18 @@ export default function SwipeableTaskRow({
     // Animation Values
     const progressAnim = useRef(new Animated.Value(progress)).current;
 
-    // Local state for text display
+    // Lock updates during completion delay to prevent snap-back
+    const isLocalCompleting = useRef(false);
+
+    // Local state for descriptions
     const [displayProgress, setDisplayProgress] = useState(progress);
 
     React.useEffect(() => {
-        // Sync external props
-        progressAnim.setValue(progress);
-        setDisplayProgress(progress);
+        // Sync external props ONLY if we aren't in the middle of completing
+        if (!isLocalCompleting.current) {
+            progressAnim.setValue(progress);
+            setDisplayProgress(progress);
+        }
     }, [progress]);
 
     const originalProgressRef = useRef(progress);
@@ -230,12 +237,16 @@ export default function SwipeableTaskRow({
                 if (finalP > 90) finalP = 100;
 
                 if (finalP === 100) {
+                    isLocalCompleting.current = true; // Lock state
                     Animated.timing(progressAnim, {
                         toValue: 100,
                         duration: 100,
                         useNativeDriver: false
                     }).start(() => {
-                        onComplete();
+                        // Add delay before completion
+                        setTimeout(() => {
+                            onComplete();
+                        }, 50); // Immediate trigger (delegating delay to parent handler)
                     });
                     setDisplayProgress(100);
                     onProgressUpdate(id, 100);
@@ -303,8 +314,6 @@ export default function SwipeableTaskRow({
                             isSelectionMode && isSelected && styles.selectionCheckboxSelected
                         ]}
                         onPress={isSelectionMode ? onSelect : onComplete}
-                        activeOpacity={0.7}
-                        // Increase hit slop to make it easier to tap
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
                         {isSelectionMode ? (
@@ -313,6 +322,17 @@ export default function SwipeableTaskRow({
                             (completed || isCompleting) && <View style={styles.taskCheckboxInner} />
                         )}
                     </TouchableOpacity>
+
+                    {/* Tags (Mini Banners) */}
+                    {props.activeTags && props.activeTags.length > 0 && (
+                        <View style={styles.tagContainer}>
+                            {props.activeTags.map(tag => (
+                                <View key={tag.id} style={[styles.tagBanner, { backgroundColor: tag.color }]}>
+                                    <Text style={styles.tagBannerSymbol}>{tag.symbol}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
 
                     <View style={{ flex: 1, paddingRight: 8 }} pointerEvents="none">
                         <Text style={[styles.taskTitle, (completed || isCompleting) && styles.taskTitleCompleted]}>
@@ -354,6 +374,7 @@ export default function SwipeableTaskRow({
                             )}
                         </View>
                     </View>
+
                 </TouchableOpacity>
             </View>
 
@@ -367,7 +388,12 @@ export default function SwipeableTaskRow({
                     <MaterialCommunityIcons name={menuIcon} size={20} color={menuColor} />
                 </TouchableOpacity>
             </View>
-        </View >
+
+            {/* Percentage Indicator - Absolute Bottom Right of ROW */}
+            <Text style={styles.percentageText}>
+                {Math.round(displayProgress)}%
+            </Text>
+        </View>
     );
 }
 
@@ -401,6 +427,7 @@ const styles = StyleSheet.create({
         paddingLeft: 0, // Remove padding from container logic
     },
     sliderContent: {
+        flex: 1, // Ensure it fills available space for absolute positioning
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 12,
@@ -489,4 +516,36 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         backgroundColor: '#FFFFFF',
     },
+    // TAG STYLES
+    tagContainer: {
+        flexDirection: 'row', // Or column if we want vertical stacking
+        alignItems: 'center',
+        marginRight: 8,
+        gap: 4
+    },
+    tagBanner: {
+        width: 24,
+        height: 24,
+        borderRadius: 12, // Circle/Pill
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+        elevation: 1,
+    },
+    tagBannerSymbol: {
+        fontSize: 13, // Slightly larger
+    },
+    percentageText: {
+        position: 'absolute',
+        bottom: 1,
+        right: 0,
+        fontSize: 10,
+        color: '#94A3B8',
+        fontWeight: 'bold',
+        opacity: 0.6,
+        zIndex: 20
+    }
 });

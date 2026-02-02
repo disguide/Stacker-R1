@@ -1,7 +1,11 @@
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 
-export default function ProfileButton() {
+interface ProfileButtonProps {
+    avatarUri?: string;
+}
+
+export default function ProfileButton({ avatarUri }: ProfileButtonProps) {
     const router = useRouter();
 
     return (
@@ -10,8 +14,14 @@ export default function ProfileButton() {
             onPress={() => router.push('/profile')}
         >
             <View style={styles.avatarContainer}>
-                <View style={styles.head} />
-                <View style={styles.body} />
+                {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                ) : (
+                    <>
+                        <View style={styles.head} />
+                        <View style={styles.body} />
+                    </>
+                )}
             </View>
         </TouchableOpacity>
     );
@@ -19,29 +29,33 @@ export default function ProfileButton() {
 
 const styles = StyleSheet.create({
     container: {
-        padding: 4,
+        padding: 0, // Removed padding to move it left
     },
     avatarContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
+        width: 50,
+        height: 50,
+        borderRadius: 16, // Smoother corner for larger size
         backgroundColor: '#000000',
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
     },
+    avatarImage: {
+        width: 50,
+        height: 50,
+    },
     head: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
+        width: 16,
+        height: 16,
+        borderRadius: 8,
         backgroundColor: '#FFFFFF',
-        marginBottom: 2,
+        marginBottom: 4,
     },
     body: {
-        width: 20,
-        height: 10,
-        borderTopLeftRadius: 10,
-        borderTopRightRadius: 10,
+        width: 32,
+        height: 16,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
         backgroundColor: '#FFFFFF',
     },
 });
