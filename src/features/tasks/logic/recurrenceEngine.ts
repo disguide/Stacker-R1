@@ -20,12 +20,23 @@ export const RecurrenceEngine = {
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + daysToShow + 30); // Buffer
 
+        // ROLLOVER: Determine Lookback Window (Default 60 days)
+        // We scan past dates to find incomplete tasks that need to roll over to Today.
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = toISODateString(today);
+
+        const lookbackDate = new Date(today);
+        lookbackDate.setDate(today.getDate() - 60); // 60 days lookback
+
         tasks.forEach(task => {
             // 1. MASTER TASKS (Recurrence)
             if (task.rrule) {
                 try {
                     const rule = RRule.fromString(task.rrule);
-                    const dates = rule.between(startDate, endDate, true);
+                    // Generate dates from Lookback Date to End Date
+                    // This catches past instances that might be incomplete
+                    const dates = rule.between(lookbackDate, endDate, true);
 
                     dates.forEach(dateObj => {
                         // Use local YYYY-MM-DD to avoid checking UTC previous day
@@ -39,11 +50,27 @@ export const RecurrenceEngine = {
 
                         if (isCompleted) return; // Completed instances vanish in this design
 
+                        const isPast = dateString < todayStr;
+                        let finalDate = dateString;
+                        let daysRolled = 0;
+
+                        if (isPast) {
+                            // ROLLOVER LOGIC
+                            // If it's past and NOT completed (we already returned if completed above),
+                            // then it Rolls Over to Today.
+                            finalDate = todayStr;
+
+                            // Calculate Days Rolled
+                            const diffTime = Math.abs(today.getTime() - dateObj.getTime());
+                            daysRolled = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        }
+
                         items.push({
                             id: `${task.id}_${dateString}`,
                             originalTaskId: task.id,
                             title: task.title,
-                            date: dateString,
+                            date: finalDate, // Appears on Today (or original date if future)
+                            originalDate: dateString, // NEW: Track the SOURCE date (yesterday/past)
                             isGhost: true,
                             isCompleted: false,
                             type: 'task',
@@ -55,7 +82,11 @@ export const RecurrenceEngine = {
                                 : (task.subtasks?.map(s => ({ ...s, completed: false })) || []),
                             progress: (task.instanceProgress && task.instanceProgress[dateString]) || 0,
                             rrule: task.rrule, // Pass through for recurrence indicator
-                            tagIds: task.tagIds // Copy tags
+                            recurrence: task.recurrence, // Copy UI object
+                            tagIds: task.tagIds, // Copy tags
+                            color: task.color,
+                            taskType: task.type,
+                            daysRolled: daysRolled
                         });
                     });
                 } catch (e) {
@@ -64,7 +95,9 @@ export const RecurrenceEngine = {
             }
             // 2. SINGLE TASKS (Non-Recurring Only)
             else {
-                if (task.date >= startDateStr) {
+                // Modified: Check if greater than lookback date, not just view start date
+                // Single tasks: Check if within lookback range OR future view range
+                if (task.date >= toISODateString(lookbackDate)) {
                     // Check Completion (handling both new array and legacy boolean)
                     const isCompleted = task.completedDates
                         ? task.completedDates.includes(task.date)
@@ -72,11 +105,35 @@ export const RecurrenceEngine = {
 
                     if (isCompleted) return;
 
+                    // ROLLOVER CALCULATION
+                    let finalDate = task.date;
+                    let daysRolled = 0;
+
+                    if (task.date < todayStr) {
+                        // It matches lookup filter (incomplete) AND is in past -> ROLL IT
+                        finalDate = todayStr;
+                        const taskDateObj = new Date(task.date + 'T00:00:00');
+                        const diffTime = Math.abs(today.getTime() - taskDateObj.getTime());
+                        daysRolled = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                        // DEBUG LOG
+                        console.log(`[RecurrenceEngine] Rollover Task ${task.id}: subtasks=`, task.subtasks?.map(s => s.completed));
+                    }
+
+                    // Only add if it falls within the requested VIEW range (after rolling)
+                    // If rolled, finalDate is Today. If Today is in view (startDateStr <= Today), it shows.
+                    // If original date was future, finalDate is future.
+
+                    // Simple check: Is finalDate >= startDateStr?
+                    // (We assume we only care about showing things within the view or rolled to today)
+                    if (finalDate < startDateStr) return;
+
                     items.push({
                         id: task.id,
                         originalTaskId: task.id,
                         title: task.title,
-                        date: task.date,
+                        date: finalDate, // Projected date
+                        originalDate: task.date, // Track real date
                         isGhost: false,
                         isCompleted: false,
                         type: 'task',
@@ -84,7 +141,10 @@ export const RecurrenceEngine = {
                         estimatedTime: task.estimatedTime,
                         subtasks: task.subtasks,
                         progress: task.progress || 0,
-                        tagIds: task.tagIds
+                        tagIds: task.tagIds,
+                        color: task.color,
+                        taskType: task.type,
+                        daysRolled: daysRolled // NEW
                     });
                 }
             }

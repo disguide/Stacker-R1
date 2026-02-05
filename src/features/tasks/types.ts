@@ -18,6 +18,26 @@ export interface Task {
     tagIds?: string[];
     instanceProgress?: Record<string, number>;
     instanceSubtasks?: Record<string, Subtask[]>;
+
+    // Design System (User customizable)
+    color?: string; // Hex color for stripe
+    type?: 'task' | 'event' | 'work' | 'chore' | 'habit';
+
+    // UI-Specific Fields (Used by TaskEditDrawer)
+    recurrence?: RecurrenceRule;
+    seriesId?: string;
+    originalTaskId?: string;
+}
+
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type WeekDay = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
+
+export interface RecurrenceRule {
+    frequency: RecurrenceFrequency;
+    interval: number; // e.g., 1 for every week, 2 for every other week
+    daysOfWeek?: WeekDay[]; // for weekly specific days
+    endDate?: string; // ISO date string
+    occurrenceCount?: number; // end after X times
 }
 
 export interface Subtask {
@@ -45,5 +65,13 @@ export interface CalendarItem {
     subtasks?: Subtask[];
     progress?: number;
     rrule?: string; // Pass through for recurrence indicator
+    recurrence?: RecurrenceRule; // UI Object
     tagIds?: string[];
+
+    // Design System
+    color?: string;
+    // Overriding type to include original specific types
+    taskType?: 'task' | 'event' | 'work' | 'chore' | 'habit';
+    daysRolled?: number;
+    originalDate?: string;
 }

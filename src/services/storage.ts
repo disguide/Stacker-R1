@@ -5,7 +5,9 @@ export const STORAGE_KEYS = {
     HISTORY: '@stacker_tasks_history_v1',
     SPRINT_TASKS: '@stacker_sprint_tasks_temp',
     TAGS: '@stacker_tags_v1',
-    USER_PROFILE: '@stacker_user_profile_v1', // New Key
+    COLOR_LABELS: '@stacker_color_labels_v1',
+    USER_PROFILE: '@stacker_user_profile_v1',
+    USER_COLORS: '@stacker_user_colors_v1', // New Key
 };
 
 export interface UserProfile {
@@ -16,6 +18,17 @@ export interface UserProfile {
     bio?: string;
     goals?: string[]; // Array of strings
 }
+
+export type ColorLabelMap = Record<string, string>; // Color Hex -> Label
+
+export interface ColorDefinition {
+    id: string;
+    color: string; // Hex
+    label: string;
+}
+
+// Red, Orange, Amber, Emerald, Blue, Violet, Pink
+export const TASK_COLORS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
 
 export interface Task {
     id: string;
@@ -36,6 +49,10 @@ export interface Task {
     tagIds?: string[]; // New: Array of tag IDs
     instanceProgress?: Record<string, number>; // Map of date -> progress (0-100) for recurring instances
     instanceSubtasks?: Record<string, { id: string; title: string; completed: boolean; }[]>; // Map of date -> subtasks
+
+    // Design System (User customizable)
+    color?: string; // Hex color for stripe
+    type?: 'task' | 'event' | 'work' | 'chore' | 'habit';
 }
 
 export interface TagDefinition {
@@ -197,6 +214,72 @@ export const StorageService = {
             await AsyncStorage.setItem(STORAGE_KEYS.TAGS, JSON.stringify(tags));
         } catch (e) {
             console.error('Failed to save tags', e);
+        }
+    },
+
+    // COLOR LABELS
+    async loadColorLabels(): Promise<ColorLabelMap> {
+        try {
+            const jsonValue = await AsyncStorage.getItem(STORAGE_KEYS.COLOR_LABELS);
+            return jsonValue != null ? JSON.parse(jsonValue) : {};
+        } catch (e) {
+            console.error('Failed to load color labels', e);
+            return {};
+        }
+    },
+
+    async saveColorLabels(labels: ColorLabelMap) {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.COLOR_LABELS, JSON.stringify(labels));
+        } catch (e) {
+            console.error('Failed to save color labels', e);
+        }
+    },
+
+    // DYNAMIC USER COLORS
+    _userColorsCache: null as ColorDefinition[] | null,
+
+    getDefaultUserColors(): ColorDefinition[] {
+        return TASK_COLORS.map((color, index) => ({
+            id: `default_${index}`, // Stable ID
+            color: color,
+            label: ''
+        }));
+    },
+
+    async loadUserColors(): Promise<ColorDefinition[]> {
+        // Return cache if available to prevent read-after-write race conditions
+        if (this._userColorsCache) {
+            return this._userColorsCache;
+        }
+
+        try {
+            const jsonValue = await AsyncStorage.getItem(STORAGE_KEYS.USER_COLORS);
+            if (jsonValue != null) {
+                const colors = JSON.parse(jsonValue);
+                if (colors.length > 0) {
+                    this._userColorsCache = colors;
+                    return colors;
+                }
+            }
+
+            // Default fallback
+            const defaults = this.getDefaultUserColors();
+            this._userColorsCache = defaults;
+            await this.saveUserColors(defaults);
+            return defaults;
+        } catch (e) {
+            console.error('Failed to load user colors', e);
+            return this.getDefaultUserColors();
+        }
+    },
+
+    async saveUserColors(colors: ColorDefinition[]) {
+        try {
+            this._userColorsCache = colors; // Update cache immediately
+            await AsyncStorage.setItem(STORAGE_KEYS.USER_COLORS, JSON.stringify(colors));
+        } catch (e) {
+            console.error('Failed to save user colors', e);
         }
     },
 

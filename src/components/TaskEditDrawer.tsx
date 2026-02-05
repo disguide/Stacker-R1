@@ -14,7 +14,7 @@ import {
     ScrollView, // Import ScrollView
 } from 'react-native';
 import RecurrencePickerModal from './RecurrencePickerModal';
-import { RecurrenceRule, TagDefinition } from '../services/storage'; // Import TagDefinition
+import { RecurrenceRule, ColorDefinition } from '../services/storage';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -45,9 +45,10 @@ interface Task {
     completed?: boolean;
     subtasks?: { id: string; title: string; completed: boolean; }[];
     recurrence?: RecurrenceRule;
-    tagIds?: string[];
     originalTaskId?: string;
     seriesId?: string;
+    color?: string;
+    type?: 'task' | 'event' | 'work' | 'chore' | 'habit';
 }
 
 interface TaskEditDrawerProps {
@@ -59,9 +60,9 @@ interface TaskEditDrawerProps {
     onRequestDuration: () => void;
     onRequestTime: (currentDeadline: string | null) => void;
 
-    // Tag Props
-    availableTags?: TagDefinition[];
-    onManageTags?: () => void;
+    // Color Props
+    userColors?: ColorDefinition[];
+    onRequestColorSettings?: () => void;
 }
 
 export default function TaskEditDrawer({
@@ -72,8 +73,8 @@ export default function TaskEditDrawer({
     onRequestCalendar,
     onRequestDuration,
     onRequestTime,
-    availableTags,
-    onManageTags
+    userColors,
+    onRequestColorSettings
 }: TaskEditDrawerProps) {
     const [title, setTitle] = useState('');
     const [deadline, setDeadline] = useState<string | null>(null);
@@ -82,7 +83,8 @@ export default function TaskEditDrawer({
     const [completed, setCompleted] = useState(false);
     const [subtasks, setSubtasks] = useState<{ id: string; title: string; completed: boolean; }[]>([]); // New State
     const [newSubtaskTitle, setNewSubtaskTitle] = useState(''); // New State for Input
-    const [tagIds, setTagIds] = useState<string[]>([]); // Local tag state
+    const [color, setColor] = useState<string | undefined>(undefined);
+    const [taskType, setTaskType] = useState<'task' | 'event' | 'work' | 'chore' | 'habit' | undefined>(undefined);
 
     const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
     // const [isTimePickerVisible, setIsTimePickerVisible] = useState(false); // Removed
@@ -140,7 +142,8 @@ export default function TaskEditDrawer({
                 setRecurrence(task.recurrence || null);
                 setCompleted(task.completed || false);
                 setSubtasks(task.subtasks || []); // Initialize subtasks
-                setTagIds(task.tagIds || []); // Initialize tags
+                setColor(task.color);
+                setTaskType(task.type);
                 // Slide up
                 panY.setValue(SCREEN_HEIGHT);
                 Animated.spring(panY, {
@@ -163,9 +166,8 @@ export default function TaskEditDrawer({
                 if (JSON.stringify(task.subtasks) !== JSON.stringify(prevTask.subtasks)) {
                     setSubtasks(task.subtasks || []);
                 }
-                if (JSON.stringify(task.tagIds) !== JSON.stringify(prevTask.tagIds)) {
-                    setTagIds(task.tagIds || []);
-                }
+                if (task.color !== prevTask.color) setColor(task.color);
+                if (task.type !== prevTask.type) setTaskType(task.type);
                 // Do NOT overwrite title or subtasks to preserve unsaved edits
             }
             prevTaskRef.current = task;
@@ -208,9 +210,9 @@ export default function TaskEditDrawer({
                 recurrence: recurrence || undefined,
                 completed: completed,
                 subtasks: subtasks, // Save updated subtasks
-                tagIds: tagIds, // Save updated tags
+                color: color,
+                type: taskType,
                 seriesId: finalSeriesId,
-                originalTaskId: finalSeriesId // Keep consistent
             });
         }
         // If title empty, we just close without saving (discard)
@@ -226,12 +228,9 @@ export default function TaskEditDrawer({
         });
     };
 
-    const toggleTag = (id: string) => {
-        if (tagIds.includes(id)) {
-            setTagIds(tagIds.filter(t => t !== id));
-        } else {
-            setTagIds([...tagIds, id]);
-        }
+    const toggleColor = (c: string) => {
+        if (color === c) setColor(undefined);
+        else setColor(c);
     };
 
     const panResponder = useRef(
@@ -403,30 +402,87 @@ export default function TaskEditDrawer({
                                 </View>
                             </View>
 
-                            {/* Tags Section */}
+
+
+
+
+
+                            {/* Tags / Categorization Section */}
                             <View style={styles.section}>
-                                <View style={{ marginBottom: 8 }}>
-                                    <Text style={styles.sectionTitle}>🏷 Tags</Text>
-                                </View>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagScroll}>
-                                    {availableTags && availableTags.map(tag => {
-                                        const isSelected = tagIds.includes(tag.id);
-                                        return (
+                                <Text style={styles.sectionTitle}>🏷 Tags</Text>
+
+                                {/* Color Picker */}
+                                <View style={{ marginBottom: 16 }}>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagScroll}>
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.colorCircle,
+                                                { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DDD' },
+                                                !color && styles.colorSelected
+                                            ]}
+                                            onPress={() => setColor(undefined)}
+                                        />
+                                        {userColors && userColors.map(c => (
                                             <TouchableOpacity
-                                                key={tag.id}
-                                                style={[
-                                                    styles.tagChip,
-                                                    { backgroundColor: isSelected ? tag.color + '33' : '#F3F4F6' }, // Light bg
-                                                    isSelected && { borderColor: tag.color, borderWidth: 1 }
-                                                ]}
-                                                onPress={() => toggleTag(tag.id)}
+                                                key={c.id}
+                                                style={[styles.colorCircle, { backgroundColor: c.color }, color === c.color && styles.colorSelected]}
+                                                onPress={() => setColor(c.color)}
                                             >
-                                                <Text style={styles.tagEmoji}>{tag.symbol}</Text>
-                                                <Text style={[styles.tagLabel, { color: isSelected ? tag.color : '#333' }]}>{tag.label}</Text>
+                                                {color === c.color && c.label ? (
+                                                    <View style={{ position: 'absolute', top: 40, alignItems: 'center', width: 60, left: -12 }}>
+                                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#333' }} numberOfLines={1}>{c.label}</Text>
+                                                    </View>
+                                                ) : null}
                                             </TouchableOpacity>
-                                        );
-                                    })}
-                                </ScrollView>
+                                        ))}
+                                        {/* Manage/Add Colors */}
+                                        <TouchableOpacity
+                                            style={[styles.colorCircle, { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#CCC', alignItems: 'center', justifyContent: 'center' }]}
+                                            onPress={onRequestColorSettings}
+                                        >
+                                            <Ionicons name="settings-outline" size={16} color="#666" />
+                                        </TouchableOpacity>
+                                    </ScrollView>
+                                    {color && userColors && (
+                                        <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}>
+                                            <Text style={{ fontSize: 12, color: '#666' }}>
+                                                Selected: <Text style={{ fontWeight: 'bold', color: color }}>
+                                                    {userColors.find(c => c.color === color)?.label || 'Unlabeled Color'}
+                                                </Text>
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Task Type */}
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                    {[
+                                        { id: 'task', label: 'Task', icon: 'checkbox-marked-outline' },
+                                        { id: 'event', label: 'Event', icon: 'calendar' },
+                                        { id: 'habit', label: 'Habit', icon: 'refresh' },
+                                        { id: 'chore', label: 'Chore', icon: 'broom' },
+                                        { id: 'work', label: 'Work', icon: 'briefcase' }
+                                    ].map((t) => (
+                                        <TouchableOpacity
+                                            key={t.id}
+                                            style={[
+                                                styles.typeChip,
+                                                taskType === t.id && styles.typeChipSelected
+                                            ]}
+                                            onPress={() => setTaskType(t.id as any)}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name={t.icon as any}
+                                                size={16}
+                                                color={taskType === t.id ? '#FFF' : '#64748B'}
+                                            />
+                                            <Text style={[
+                                                styles.typeChipText,
+                                                taskType === t.id && styles.typeChipTextSelected
+                                            ]}>{t.label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
                             </View>
 
                             {/* Recurrence Section */}
@@ -832,4 +888,43 @@ const styles = StyleSheet.create({
     },
     tagEmoji: { fontSize: 14, marginRight: 4 },
     tagLabel: { fontSize: 13, fontWeight: '600' },
+
+    // Color Picker Styles
+    colorCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        marginRight: 12,
+        borderWidth: 0,
+    },
+    colorSelected: {
+        borderWidth: 3,
+        borderColor: '#333',
+        transform: [{ scale: 1.1 }],
+    },
+    // Type Chip Styles
+    typeChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: 'transparent',
+        gap: 6
+    },
+    typeChipSelected: {
+        backgroundColor: '#333333',
+        borderColor: '#333333',
+    },
+    typeChipText: {
+        fontSize: 14,
+        color: '#64748B',
+        fontWeight: '500',
+    },
+    typeChipTextSelected: {
+        color: '#FFFFFF',
+        fontWeight: '600',
+    },
 });

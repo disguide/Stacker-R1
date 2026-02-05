@@ -25,26 +25,42 @@ export const useTaskController = () => {
     // So we MUST use useEffect to save `tasks`.
 
     const isFirstRun = useRef(true);
+    const isSaving = useRef(false);
+
     useEffect(() => {
         if (isFirstRun.current) {
             isFirstRun.current = false;
             return;
         }
         if (!loading) {
-            TaskRepository.saveAll(tasks).catch(e => console.error("Failed to auto-save", e));
+            console.log('[useTaskController] Auto-saving tasks:', tasks.length);
+            isSaving.current = true;
+            TaskRepository.saveAll(tasks)
+                .catch(e => console.error("Failed to auto-save", e))
+                .finally(() => {
+                    isSaving.current = false;
+                    console.log('[useTaskController] Auto-save finished');
+                });
         }
     }, [tasks, loading]);
 
-    const loadTasks = async () => {
+    const loadTasks = useCallback(async () => {
+        if (isSaving.current) {
+            console.warn('[useTaskController] Skipping loadTasks - Save in progress');
+            return;
+        }
+        console.log('[useTaskController] Loading tasks...');
         const data = await TaskRepository.getAll();
+        console.log('[useTaskController] Tasks loaded:', data.length);
         setTasks(data);
         setLoading(false);
-    };
+    }, []);
 
     /**
      * ADD TASK
      */
     const addTask = useCallback((task: Task) => {
+        console.log('[useTaskController] Adding task:', task.id);
         setTasks(prev => [...prev, task]);
     }, []);
 
@@ -91,7 +107,15 @@ export const useTaskController = () => {
             if (index === -1) return prev;
 
             const updatedTasks = [...prev];
-            updatedTasks[index] = { ...updatedTasks[index], ...updates };
+
+            // Protect Master ID: Don't let the Ghost ID overwrite the Master ID
+            // If updates contains the Ghost ID, remove it or ensure we use the originalId
+            const { id: updateId, ...safeUpdates } = updates;
+
+            updatedTasks[index] = {
+                ...updatedTasks[index],
+                ...safeUpdates
+            };
             return updatedTasks;
         });
     }, []);
@@ -99,6 +123,105 @@ export const useTaskController = () => {
     /**
      * DELETE TASK (Single or Series)
      */
+    const toggleSubtask = useCallback((taskId: string, subtaskId: string, dateString: string) => {
+        console.log(`[useTaskController] toggleSubtask called`, { taskId, subtaskId, dateString });
+        setTasks(prev => {
+            // Robust ID Resolution
+            let index = prev.findIndex(t => t.id === taskId);
+
+            // Try resolving composite ID if not found
+            if (index === -1 && taskId.includes('_')) {
+                const potentialMasterId = taskId.split('_')[0];
+                index = prev.findIndex(t => t.id === potentialMasterId);
+
+                // If still not found, try popping the last segment
+                if (index === -1) {
+                    const parts = taskId.split('_');
+                    parts.pop();
+                    const poppedId = parts.join('_');
+                    index = prev.findIndex(t => t.id === poppedId);
+                }
+            }
+
+            if (index === -1) {
+                console.warn(`[useTaskController] Task not found for subtask toggle: ${taskId}`);
+                return prev;
+            }
+
+            const updatedTasks = [...prev];
+            const task = { ...updatedTasks[index] };
+
+            // Determine if Instance or Master Logic
+            // If dateString is passed, we treat it as an instance update if RRule exists, 
+            // OR if it's a specific date assignment.
+            // However, consistent with our RecurrenceEngine, we check RRule.
+
+            if (task.rrule) {
+                // Instance Logic
+                const currentInstanceSubtasks = (task.instanceSubtasks && task.instanceSubtasks[dateString])
+                    ? task.instanceSubtasks[dateString]
+                    : (task.subtasks?.map(s => ({ ...s, completed: false })) || []);
+
+                const newSubtasks = currentInstanceSubtasks.map(s =>
+                    s.id === subtaskId ? { ...s, completed: !s.completed } : s
+                );
+
+                task.instanceSubtasks = {
+                    ...(task.instanceSubtasks || {}),
+                    [dateString]: newSubtasks
+                };
+            } else {
+                // Single Task Logic
+                task.subtasks = task.subtasks?.map(s =>
+                    s.id === subtaskId ? { ...s, completed: !s.completed } : s
+                );
+            }
+
+            updatedTasks[index] = task;
+            return updatedTasks;
+        });
+    }, []);
+
+    const updateSubtask = useCallback((taskId: string, subtaskId: string, progress: number, dateString: string) => {
+        setTasks(prev => {
+            const originalId = taskId.includes('_') ? taskId.split('_')[0] : taskId;
+            const index = prev.findIndex(t => t.id === originalId);
+            if (index === -1) return prev;
+
+            const updatedTasks = [...prev];
+            const task = { ...updatedTasks[index] };
+
+            const isComplete = progress === 100;
+
+            if (task.rrule) {
+                // Instance Logic
+                const currentInstanceSubtasks = (task.instanceSubtasks && task.instanceSubtasks[dateString])
+                    ? task.instanceSubtasks[dateString]
+                    : (task.subtasks?.map(s => ({ ...s, completed: false, progress: 0 })) || []);
+
+                const newSubtasks = currentInstanceSubtasks.map(s =>
+                    s.id === subtaskId ? { ...s, progress, completed: isComplete } : s
+                );
+
+                task.instanceSubtasks = {
+                    ...(task.instanceSubtasks || {}),
+                    [dateString]: newSubtasks
+                };
+            } else {
+                // Single Task Logic
+                task.subtasks = task.subtasks?.map(s =>
+                    s.id === subtaskId ? { ...s, progress, completed: isComplete } : s
+                );
+            }
+
+            updatedTasks[index] = task;
+            return updatedTasks;
+        });
+    }, []);
+
+    // ----------------------------------------
+    // DELETE TASK (Single or Series)
+    // ----------------------------------------
     const deleteTask = useCallback((taskId: string, dateString: string, mode: 'single' | 'future' | 'all') => {
         setTasks(prev => {
             const index = prev.findIndex(t => t.id === taskId);
@@ -144,6 +267,8 @@ export const useTaskController = () => {
         addTask,
         toggleTask,
         updateTask,
+        toggleSubtask,
+        updateSubtask,
         deleteTask,
         refresh: loadTasks
     };

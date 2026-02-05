@@ -13,10 +13,16 @@ import CompletedTasksModal from '../src/components/CompletedTasksModal';
 import SwipeableTaskRow from '../src/components/SwipeableTaskRow';
 import RecurrencePickerModal from '../src/components/RecurrencePickerModal';
 import TimePickerModal from '../src/components/TimePickerModal';
-import TagSettingsModal from '../src/components/TagSettingsModal'; // Import TagSettingsModal
-import { StorageService, RecurrenceRule, RecurrenceFrequency, WeekDay, TagDefinition } from '../src/services/storage';
+import ColorSettingsModal from '../src/components/ColorSettingsModal'; // Import ColorSettingsModal
+import { TaskQuickAdd } from '../src/components/TaskQuickAdd';
+import { TaskListHeader } from '../src/components/TaskListHeader';
+import { StorageService, RecurrenceRule, RecurrenceFrequency, WeekDay, ColorDefinition } from '../src/services/storage';
 import { RecurrenceEngine } from '../src/features/tasks/logic/recurrenceEngine';
 import { useTaskController } from '../src/features/tasks/hooks/useTaskController';
+import { useTaskForm } from '../src/features/tasks/hooks/useTaskForm';
+import { useTaskNavigation } from '../src/features/tasks/hooks/useTaskNavigation';
+import { useSprintMode } from '../src/features/tasks/hooks/useSprintMode';
+import { useTaskUI } from '../src/features/tasks/hooks/useTaskUI';
 import { Task, Subtask } from '../src/features/tasks/types';
 import { FlashList } from '@shopify/flash-list';
 import { RRule } from 'rrule';
@@ -34,76 +40,97 @@ import { styles } from '../src/styles/taskListStyles';
 export default function TaskListScreen() {
     // --- STATE MANAGEMENT ---
     const flashListRef = useRef<any>(null);
+    const inputRef = useRef<TextInput>(null);
     const router = useRouter();
 
     // Task Controller Hook
-    const { tasks, loading, addTask, toggleTask, deleteTask, updateTask, refresh } = useTaskController();
+    const { tasks, loading, addTask, toggleTask, deleteTask, updateTask, toggleSubtask, updateSubtask, refresh } = useTaskController();
 
-    // UI State
-    const [viewMode, setViewMode] = useState<ViewMode>('3days');
+    // Navigation Hook
+    const {
+        viewMode, setViewMode,
+        offset, setOffset,
+        showViewPicker, setShowViewPicker,
+        dates
+    } = useTaskNavigation();
+
     const completionTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
 
-    const [offset, setOffset] = useState(0);
-    const [showViewPicker, setShowViewPicker] = useState(false);
-    const [addingTaskForDate, setAddingTaskForDate] = useState<string | null>(null);
-    const [newTaskTitle, setNewTaskTitle] = useState('');
-    const [newTaskDeadline, setNewTaskDeadline] = useState<string | null>(null);
-    const [newTaskEstimatedTime, setNewTaskEstimatedTime] = useState<string | null>(null);
-    const [newTaskRecurrence, setNewTaskRecurrence] = useState<RecurrenceRule | null>(null);
-    const [newTaskReminderTime, setNewTaskReminderTime] = useState<string | null>(null);
-    const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
-    const [calendarMode, setCalendarMode] = useState<'new' | 'edit'>('new');
-    const [durationMode, setDurationMode] = useState<'new' | 'edit'>('new');
-    const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
-    const [isHistoryVisible, setIsHistoryVisible] = useState(false);
+    // Dynamic Colors State
+    // Initialize with defaults to avoid empty state before storage loads
+
+
+    // Dynamic Colors State
+    // Initialize with defaults to avoid empty state before storage loads
+    const [userColors, setUserColors] = useState<ColorDefinition[]>(StorageService.getDefaultUserColors());
+
+    // Form Hook
+    const form = useTaskForm();
+    const {
+        addingTaskForDate, setAddingTaskForDate,
+        newTaskTitle, setNewTaskTitle,
+        newTaskDeadline, setNewTaskDeadline,
+        newTaskEstimatedTime, setNewTaskEstimatedTime,
+        newTaskRecurrence, setNewTaskRecurrence,
+        newTaskReminderTime, setNewTaskReminderTime,
+        addingSubtaskToParentId, setAddingSubtaskToParentId,
+        resetForm: cancelAddingTask,
+        startAddingTask
+    } = form;
+
+    const parentTask = addingSubtaskToParentId ? tasks.find(t => t.id === addingSubtaskToParentId) : null;
+
+
+    // UI Visibility & Transient State Hook
+    const {
+        isTimePickerVisible, setIsTimePickerVisible,
+        isRecurrencePickerVisible, setIsRecurrencePickerVisible,
+        isHistoryVisible, setIsHistoryVisible,
+        isColorSettingsVisible, setIsColorSettingsVisible,
+        isCalendarVisible, setIsCalendarVisible,
+        calendarMode, setCalendarMode,
+        calendarInitialPage, setCalendarInitialPage,
+        calendarTempDate, setCalendarTempDate,
+        isDurationPickerVisible, setIsDurationPickerVisible,
+        durationMode, setDurationMode,
+        isDrawerVisible, setIsDrawerVisible,
+        editingTask, setEditingTask,
+        editingSubtask, setEditingSubtask,
+        isMenuVisible, setIsMenuVisible,
+        activeMenuTask, setActiveMenuTask,
+        activeMenuSubtask, setActiveMenuSubtask
+    } = useTaskUI();
+
     const [historyTasks, setHistoryTasks] = useState<Task[]>([]);
 
-    // Edit State (uses extended task object with UI-specific recurrence field)
-    const [editingTask, setEditingTask] = useState<any>(null);
-    const [isDrawerVisible, setIsDrawerVisible] = useState(false);
-
-    // Sprint Mode State
-    const [isSprintSelectionMode, setIsSprintSelectionMode] = useState(false);
-    const [selectedSprintTaskIds, setSelectedSprintTaskIds] = useState<Set<string>>(new Set());
+    // Sprint Mode Hook
+    const {
+        isSprintSelectionMode,
+        selectedSprintTaskIds,
+        toggleSprintSelectionMode,
+        toggleSprintTaskSelection,
+        startSprint
+    } = useSprintMode(tasks);
 
     // Task Completion Cooldown State
     const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
 
-    const toggleSprintTaskSelection = (taskId: string) => {
-        setSelectedSprintTaskIds(prev => {
-            const next = new Set(prev);
-            if (next.has(taskId)) {
-                next.delete(taskId);
-            } else {
-                next.add(taskId);
-            }
-            return next;
-        });
-    };
-
-    const [editingSubtask, setEditingSubtask] = useState<{ parentId: string, subtask: Subtask } | null>(null);
-    const [addingSubtaskToParentId, setAddingSubtaskToParentId] = useState<string | null>(null);
-
-    // Tags State
-    const [tags, setTags] = useState<TagDefinition[]>([]);
-
-    // Profile State
-    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
-
-    // Reload tags/profile whenever screen focuses
+    // Reload profile/colors whenever screen focuses
     useFocusEffect(
         useCallback(() => {
-            StorageService.loadTags().then(setTags);
             StorageService.loadProfile().then(p => {
                 if (p?.avatar) setUserAvatar(p.avatar);
             });
+            StorageService.loadUserColors().then(setUserColors);
             refresh(); // Reload tasks
         }, [refresh])
     );
 
-    const handleSaveTags = (updatedTags: TagDefinition[]) => {
-        setTags(updatedTags);
-        StorageService.saveTags(updatedTags);
+    const handleSaveUserColors = (colors: ColorDefinition[]) => {
+        console.log('[TaskListScreen] handleSaveUserColors:', colors);
+        setUserColors(colors);
+        StorageService.saveUserColors(colors);
     };
 
     // Scroll Locking
@@ -111,19 +138,8 @@ export default function TaskListScreen() {
     const handleSwipeStart = () => setIsListScrollEnabled(false);
     const handleSwipeEnd = () => setIsListScrollEnabled(true);
 
-    // Menu State
-    const [activeMenuTask, setActiveMenuTask] = useState<Task | null>(null);
-    const [activeMenuSubtask, setActiveMenuSubtask] = useState<{ parentId: string, subtaskId: string } | null>(null);
-    const [isMenuVisible, setIsMenuVisible] = useState(false);
 
-    // Advanced Add State
-    const [isCalendarVisible, setIsCalendarVisible] = useState(false);
-    const [calendarInitialPage, setCalendarInitialPage] = useState(0);
-    const [calendarTempDate, setCalendarTempDate] = useState<string | null>(null); // Draft deadline from drawer
-    const [isDurationPickerVisible, setIsDurationPickerVisible] = useState(false);
 
-    // Generate dates based on view mode and offset
-    const dates = useMemo(() => generateDates(viewMode, offset), [viewMode, offset]);
 
     const todayString = toISODateString(new Date());
 
@@ -164,53 +180,22 @@ export default function TaskListScreen() {
         }
     };
 
-    const updateSubtaskProgress = (taskId: string, subtaskId: string, progress: number, dateContext?: string) => {
-        let targetId = taskId;
-        let dateString = dateContext || todayString;
-        let isRecurrenceInstance = false;
+    const handleSubtaskProgress = (taskId: string, subtaskId: string, progress: number, dateContext?: string) => {
+        // We pass the RAW taskId (which might be task_date) to the hook?
+        // The hook expects taskId to handle Ghost IDs internally, OR we can resolve here.
+        // My hook implementation does: const originalId = taskId.includes('_') ? ...
+        // So it handles Ghost IDs safely.
+        // What about 'dateContext'?
+        // The hook expects 'dateString' to update instanceSubtasks map.
+        // So we should pass the dateContext (originalDate or date).
 
-        const { masterId, date: resolvedDate, isInstance } = resolveId(taskId);
-        if (isInstance && resolvedDate) {
-            dateString = resolvedDate;
-            targetId = masterId;
-            isRecurrenceInstance = true;
-        } else {
-            const task = tasks.find(t => t.id === taskId);
-            if (task) {
-                if (!dateContext) dateString = task.date;
-                if (task.rrule) isRecurrenceInstance = true;
-            }
-        }
-
-        if (isRecurrenceInstance) {
-            const masterTask = tasks.find(t => t.id === targetId);
-            if (!masterTask) return;
-
-            const newSubtasks = masterTask.subtasks?.map(st => {
-                if (st.id === subtaskId) {
-                    return { ...st, progress, completed: progress === 100 };
-                }
-                return st;
-            }) || [];
-
-            updateTask(targetId, { subtasks: newSubtasks });
-        } else {
-            const task = tasks.find(t => t.id === targetId);
-            if (task) {
-                const updatedSubtasks = task.subtasks?.map(st => {
-                    if (st.id === subtaskId) {
-                        return { ...st, progress, completed: progress === 100 };
-                    }
-                    return st;
-                });
-                updateTask(targetId, { subtasks: updatedSubtasks });
-            }
-        }
+        updateSubtask(taskId, subtaskId, progress, dateContext || todayString);
     };
 
     const handleListTaskToggle = (item: any) => {
+        console.log('[handleListTaskToggle] Toggling:', { id: item.id, originalDate: item.originalDate, projectedDate: item.date });
         if (item.isCompleted) {
-            toggleTask(item.originalTaskId, item.date);
+            toggleTask(item.originalTaskId, item.originalDate || item.date);
             return;
         }
 
@@ -243,7 +228,7 @@ export default function TaskListScreen() {
                 };
                 await StorageService.addToHistory(taskToSave);
 
-                toggleTask(item.originalTaskId, item.date);
+                toggleTask(item.originalTaskId, item.originalDate || item.date);
 
                 delete completionTimeouts.current[itemId];
                 setCompletingTaskIds(prev => {
@@ -274,13 +259,7 @@ export default function TaskListScreen() {
         }
     };
 
-    const goToPrevious = () => {
-        if (offset > 0) setOffset(prev => prev - 1);
-    };
 
-    const goToNext = () => {
-        setOffset(prev => prev + 1);
-    };
 
     const switchViewMode = (mode: ViewMode) => {
         setViewMode(mode);
@@ -288,15 +267,21 @@ export default function TaskListScreen() {
         setShowViewPicker(false);
     };
 
-    const startAddingTask = (dateString: string) => {
-        setAddingTaskForDate(dateString);
-        setNewTaskTitle('');
-        setNewTaskDeadline(null);
-        setNewTaskEstimatedTime(null);
-        setNewTaskRecurrence(null);
-    };
+    const handleSelectDate = (date: Date | null, includeTime: boolean = false) => {
+        if (!date) {
+            if (calendarMode === 'new') {
+                setNewTaskDeadline(null);
+            } else if (editingSubtask) {
+                setEditingSubtask({
+                    ...editingSubtask,
+                    subtask: { ...editingSubtask.subtask, deadline: undefined }
+                });
+            } else if (editingTask) {
+                setEditingTask({ ...editingTask, deadline: undefined });
+            }
+            return;
+        }
 
-    const handleSelectDate = (date: Date, includeTime: boolean = false) => {
         const dateStr = toISODateString(date);
 
         if (calendarMode === 'new') {
@@ -342,17 +327,6 @@ export default function TaskListScreen() {
         }
     };
 
-    const cancelAddingTask = () => {
-        setAddingTaskForDate(null);
-        setAddingSubtaskToParentId(null);
-        setNewTaskTitle('');
-        setNewTaskDeadline(null);
-        setNewTaskEstimatedTime(null);
-        setNewTaskRecurrence(null);
-        setNewTaskReminderTime(null);
-        Keyboard.dismiss();
-    };
-
     const handleAddTask = (date: string | null) => {
         if (!newTaskTitle.trim()) return;
 
@@ -369,16 +343,12 @@ export default function TaskListScreen() {
             const { masterId } = resolveId(addingSubtaskToParentId);
             const targetMasterId = masterId;
 
-            const parentTask = tasks.find(t => t.id === targetMasterId);
             if (parentTask) {
                 const updatedSubtasks = [...(parentTask.subtasks || []), newSubtask];
                 updateTask(targetMasterId, { subtasks: updatedSubtasks });
             }
 
-            setNewTaskTitle('');
-            setNewTaskDeadline(null);
-            setNewTaskEstimatedTime(null);
-            setAddingSubtaskToParentId(null);
+            cancelAddingTask();
             return;
         }
 
@@ -438,12 +408,7 @@ export default function TaskListScreen() {
 
         addTask(newTask);
 
-        setNewTaskTitle('');
-        setNewTaskDeadline(null);
-        setNewTaskEstimatedTime(null);
-        setNewTaskRecurrence(null);
-        setNewTaskReminderTime(null);
-        setAddingTaskForDate(null);
+        cancelAddingTask();
     };
 
     const handleConfirmDelete = (taskId: string) => {
@@ -504,6 +469,10 @@ export default function TaskListScreen() {
             }
         }
 
+        // Helper needs to find the item first to check for originalDate if it's a rollover
+        // However, this helper is seemingly unused or used by menu. 
+        // Best effort: resolveId usually works, but if we have the item object, use that.
+        // For menu actions, we usually passed the object.
         toggleTask(taskId, dateString);
     };
 
@@ -633,70 +602,228 @@ export default function TaskListScreen() {
         }
     };
 
-    const saveEditedTask = (updatedTask: Task) => {
-        // Handle "New Task" creation
+    const saveEditedTask = (updatedTask: Task, shouldClose: boolean = true) => {
+        // 1. HANDLE NEW TASK CREATION
         if (updatedTask.id.startsWith('new_temp_')) {
             const finalTask = { ...updatedTask, id: Date.now().toString() };
+            // Generate RRule if recurrence is set
+            if (finalTask.recurrence) {
+                const rrule = generateRRuleString(finalTask.recurrence, finalTask.date);
+                if (rrule) finalTask.rrule = rrule;
+            }
             addTask(finalTask);
             setEditingTask(null);
             setIsDrawerVisible(false);
             return;
         }
 
-        // Handle Editing Existing Task
-        let masterTaskId = updatedTask.id;
-        let dateString = updatedTask.date;
-        let isRecurrenceInstance = false;
+        // 2. DETECT CONTEXT (Series vs Single)
+        // Check if we are editing a "Ghost" instance or the Master itself
+        let originalMasterId = updatedTask.id;
+        let isFutureInstance = false;
+        let instanceDate = updatedTask.originalDate || updatedTask.date;
 
-        // Check if we are editing a "Ghost" or "Instance"
-        if (editingTask?.id.includes('_')) {
-            // Ghost ID: masterId_date
-            const parts = editingTask.id.split('_');
-            masterTaskId = parts[0];
-            dateString = parts[1];
-            isRecurrenceInstance = true;
-        } else if (editingTask?.rrule && editingTask.date) {
-            // Real recurring task instance? (Usually ghosts carry the rrule)
-            // But if we edited a real task that HAS rrule, it's the Master itself?
-            // If user wants to edit "This Instance", we need `isRecurrenceInstance` flag passed from UI.
-            // But our `editingTask` state comes from `openEditDrawer`.
+        if (editingTask?.isGhost && editingTask.originalTaskId) {
+            originalMasterId = editingTask.originalTaskId;
+            isFutureInstance = true; // By definition, ghosts are projections
+            // However, if the ghost date == master start date, we treat it as "Edit Series" from start
+        } else if (editingTask?.rrule) {
+            // We are editing the master task directly (e.g. from key list)
+            // Or the very first instance
+            originalMasterId = editingTask.id;
         }
 
-        if (isRecurrenceInstance) {
-            // DETACH PATTERN (Exception)
-            // 1. Create New Single Task for this date
-            const detachedTask: Task = {
+        const originalMaster = tasks.find(t => t.id === originalMasterId);
+
+        if (!originalMaster) {
+            // Fallback: Just update what we have
+            updateTask(updatedTask.id, updatedTask);
+            if (shouldClose) {
+                setEditingTask(null);
+                setIsDrawerVisible(false);
+            }
+            return;
+        }
+
+        // ---------------------------------------------------------
+        // ZOMBIE PREVENTION: Handle Rollover Rescheduling
+        // ---------------------------------------------------------
+        // If we are editing a "Ghost" instance that comes from the PAST (Rollover),
+        // we must perform a "Move" (Exception + New Task) instead of a simple update.
+        // Simple updates to ghosts usually work, BUT for Rollovers, the "Original Date" 
+        // is in the past, while the "Display Date" (instanceDate) might be Today.
+
+        // Check if this is a Rollover: 
+        // 1. It has an originalDate (it's an instance)
+        // 2. The originalDate is strictly BEFORE today (or the target date we are moving TO?)
+        // Actually, simpler: If editingTask.daysRolled > 0, strict "Reschedule" logic applies.
+
+        if (editingTask.daysRolled > 0 && originalMaster.rrule) {
+            console.log(`[Recurrence] Rescheduling Rollover Task ${editingTask.originalTaskId} from ${editingTask.originalDate} to ${updatedTask.date}`);
+
+            // 1. Create Exception for the OLD date (Hides the Roll xN zombie)
+            const oldDate = editingTask.originalDate;
+            const exceptions = new Set(originalMaster.exceptionDates || []);
+            exceptions.add(oldDate);
+
+            updateTask(originalMaster.id, { exceptionDates: Array.from(exceptions) });
+
+            // 2. Create NEW Single Task at the NEW date (Tomorrow, or wherever user moved it)
+            // We strip the recurrence from this specific instance because it's an Exception.
+            const newSingleTask: Task = {
+                ...originalMaster,
                 ...updatedTask,
-                id: Date.now().toString(), // New ID
-                date: dateString,
-                rrule: undefined, // Detached successfully
-                completedDates: [], // Reset for single task
-                exceptionDates: []
+                id: Date.now().toString(), // Fresh ID
+                date: updatedTask.date,    // The new chosen date
+                rrule: undefined,          // Detach from series
+                seriesId: undefined,
+                originalTaskId: undefined, // It's a new independent task
+                completedDates: [],
+                exceptionDates: [],
+                daysRolled: 0 // Reset rollover count
             };
 
-            // 2. Add Exclusion to Master Task
-            const masterTask = tasks.find(t => t.id === masterTaskId);
-            if (masterTask) {
-                const newExceptions = new Set(masterTask.exceptionDates || []);
-                newExceptions.add(dateString);
+            addTask(newSingleTask);
 
-                // Update Master (Exclusion)
-                updateTask(masterTaskId, { exceptionDates: Array.from(newExceptions) });
-
-                // Add Detached Task
-                addTask(detachedTask);
-            } else {
-                console.warn("Master task not found for detach", masterTaskId);
-                // Fallback: just add the new task? But then ghost duplicates?
-                addTask(detachedTask);
+            if (shouldClose) {
+                setEditingTask(null);
+                setIsDrawerVisible(false);
             }
+            return;
+        }
+
+        // 3. RECURRENCE SPLIT ENGINE (Standard Logic)
+        // If it's a recurring task, and we are editing a specific instance date
+        if (originalMaster.rrule) {
+            try {
+                const oldRule = RRule.fromString(originalMaster.rrule);
+                const seriesStart = oldRule.options.dtstart;
+                const targetDate = new Date(instanceDate + 'T00:00:00');
+
+                // Check if we are editing the very first instance
+                const isFirstInstance = seriesStart.getTime() === targetDate.getTime();
+
+                if (isFirstInstance) {
+                    // SCENARIO A: UPDATE ENTIRE SERIES FROM START
+                    // Just update the master in place
+                    const finalUpdatedTask = { ...originalMaster, ...updatedTask, id: originalMaster.id };
+
+                    // Re-generate RRule with potentially new Recurrence settings
+                    // BUT keep the original start date (which is today/targetDate)
+                    if (updatedTask.recurrence) {
+                        const newRRule = generateRRuleString(updatedTask.recurrence, instanceDate);
+                        if (newRRule) finalUpdatedTask.rrule = newRRule;
+                    } else {
+                        // Recurrence removed
+                        finalUpdatedTask.rrule = undefined;
+                        finalUpdatedTask.seriesId = undefined;
+                    }
+
+                    updateTask(originalMaster.id, finalUpdatedTask);
+
+                } else {
+                    // SCENARIO B: SPLIT SERIES (THIS AND FUTURE)
+                    console.log(`[Recurrence] Splitting series ${originalMaster.id} at ${instanceDate}`);
+
+                    // STEP 1: CLAMP OLD SERIES
+                    // Set UNTIL to Yesterday
+                    const cutoffDate = new Date(targetDate);
+                    cutoffDate.setDate(cutoffDate.getDate() - 1);
+                    cutoffDate.setHours(23, 59, 59, 999);
+
+                    const oldOptions = { ...oldRule.options };
+                    oldOptions.until = cutoffDate;
+                    // Remove count if present, as we are strictly enforcing date cut-off
+                    if ((oldOptions as any).count) delete (oldOptions as any).count;
+
+                    const clampedRRule = new RRule(oldOptions).toString();
+
+                    // Update the old master with the clamped rule
+                    updateTask(originalMaster.id, { rrule: clampedRRule });
+
+
+                    // STEP 2: CREATE NEW SERIES
+                    // Iterate and Create New Master starting Today
+                    const newSeriesId = Date.now().toString(); // New Unique ID
+
+                    const newMasterTask: Task = {
+                        ...originalMaster, // Inherit history/tags/etc
+                        ...updatedTask,    // Apply edits (Title, Color, etc)
+                        id: newSeriesId,
+                        date: instanceDate, // New Start Date
+                        originalTaskId: undefined, // It IS a master
+                        completedDates: [], // Reset completion history for new series
+                        exceptionDates: [], // Reset exceptions
+                        seriesId: `series_${newSeriesId}`, // New lineage
+                    };
+
+                    // Generate New RRule
+                    if (updatedTask.recurrence) {
+                        // Use the rule from drawer
+                        const newRRuleStr = generateRRuleString(updatedTask.recurrence, instanceDate);
+                        if (newRRuleStr) newMasterTask.rrule = newRRuleStr;
+                    } else {
+                        // User removed recurrence in drawer -> Become Single Task
+                        newMasterTask.rrule = undefined;
+                        newMasterTask.seriesId = undefined;
+                    }
+
+                    addTask(newMasterTask);
+                }
+
+            } catch (e) {
+                console.error("Failed to process recurrence split", e);
+                Alert.alert("Error", "Failed to update recurring task. See logs.");
+                return;
+            }
+
         } else {
-            // Standard Update (Master or Single)
+            // SCENARIO C: REGULAR SINGLE TASK UPDATE
             updateTask(updatedTask.id, updatedTask);
         }
 
-        setEditingTask(null);
-        setIsDrawerVisible(false);
+        if (shouldClose) {
+            setEditingTask(null);
+            setIsDrawerVisible(false);
+        }
+    };
+
+    // Helper to generate RRule string from UI Object
+    const generateRRuleString = (recurrence: RecurrenceRule, startDateStr: string): string | undefined => {
+        try {
+            const freqMap: { [key: string]: any } = {
+                'daily': RRule.DAILY,
+                'weekly': RRule.WEEKLY,
+                'monthly': RRule.MONTHLY,
+                'yearly': RRule.YEARLY
+            };
+
+            const options: any = {
+                freq: freqMap[recurrence.frequency],
+                interval: recurrence.interval || 1,
+                dtstart: new Date(startDateStr + 'T00:00:00')
+            };
+
+            if (recurrence.endDate) {
+                options.until = new Date(recurrence.endDate);
+            }
+            if (recurrence.occurrenceCount) {
+                options.count = recurrence.occurrenceCount;
+            }
+            // Handle Days of Week
+            if (recurrence.daysOfWeek && recurrence.daysOfWeek.length > 0) {
+                const dayMap: { [key: string]: any } = {
+                    'MO': RRule.MO, 'TU': RRule.TU, 'WE': RRule.WE, 'TH': RRule.TH, 'FR': RRule.FR, 'SA': RRule.SA, 'SU': RRule.SU
+                };
+                options.byweekday = recurrence.daysOfWeek.map(d => dayMap[d]).filter(Boolean);
+            }
+
+            const rule = new RRule(options);
+            return rule.toString();
+        } catch (e) {
+            console.error("RRule Generation Failed", e);
+            return undefined;
+        }
     };
 
     const saveSubtask = (subtaskData: any) => {
@@ -704,9 +831,16 @@ export default function TaskListScreen() {
             id: (editingSubtask ? subtaskData.id : Date.now().toString()),
             title: subtaskData.title,
             completed: subtaskData.completed || false,
-            deadline: subtaskData.deadline,
-            estimatedTime: subtaskData.estimatedTime,
         };
+        // Assuming 'form' destructuring happens at a higher scope,
+        // and this is where the instruction intends the variable to be available.
+        // The instruction's snippet was syntactically incorrect in its placement.
+        // This change assumes 'startAddingTask' is added to an existing destructuring
+        // that includes 'newTaskRecurrence', 'newTaskReminderTime', etc.
+        // Since that destructuring is not in the provided content, I cannot place it there.
+        // I will add a comment to reflect this assumption.
+        // If the 'form' destructuring was meant to be *inside* this function,
+        // the provided snippet was incomplete and syntactically invalid.
 
         if (editingSubtask) {
             const parentTask = tasks.find(t => t.id === editingSubtask.parentId);
@@ -730,48 +864,8 @@ export default function TaskListScreen() {
         setIsDrawerVisible(false);
     };
 
-    const toggleSubtask = (parentId: string, subtaskId: string, dateContext?: string) => {
-        let targetId = parentId;
-        let dateString = dateContext || todayString;
-        let isRecurrenceInstance = false;
-
-        const { masterId, date, isInstance } = resolveId(parentId);
-        if (isInstance && date) {
-            dateString = date;
-            targetId = masterId;
-            isRecurrenceInstance = true;
-        } else {
-            const task = tasks.find(t => t.id === parentId);
-            if (task) {
-                if (!dateContext) dateString = task.date;
-                if (task.rrule) isRecurrenceInstance = true;
-            }
-        }
-
-        if (isRecurrenceInstance && masterId && dateString) {
-            const masterTask = tasks.find(t => t.id === masterId);
-            if (!masterTask) return;
-
-            // Get current subtasks for this instance (or fallback to template reset)
-            const currentInstanceSubtasks = (masterTask.instanceSubtasks && masterTask.instanceSubtasks[dateString])
-                ? masterTask.instanceSubtasks[dateString]
-                : (masterTask.subtasks?.map(s => ({ ...s, completed: false })) || []);
-
-            // Toggle the specific subtask
-            const newSubtasks = currentInstanceSubtasks.map(s => s.id === subtaskId ? { ...s, completed: !s.completed } : s);
-
-            // Save back to instanceSubtasks
-            const newInstanceSubtasksMap = { ...(masterTask.instanceSubtasks || {}) };
-            newInstanceSubtasksMap[dateString] = newSubtasks;
-
-            updateTask(masterId, { instanceSubtasks: newInstanceSubtasksMap });
-        } else {
-            const task = tasks.find(t => t.id === parentId);
-            if (task) {
-                const subtasks = task.subtasks?.map(s => s.id === subtaskId ? { ...s, completed: !s.completed } : s);
-                updateTask(parentId, { subtasks });
-            }
-        }
+    const handleSubtaskToggle = (parentId: string, subtaskId: string, dateContext?: string) => {
+        toggleSubtask(parentId, subtaskId, dateContext || todayString);
     };
 
     const deleteSubtask = (parentId: string, subtaskId: string) => {
@@ -785,34 +879,7 @@ export default function TaskListScreen() {
         }
     };
 
-    const toggleSprintSelectionMode = () => {
-        setIsSprintSelectionMode(prev => !prev);
-        setSelectedSprintTaskIds(new Set());
-    };
 
-    const toggleTaskSelection = (id: string) => {
-        setSelectedSprintTaskIds(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) {
-                next.delete(id);
-            } else {
-                next.add(id);
-            }
-            return next;
-        });
-    };
-
-    const startSprint = async () => {
-        if (selectedSprintTaskIds.size === 0) return;
-
-        const selectedTasks = tasks.filter(t => selectedSprintTaskIds.has(t.id));
-        await StorageService.saveSprintTasks(selectedTasks);
-
-        router.push({
-            pathname: '/sprint',
-            params: { taskIds: JSON.stringify(Array.from(selectedSprintTaskIds)) }
-        });
-    };
 
     const openEditSubtask = (parentId: string, subtask: any) => {
         setEditingSubtask({ parentId, subtask });
@@ -825,89 +892,19 @@ export default function TaskListScreen() {
 
     return (
         <SafeAreaView style={[styles.container, isSprintSelectionMode && styles.sprintContainer]}>
-            {/* Top Header Row */}
-            <View style={[styles.header, isSprintSelectionMode && styles.sprintHeader]}>
-                <ProfileButton avatarUri={userAvatar} />
-
-                <View style={styles.toolbar}>
-                    <TouchableOpacity
-                        style={styles.todayButton}
-                        onPress={() => setOffset(0)}
-                    >
-                        <Text style={styles.todayButtonText}>Today</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.toolbarButton}
-                        onPress={() => {/* Friends Logic */ }}
-                    >
-                        <Ionicons name="people-outline" size={24} color="#333" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.toolbarButton}
-                        onPress={() => router.push('/mail')}
-                    >
-                        <Ionicons name="mail-outline" size={24} color="#333" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.toolbarButton}
-                        onPress={() => router.push('/long-term')}
-                    >
-                        <Ionicons name="telescope-outline" size={24} color="#333" />
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.spacer} />
-                <SettingsButton />
-            </View>
-
-            {/* View Navigation Row */}
-            <View style={styles.viewNavRow}>
-                <TouchableOpacity
-                    style={[styles.arrowButton, offset === 0 && styles.arrowButtonDisabled]}
-                    onPress={goToPrevious}
-                    disabled={offset === 0}
-                >
-                    <Ionicons name="chevron-back" size={24} color={offset === 0 ? '#CCC' : '#333'} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.viewLabelButton}
-                    onPress={() => setShowViewPicker(true)}
-                >
-                    <Text style={styles.viewLabel}>{VIEW_CONFIG[viewMode].label}</Text>
-                    <Ionicons name="chevron-down" size={16} color="#666" style={{ marginTop: 2 }} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.arrowButton}
-                    onPress={goToNext}
-                >
-                    <Ionicons name="chevron-forward" size={24} color="#333" />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }} />
-
-                <TouchableOpacity
-                    style={[
-                        styles.sprintHeaderButton,
-                        isSprintSelectionMode && styles.sprintHeaderButtonActive
-                    ]}
-                    onPress={toggleSprintSelectionMode}
-                >
-                    <Text style={[
-                        styles.sprintHeaderButtonText,
-                        isSprintSelectionMode && styles.sprintHeaderButtonTextActive
-                    ]}>
-                        {isSprintSelectionMode ? "Cancel" : "Sprint"}
-                    </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={styles.toolbarButton}
-                    onPress={() => {/* Organize Logic */ }}
-                >
-                    <Feather name="list" size={24} color="#333" />
-                </TouchableOpacity>
-            </View>
+            <TaskListHeader
+                userAvatar={userAvatar}
+                offset={offset}
+                onOffsetChange={(val) => {
+                    setOffset(val);
+                    if (val === 0) flashListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                }}
+                viewMode={viewMode}
+                isSprintSelectionMode={isSprintSelectionMode}
+                onToggleSprint={toggleSprintSelectionMode}
+                showViewPicker={showViewPicker}
+                setShowViewPicker={setShowViewPicker}
+            />
 
             {/* View Picker Modal */}
             <Modal
@@ -946,6 +943,7 @@ export default function TaskListScreen() {
             {/* Date List using FlashList */}
             {/* @ts-ignore */}
             <FlashList
+                ref={flashListRef}
                 data={dates}
                 extraData={calendarItems}
                 estimatedItemSize={150}
@@ -1041,7 +1039,7 @@ export default function TaskListScreen() {
                                             deadline={item.deadline}
                                             estimatedTime={item.estimatedTime}
                                             progress={item.progress}
-                                            daysRolled={0}
+                                            daysRolled={item.daysRolled || 0}
                                             menuIcon="dots-horizontal"
                                             menuColor="#94A3B8"
                                             onProgressUpdate={updateTaskProgress}
@@ -1054,8 +1052,10 @@ export default function TaskListScreen() {
                                             onSwipeEnd={handleSwipeEnd}
                                             isSelectionMode={isSprintSelectionMode}
                                             isSelected={selectedSprintTaskIds.has(item.id)}
-                                            onSelect={() => toggleTaskSelection(item.id)}
-                                            activeTags={item.tagIds ? tags.filter(t => item.tagIds?.includes(t.id)) : []}
+                                            onSelect={() => toggleSprintTaskSelection(item.id)}
+                                            // activeTags removed
+                                            color={item.color}
+                                            taskType={item.taskType}
                                         />
 
                                         {/* Subtasks */}
@@ -1069,16 +1069,16 @@ export default function TaskListScreen() {
                                                 deadline={subtask.deadline}
                                                 menuIcon="dots-horizontal"
                                                 isSubtask={true}
-                                                onProgressUpdate={(id, val) => updateSubtaskProgress(item.originalTaskId, subtask.id, val, item.date)}
-                                                onComplete={() => toggleSubtask(item.originalTaskId, subtask.id, item.date)}
+                                                onProgressUpdate={(id, val) => handleSubtaskProgress(item.originalTaskId, subtask.id, val, item.originalDate || item.date)}
+                                                onComplete={() => handleSubtaskToggle(item.originalTaskId, subtask.id, item.originalDate || item.date)}
                                                 onEdit={() => openEditSubtask(item.originalTaskId, subtask)}
                                                 onMenu={() => openSubtaskMenu(item.originalTaskId, subtask.id)}
                                                 formatDeadline={formatDeadline}
                                                 onSwipeStart={handleSwipeStart}
                                                 onSwipeEnd={handleSwipeEnd}
                                                 isSelectionMode={isSprintSelectionMode}
-                                                // Subtasks don't usually have their own tags, but if they did:
-                                                activeTags={[]}
+                                            // Subtasks don't usually have their own tags, but if they did:
+                                            // activeTags={[]} // Removed
                                             />
                                         ))}
                                     </View>
@@ -1178,120 +1178,47 @@ export default function TaskListScreen() {
             />
 
             {/* Fixed Quick Add Bar */}
-            {(addingTaskForDate || addingSubtaskToParentId) && (
-                <>
-                    <TouchableOpacity
-                        style={styles.backdropLayer}
-                        activeOpacity={1}
-                        onPress={cancelAddingTask}
-                    />
-
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                        style={styles.fixedInputContainer}
-                        pointerEvents="box-none"
-                    >
-                        <View style={styles.addTaskContainer}>
-                            <View style={styles.addTaskInputWrapper}>
-                                <TextInput
-                                    ref={inputRef}
-                                    style={styles.addTaskInput}
-                                    placeholder={addingSubtaskToParentId ? "Add a subtask..." : "Write something..."}
-                                    placeholderTextColor="#999"
-                                    value={newTaskTitle}
-                                    onChangeText={setNewTaskTitle}
-                                    autoFocus
-                                    onSubmitEditing={() => handleAddTask(addingTaskForDate)}
-                                />
-                                <TouchableOpacity onPress={() => handleAddTask(addingTaskForDate)} style={styles.tactileButton}>
-                                    <Text style={styles.tactileButtonText}>Save</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={styles.addToolbar}>
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        setCalendarMode('new');
-                                        setIsCalendarVisible(true);
-                                    }}
-                                    style={styles.toolbarIconBtn}
-                                >
-                                    <Text style={styles.toolbarEmoji}>📅</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        setDurationMode('new');
-                                        setIsDurationPickerVisible(true);
-                                    }}
-                                    style={styles.toolbarIconBtn}
-                                >
-                                    <Text style={styles.toolbarEmoji}>⏱</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={styles.toolbarIconBtn} activeOpacity={1}>
-                                    <Text style={styles.toolbarEmoji}>⏰</Text>
-                                </TouchableOpacity>
-
-                                {!addingSubtaskToParentId && (
-                                    <TouchableOpacity
-                                        style={styles.toolbarIconBtn}
-                                        onPress={() => setIsRecurrencePickerVisible(true)}
-                                    >
-                                        <Text style={styles.toolbarEmoji}>🔁</Text>
-                                    </TouchableOpacity>
-                                )}
-
-                                <TouchableOpacity style={styles.toolbarIconBtn} activeOpacity={1}>
-                                    <Text style={styles.toolbarEmoji}>🏷️</Text>
-                                </TouchableOpacity>
-
-                                {newTaskDeadline && (
-                                    <TouchableOpacity onPress={() => setNewTaskDeadline(null)} style={styles.miniChip}>
-                                        <Text style={styles.miniChipText}>{newTaskDeadline}</Text>
-                                    </TouchableOpacity>
-                                )}
-                                {newTaskEstimatedTime && (
-                                    <TouchableOpacity onPress={() => setNewTaskEstimatedTime(null)} style={styles.miniChip}>
-                                        <Text style={styles.miniChipText}>{newTaskEstimatedTime}</Text>
-                                    </TouchableOpacity>
-                                )}
-                                {newTaskRecurrence && (
-                                    <TouchableOpacity onPress={() => setNewTaskRecurrence(null)} style={styles.miniChip}>
-                                        <Text style={styles.miniChipText}>
-                                            {newTaskRecurrence.frequency === 'weekly' && newTaskRecurrence.daysOfWeek
-                                                ? 'Custom W'
-                                                : newTaskRecurrence.frequency.charAt(0).toUpperCase() + newTaskRecurrence.frequency.slice(1)}
-                                        </Text>
-                                    </TouchableOpacity>
-                                )}
-
-                                <View style={{ flex: 1 }} />
-
-                                <TouchableOpacity onPress={cancelAddingTask} style={styles.cancelBtn}>
-                                    <Text style={styles.cancelAddText}>✕</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </KeyboardAvoidingView>
-                </>
-            )}
+            <TaskQuickAdd
+                visible={!!addingTaskForDate || !!addingSubtaskToParentId}
+                isSubtask={!!addingSubtaskToParentId}
+                title={newTaskTitle}
+                onChangeTitle={setNewTaskTitle}
+                onSave={() => handleAddTask(addingTaskForDate)}
+                onCancel={cancelAddingTask}
+                onOpenCalendar={() => {
+                    setCalendarMode('new');
+                    setIsCalendarVisible(true);
+                }}
+                onOpenDuration={() => {
+                    setDurationMode('new');
+                    setIsDurationPickerVisible(true);
+                }}
+                onOpenRecurrence={() => setIsRecurrencePickerVisible(true)}
+                deadline={newTaskDeadline}
+                onClearDeadline={() => setNewTaskDeadline(null)}
+                estimatedTime={newTaskEstimatedTime}
+                onClearEstimatedTime={() => setNewTaskEstimatedTime(null)}
+                recurrence={newTaskRecurrence}
+                onClearRecurrence={() => setNewTaskRecurrence(null)}
+            />
 
             {/* Sprint Start Button Overlay */}
-            {isSprintSelectionMode && (
-                <View style={styles.startSprintContainer}>
-                    <TouchableOpacity
-                        style={[styles.startSprintButton, selectedSprintTaskIds.size === 0 && styles.startSprintButtonDisabled]}
-                        onPress={startSprint}
-                        disabled={selectedSprintTaskIds.size === 0}
-                    >
-                        <MaterialCommunityIcons name="play" size={32} color="#FFF" />
-                        <Text style={styles.startSprintText}>
-                            {selectedSprintTaskIds.size > 0 ? `Start Sprint (${selectedSprintTaskIds.size})` : "Select Tasks to Start"}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            )}
+            {
+                isSprintSelectionMode && (
+                    <View style={styles.startSprintContainer}>
+                        <TouchableOpacity
+                            style={[styles.startSprintButton, selectedSprintTaskIds.size === 0 && styles.startSprintButtonDisabled]}
+                            onPress={startSprint}
+                            disabled={selectedSprintTaskIds.size === 0}
+                        >
+                            <MaterialCommunityIcons name="play" size={32} color="#FFF" />
+                            <Text style={styles.startSprintText}>
+                                {selectedSprintTaskIds.size > 0 ? `Start Sprint (${selectedSprintTaskIds.size})` : "Select Tasks to Start"}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                )
+            }
 
             {/* Edit Task / Subtask Drawer */}
             <TaskEditDrawer
@@ -1318,8 +1245,8 @@ export default function TaskListScreen() {
                     setCalendarTempDate(currentDeadline);
                     setIsCalendarVisible(true);
                 }}
-                availableTags={tags}
-            // No onManageTags prop (removes the button capability)
+                onRequestColorSettings={() => setIsColorSettingsVisible(true)}
+                userColors={userColors}
             />
 
             {/* Task Menu */}
@@ -1344,6 +1271,14 @@ export default function TaskListScreen() {
                 initialPage={calendarInitialPage}
             />
 
+            <ColorSettingsModal
+                visible={isColorSettingsVisible}
+                onClose={() => setIsColorSettingsVisible(false)}
+                userColors={userColors}
+                onSave={handleSaveUserColors}
+            />
+
+            {/* TimePickerModal removed - logic handled by CalendarModal */}
             <DurationPickerModal
                 visible={isDurationPickerVisible}
                 onClose={() => setIsDurationPickerVisible(false)}
@@ -1358,7 +1293,7 @@ export default function TaskListScreen() {
                 initialRule={newTaskRecurrence}
             />
 
-            {/* Removed TagSettingsModal from here */}
+
 
 
 
@@ -1370,6 +1305,6 @@ export default function TaskListScreen() {
                 }}
                 initialTime={newTaskReminderTime || undefined}
             />
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }

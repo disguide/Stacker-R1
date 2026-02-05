@@ -15,6 +15,19 @@ const THEME = {
     successBg: '#F0FFF4',
 };
 
+const hexToRgba = (hex: string, opacity: number) => {
+    let c: any;
+    if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+        c = hex.substring(1).split('');
+        if (c.length === 3) {
+            c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+        }
+        c = '0x' + c.join('');
+        return 'rgba(' + [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',') + ',' + opacity + ')';
+    }
+    return hex;
+};
+
 interface SwipeableTaskRowProps {
     id: string;
     title: string;
@@ -24,7 +37,9 @@ interface SwipeableTaskRowProps {
     progress?: number;
     daysRolled?: number;
     recurrence?: any; // Avoiding strict type import for now to keep component decoupled, or import RecurrenceRule
-    activeTags?: TagDefinition[]; // New Prop
+    // activeTags?: TagDefinition[]; // Removed
+    color?: string; // New: Color Stripe
+    taskType?: 'task' | 'event' | 'work' | 'chore' | 'habit'; // New: Type Shape
 
     // Customization
     menuIcon?: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -281,6 +296,8 @@ export default function SwipeableTaskRow({
             style={[styles.container, (completed || isCompleting) && styles.containerCompleted]}
             onLayout={handleLayout} // Measure Full Container
         >
+
+
             {/* Full Width Background Progress Fill - Hidden in Selection Mode */}
             {!completed && !isCompleting && !isSelectionMode && (
                 <Animated.View style={[
@@ -289,7 +306,8 @@ export default function SwipeableTaskRow({
                         width: progressAnim.interpolate({
                             inputRange: [0, 100],
                             outputRange: ['0%', '100%']
-                        })
+                        }),
+                        backgroundColor: props.color ? hexToRgba(props.color, 0.2) : '#E6FFFA'
                     }
                 ]} />
             )}
@@ -306,12 +324,29 @@ export default function SwipeableTaskRow({
                     disabled={!isSelectionMode}
                     activeOpacity={1} // No opacity change for row tap, checking box handles visual
                 >
+                    {/* Color Stripe */}
+                    {props.color && (
+                        <View style={{
+                            position: 'absolute',
+                            left: 0,
+                            top: 6,
+                            bottom: 6,
+                            width: 3,
+                            borderRadius: 1.5,
+                            backgroundColor: props.color
+                        }} />
+                    )}
+
                     {/* Checkbox: Now a proper touchable */}
                     <TouchableOpacity
                         style={[
                             styles.taskCheckbox,
                             isSelectionMode && styles.selectionCheckbox,
-                            isSelectionMode && isSelected && styles.selectionCheckboxSelected
+                            isSelectionMode && isSelected && styles.selectionCheckboxSelected,
+                            !isSelectionMode && {
+                                borderColor: props.color || '#444',
+                                borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 12 : 6
+                            }
                         ]}
                         onPress={isSelectionMode ? onSelect : onComplete}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -319,20 +354,17 @@ export default function SwipeableTaskRow({
                         {isSelectionMode ? (
                             isSelected && <View style={styles.selectionInner} />
                         ) : (
-                            (completed || isCompleting) && <View style={styles.taskCheckboxInner} />
+                            (completed || isCompleting) && <View style={[
+                                styles.taskCheckboxInner,
+                                {
+                                    backgroundColor: props.color || '#38A169',
+                                    borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 6 : 2
+                                }
+                            ]} />
                         )}
                     </TouchableOpacity>
 
-                    {/* Tags (Mini Banners) */}
-                    {props.activeTags && props.activeTags.length > 0 && (
-                        <View style={styles.tagContainer}>
-                            {props.activeTags.map(tag => (
-                                <View key={tag.id} style={[styles.tagBanner, { backgroundColor: tag.color }]}>
-                                    <Text style={styles.tagBannerSymbol}>{tag.symbol}</Text>
-                                </View>
-                            ))}
-                        </View>
-                    )}
+
 
                     <View style={{ flex: 1, paddingRight: 8 }} pointerEvents="none">
                         <Text style={[styles.taskTitle, (completed || isCompleting) && styles.taskTitleCompleted]}>
@@ -379,7 +411,8 @@ export default function SwipeableTaskRow({
             </View>
 
 
-            {/* Action Zone (Right Side) */}
+
+            {/* Action Zone (Right Side) - Now Absolute Top Right */}
             <View style={styles.actionZone}>
                 <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
                     <MaterialCommunityIcons name="pencil" size={20} color="#94A3B8" />
@@ -429,20 +462,21 @@ const styles = StyleSheet.create({
     sliderContent: {
         flex: 1, // Ensure it fills available space for absolute positioning
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'center', // Middle of the task
         paddingVertical: 12,
-        paddingLeft: 12, // Restored padding
+        paddingLeft: 12,
     },
     taskCheckbox: {
-        width: 24, // Slightly larger
+        width: 24,
         height: 24,
         borderRadius: 6,
         borderWidth: 1.5,
         borderColor: '#444',
-        marginRight: 12,
+        marginRight: 10,
+        // marginTop: 0, // Removed for center alignment
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'transparent', // Transparent to see fill? Or white? Keep white for checkbox check
+        backgroundColor: 'transparent',
         zIndex: 20
     },
     taskCheckboxInner: {
@@ -454,8 +488,9 @@ const styles = StyleSheet.create({
     taskTitle: {
         fontSize: 16,
         color: '#333333',
-        lineHeight: 22,
-        marginBottom: 2,
+        lineHeight: 22, // HEIGHT REFERENCE
+        marginBottom: 0, // Reduced to tighten vertical gap
+        paddingRight: 60, // Avoid overlapping Absolute Action Buttons
     },
     taskTitleCompleted: {
         color: '#38A169',
@@ -466,7 +501,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginTop: 4,
+        marginTop: 2, // Slightly tighter
     },
     metaItem: {
         flexDirection: 'row',
@@ -493,14 +528,17 @@ const styles = StyleSheet.create({
         color: '#C05621',
     },
     actionZone: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 8,
+        paddingVertical: 8,
         zIndex: 10,
-        backgroundColor: 'transparent', // Or match bg to hide slider if needed
     },
     actionButton: {
-        padding: 8,
+        padding: 5,
     },
     // Selection Styles
     selectionCheckbox: {
@@ -516,28 +554,7 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         backgroundColor: '#FFFFFF',
     },
-    // TAG STYLES
-    tagContainer: {
-        flexDirection: 'row', // Or column if we want vertical stacking
-        alignItems: 'center',
-        marginRight: 8,
-        gap: 4
-    },
-    tagBanner: {
-        width: 24,
-        height: 24,
-        borderRadius: 12, // Circle/Pill
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 1,
-        elevation: 1,
-    },
-    tagBannerSymbol: {
-        fontSize: 13, // Slightly larger
-    },
+
     percentageText: {
         position: 'absolute',
         bottom: 1,

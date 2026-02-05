@@ -3,29 +3,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
-import { TagDefinition, StorageService } from '../src/services/storage';
-import TagSettingsModal from '../src/components/TagSettingsModal';
+import { StorageService, ColorDefinition } from '../src/services/storage';
+import ColorSettingsModal from '../src/components/ColorSettingsModal';
 
 export default function SettingsScreen() {
     const router = useRouter();
-    const [isTagsModalVisible, setIsTagsModalVisible] = useState(false);
-    const [tags, setTags] = useState<TagDefinition[]>([]);
+    const [isColorModalVisible, setIsColorModalVisible] = useState(false);
+    const [userColors, setUserColors] = useState<ColorDefinition[]>([]);
 
     useEffect(() => {
-        loadTags();
+        loadData();
     }, []);
 
-    const loadTags = async () => {
-        const t = await StorageService.loadTags();
-        setTags(t);
+    const loadData = async () => {
+        const colors = await StorageService.loadUserColors();
+        setUserColors(colors);
     };
 
-    const handleSaveTags = async (updatedTags: TagDefinition[]) => {
-        setTags(updatedTags);
-        await StorageService.saveTags(updatedTags);
-        // Modal closes automatically, or we rely on onClose prop which calls this?
-        // TagSettingsModal behavior: HandleClose helper calls onSaveTags then onClose.
-        // We should ensure tags are reloaded in main app on return (via useFocusEffect there).
+    const handleSaveUserColors = async (colors: ColorDefinition[]) => {
+        setUserColors(colors);
+        await StorageService.saveUserColors(colors);
     };
 
     return (
@@ -43,30 +40,33 @@ export default function SettingsScreen() {
             </View>
 
             <ScrollView style={styles.content}>
-                <Text style={styles.sectionHeader}>General</Text>
+                <Text style={styles.sectionHeader}>Configuration</Text>
 
-                {/* Manage Tags Button */}
-                <TouchableOpacity style={styles.menuItem} onPress={() => setIsTagsModalVisible(true)}>
+                {/* Manage Color Meanings Button */}
+                <TouchableOpacity style={styles.menuItem} onPress={() => setIsColorModalVisible(true)}>
                     <View style={styles.menuItemLeft}>
                         <View style={[styles.iconContainer, { backgroundColor: '#F3F4F6' }]}>
-                            <Ionicons name="pricetags-outline" size={20} color="#333" />
+                            <Ionicons name="color-palette-outline" size={20} color="#333" />
                         </View>
-                        <Text style={styles.menuItemText}>Manage Tags</Text>
+                        <View>
+                            <Text style={styles.menuItemText}>Color Meanings</Text>
+                            <Text style={styles.menuItemSubText}>Assign text to colors (e.g. Red = School)</Text>
+                        </View>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color="#CCC" />
                 </TouchableOpacity>
 
                 {/* Placeholder for other settings */}
                 <View style={styles.divider} />
-                <Text style={styles.versionText}>Version 1.0.0</Text>
+                <Text style={styles.versionText}>Version 1.1.0</Text>
 
             </ScrollView>
 
-            <TagSettingsModal
-                visible={isTagsModalVisible}
-                onClose={() => setIsTagsModalVisible(false)}
-                tags={tags}
-                onSaveTags={handleSaveTags}
+            <ColorSettingsModal
+                visible={isColorModalVisible}
+                onClose={() => setIsColorModalVisible(false)}
+                userColors={userColors}
+                onSave={handleSaveUserColors}
             />
         </SafeAreaView>
     );
@@ -140,6 +140,11 @@ const styles = StyleSheet.create({
     menuItemText: {
         fontSize: 16,
         color: '#333',
+    },
+    menuItemSubText: {
+        fontSize: 12,
+        color: '#999',
+        marginTop: 2
     },
     divider: {
         height: 30,

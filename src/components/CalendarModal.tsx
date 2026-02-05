@@ -7,17 +7,18 @@ import {
     TouchableOpacity,
     Dimensions,
     Platform,
+    TextInput,
+    FlatList,
+    ScrollView,
 } from 'react-native';
-import { FlatList, ScrollView, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MODAL_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 360);
 const CONTENT_WIDTH = MODAL_WIDTH - 24; // paddingHorizontal 12 * 2
 const COL_WIDTH = CONTENT_WIDTH / 7;
-const ROW_HEIGHT = 38; // Compact height (was square ~48)
-const HEADER_HEIGHT = 40; // Title + Padding
+const ROW_HEIGHT = 38;
+const HEADER_HEIGHT = 40;
 
 // Theme Constants
 const THEME = {
@@ -35,13 +36,13 @@ const THEME = {
 interface CalendarModalProps {
     visible: boolean;
     onClose: () => void;
-    onSelectDate: (date: Date, hasTime?: boolean) => void;
+    onSelectDate: (date: Date | null, hasTime?: boolean) => void;
     selectedDate?: string | null; // YYYY-MM-DD or ISO
     initialPage?: number;
 }
 
-// Optimized Day Cell
-const DayCell = React.memo(({ date, isSelected, isToday, onSelect }: { date: Date | null, isSelected: boolean, isToday: boolean, onSelect: (d: Date) => void }) => {
+// Simple Day Cell (No Memo)
+const DayCell = ({ date, isSelected, isToday, onSelect }: { date: Date | null, isSelected: boolean, isToday: boolean, onSelect: (d: Date) => void }) => {
     if (!date) return <View style={styles.dayCell} />;
 
     return (
@@ -64,16 +65,10 @@ const DayCell = React.memo(({ date, isSelected, isToday, onSelect }: { date: Dat
             </TouchableOpacity>
         </View>
     );
-}, (prev, next) => {
-    // Custom comparison for performance
-    if (prev.isSelected !== next.isSelected) return false;
-    if (prev.isToday !== next.isToday) return false;
-    // date and onSelect are stable
-    return true;
-});
+};
 
-// Optimized Month Section
-const MonthSection = React.memo(({ data, selectedDate, onSelect }: { data: { date: Date }, selectedDate: Date, onSelect: (d: Date) => void }) => {
+// Simple Month Section (No Memo)
+const MonthSection = ({ data, selectedDate, onSelect }: { data: { date: Date }, selectedDate: Date | null, onSelect: (d: Date) => void }) => {
     const monthDate = data.date;
 
     const days = useMemo(() => {
@@ -86,7 +81,8 @@ const MonthSection = React.memo(({ data, selectedDate, onSelect }: { data: { dat
         return result;
     }, [monthDate]);
 
-    const isSameDay = (d1: Date, d2: Date) => {
+    const isSameDay = (d1: Date, d2: Date | null) => {
+        if (!d2) return false;
         return d1.getDate() === d2.getDate() &&
             d1.getMonth() === d2.getMonth() &&
             d1.getFullYear() === d2.getFullYear();
@@ -121,98 +117,41 @@ const MonthSection = React.memo(({ data, selectedDate, onSelect }: { data: { dat
             </View>
         </View>
     );
-});
+};
 
 const ITEM_HEIGHT = 50;
-const WHEEL_HEIGHT = ITEM_HEIGHT * 5; // Show ~5 items
+const WHEEL_HEIGHT = ITEM_HEIGHT * 5;
 
-const WheelPicker = React.memo(({ items, selectedValue, onChange, formatLabel, loop = true }: { items: (string | number)[], selectedValue: string | number, onChange: (val: any) => void, formatLabel?: (val: any) => string, loop?: boolean }) => {
-    const flatListRef = useRef<FlatList>(null);
-    const isScrolling = useRef(false);
-    const snapToInterval = ITEM_HEIGHT;
-    // Reduce repetitions to improve initial render performance while keeping "loop" feel
-    const REPETITIONS = loop ? 40 : 1;
-    const CENTER_OFFSET = loop ? Math.floor(REPETITIONS / 2) : 0;
+// Simple Wheel Picker using ScrollView (Robust)
+const WheelPicker = ({ items, selectedValue, onChange, formatLabel, onScrollStart }: { items: (string | number)[], selectedValue: string | number, onChange: (val: any) => void, formatLabel?: (val: any) => string, loop?: boolean, onScrollStart?: () => void }) => {
+    const scrollRef = useRef<ScrollView>(null);
+    const [isScrolling, setIsScrolling] = useState(false);
 
-    const displayItems = useMemo(() => {
-        if (!loop) return items;
-        const arr = [];
-        for (let i = 0; i < REPETITIONS; i++) {
-            arr.push(...items);
+    // Initial Scroll
+    useEffect(() => {
+        const index = items.indexOf(selectedValue);
+        if (index >= 0) {
+            setTimeout(() => {
+                scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
+            }, 100);
         }
-        return arr;
-    }, [items, loop]);
-
-    const getItemLayout = (_: any, index: number) => ({
-        length: ITEM_HEIGHT,
-        offset: ITEM_HEIGHT * index,
-        index,
-    });
+    }, []); // Run once on mount
 
     const handleScrollEnd = (e: any) => {
         const y = e.nativeEvent.contentOffset.y;
         const index = Math.round(y / ITEM_HEIGHT);
-        const actualIndex = loop ? index % items.length : index;
-        const newValue = items[actualIndex];
+        const clampedIndex = Math.max(0, Math.min(index, items.length - 1));
+        const newValue = items[clampedIndex];
 
-        if (newValue !== selectedValue) {
+        if (newValue !== undefined && newValue !== selectedValue) {
             onChange(newValue);
         }
+        setIsScrolling(false);
     };
-
-    // Initial scroll
-    useEffect(() => {
-        const itemIndex = items.indexOf(selectedValue);
-        if (itemIndex !== -1) {
-            const targetIndex = loop
-                ? (items.length * CENTER_OFFSET) + itemIndex
-                : itemIndex;
-
-            setTimeout(() => {
-                flatListRef.current?.scrollToIndex({ index: targetIndex, animated: false });
-            }, 50);
-        }
-    }, []);
-
-    // Effect to update scroll when value changes externally
-    useEffect(() => {
-        if (isScrolling.current) return; // Prevent fighting with user scroll
-
-        const index = items.indexOf(selectedValue);
-        if (index !== -1) {
-            const targetIndex = loop
-                ? (items.length * CENTER_OFFSET) + index
-                : index;
-            flatListRef.current?.scrollToIndex({ index: targetIndex, animated: true });
-        }
-    }, [selectedValue, items, loop]);
-
-    const renderItem = useCallback(({ item, index }: { item: string | number, index: number }) => {
-        const isSelected = item === selectedValue;
-        return (
-            <TouchableOpacity
-                style={{ height: ITEM_HEIGHT, justifyContent: 'center', alignItems: 'center' }}
-                onPress={() => {
-                    isScrolling.current = false;
-                    flatListRef.current?.scrollToIndex({ index, animated: true });
-                    onChange(item);
-                }}
-            >
-                <Text style={{
-                    fontSize: isSelected ? 24 : 18,
-                    fontWeight: isSelected ? 'bold' : '400',
-                    color: isSelected ? THEME.textPrimary : THEME.textSecondary,
-                    opacity: isSelected ? 1 : 0.6
-                }}>
-                    {formatLabel ? formatLabel(item) : item.toString().padStart(2, '0')}
-                </Text>
-            </TouchableOpacity>
-        );
-    }, [selectedValue, onChange, formatLabel]);
 
     return (
         <View style={{ height: WHEEL_HEIGHT, width: 70 }}>
-            {/* Selection Indicator Overlay */}
+            {/* Selection Overlay */}
             <View style={{
                 position: 'absolute',
                 top: ITEM_HEIGHT * 2,
@@ -222,78 +161,83 @@ const WheelPicker = React.memo(({ items, selectedValue, onChange, formatLabel, l
                 borderBottomWidth: 1,
                 borderColor: THEME.border,
                 backgroundColor: 'rgba(0,0,0,0.02)',
-                pointerEvents: 'none'
+                pointerEvents: 'none',
+                zIndex: 10
             }} />
 
-            <FlatList
-                ref={flatListRef}
-                data={displayItems}
-                renderItem={renderItem}
-                keyExtractor={(_, index) => index.toString()}
+            <ScrollView
+                ref={scrollRef}
+                nestedScrollEnabled={true}
                 snapToInterval={ITEM_HEIGHT}
                 decelerationRate="fast"
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{
-                    paddingVertical: ITEM_HEIGHT * 2
+                contentContainerStyle={{ paddingVertical: ITEM_HEIGHT * 2 }}
+                onScrollBeginDrag={() => {
+                    setIsScrolling(true);
+                    if (onScrollStart) onScrollStart();
                 }}
-                getItemLayout={getItemLayout}
-                onScrollBeginDrag={() => { isScrolling.current = true; }}
-                onMomentumScrollEnd={(e) => {
-                    isScrolling.current = false;
-                    handleScrollEnd(e);
-                }}
+                onMomentumScrollEnd={handleScrollEnd}
                 onScrollEndDrag={(e) => {
-                    // If no momentum (slow drag release), treat as end
-                    // But usually for wheel pickers we handle momentum
-                    // Adding this just in case logic:
+                    // Fallback if no momentum
                     setTimeout(() => {
-                        if (!isScrolling.current) handleScrollEnd(e);
-                    }, 100);
+                        if (!isScrolling) handleScrollEnd(e);
+                    }, 50);
                 }}
-                // Initial Scroll Index is tricky with large lists in some RN versions, but usually fine
-                // We rely on useEffect for initial positioning to be safe
-                initialNumToRender={20}
-                maxToRenderPerBatch={20}
-                windowSize={5}
-                onScrollToIndexFailed={(info) => {
-                    const wait = new Promise(resolve => setTimeout(resolve, 500));
-                    wait.then(() => {
-                        flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
-                    });
-                }}
-            />
+            >
+                {items.map((item, index) => {
+                    const isSelected = item === selectedValue;
+                    return (
+                        <TouchableOpacity
+                            key={index}
+                            style={{ height: ITEM_HEIGHT, justifyContent: 'center', alignItems: 'center' }}
+                            onPress={() => {
+                                scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
+                                if (onScrollStart) onScrollStart();
+                                onChange(item);
+                            }}
+                        >
+                            <Text style={{
+                                fontSize: isSelected ? 24 : 18,
+                                fontWeight: isSelected ? 'bold' : '400',
+                                color: isSelected ? THEME.textPrimary : THEME.textSecondary,
+                                opacity: isSelected ? 1 : 0.6
+                            }}>
+                                {formatLabel ? formatLabel(item) : item.toString().padStart(2, '0')}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
         </View>
     );
-});
+};
 
 export default function CalendarModal({ visible, onClose, onSelectDate, selectedDate, initialPage = 0 }: CalendarModalProps) {
     const listRef = useRef<FlatList>(null);
     const scrollRef = useRef<ScrollView>(null);
 
+    const [currentPage, setCurrentPage] = useState(0);
+    const [is24h, setIs24h] = useState(true);
+    const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
     const [tempDate, setTempDate] = useState<Date>(new Date());
+    const [hasTime, setHasTime] = useState(false);
     const [tempHour, setTempHour] = useState(new Date().getHours());
     const [tempMinute, setTempMinute] = useState(new Date().getMinutes());
-    const [hasTime, setHasTime] = useState(false);
-    const [currentPage, setCurrentPage] = useState(0);
-    const [is24h, setIs24h] = useState(true); // Default to 24h format
 
-    // Layout Data with offsets
+    // Relative Data removed
+
+    // Layout Data
     const months = useMemo(() => {
         const result = [];
         const start = new Date();
         start.setDate(1);
-
         let currentOffset = 0;
-
         for (let i = 0; i < 24; i++) {
             const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-
-            // Calculate Height
             const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
             const firstDay = (new Date(d.getFullYear(), d.getMonth(), 1).getDay() + 6) % 7;
             const weeks = Math.ceil((daysInMonth + firstDay) / 7);
             const height = HEADER_HEIGHT + (weeks * ROW_HEIGHT);
-
             result.push({ date: d, height, offset: currentOffset });
             currentOffset += height;
         }
@@ -302,9 +246,8 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
 
     useEffect(() => {
         if (visible) {
-            // Respect initialPage logic
+            // Reset Page
             if (initialPage === 1) {
-                // If opening directly to Time Picker, force scroll immediately or slightly delayed
                 setTimeout(() => {
                     scrollRef.current?.scrollTo({ x: MODAL_WIDTH, animated: false });
                     setCurrentPage(1);
@@ -314,59 +257,81 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                 setCurrentPage(0);
             }
 
+            // Parse Date
             let initialDate = new Date();
-            let hasTimeInfo = false;
+            let incomingDateObj: Date | null = null;
+            let incomingHasTime = false;
 
-            if (selectedDate) {
-                if (selectedDate.includes('T')) {
-                    hasTimeInfo = true;
-                    initialDate = new Date(selectedDate);
-                } else {
-                    const parts = selectedDate.split('-');
-                    initialDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            if (selectedDate && typeof selectedDate === 'string') {
+                try {
+                    if (selectedDate.includes('T')) {
+                        incomingHasTime = true;
+                        incomingDateObj = new Date(selectedDate);
+                    } else {
+                        const parts = selectedDate.split('-');
+                        if (parts.length >= 3) {
+                            incomingDateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                        }
+                    }
+                    if (incomingDateObj && isNaN(incomingDateObj.getTime())) {
+                        incomingDateObj = null;
+                        initialDate = new Date();
+                    } else if (incomingDateObj) {
+                        initialDate = incomingDateObj;
+                    }
+                } catch (e) {
+                    incomingDateObj = null;
+                    initialDate = new Date();
                 }
+            } else {
+                initialDate = new Date();
             }
+
+            setTempSelectedDate(incomingDateObj);
             setTempDate(initialDate);
-            if (hasTimeInfo) {
-                setTempHour(initialDate.getHours());
-                setTempMinute(initialDate.getMinutes());
+
+            if (incomingHasTime && incomingDateObj) {
+                setTempHour(incomingDateObj.getHours());
+                setTempMinute(incomingDateObj.getMinutes());
                 setHasTime(true);
             } else {
                 const now = new Date();
                 setTempHour(now.getHours());
                 setTempMinute(now.getMinutes());
-                // If it's Date-Only but we opened the Time Picker directly, enable time
-                setHasTime(initialPage === 1);
+                setHasTime(incomingHasTime);
             }
 
-            // Scroll to month
             setTimeout(() => {
                 const targetCode = `${initialDate.getFullYear()}-${initialDate.getMonth()}`;
                 const index = months.findIndex(m =>
                     `${m.date.getFullYear()}-${m.date.getMonth()}` === targetCode
                 );
-                if (index !== -1) {
-                    listRef.current?.scrollToIndex({ index, animated: false });
+                if (index !== -1 && listRef.current) {
+                    listRef.current.scrollToIndex({ index, animated: false });
                 }
             }, 100);
-        } else {
-            // If we want every open to be fresh if no date selected:
-            if (!selectedDate) {
-                const now = new Date();
-                setTempDate(now);
-                setTempHour(now.getHours());
-                setTempMinute(now.getMinutes());
-                // Default to time enabled if opening time picker directly
-                setHasTime(initialPage === 1);
-            }
         }
-    }, [visible, selectedDate, months]);
+    }, [visible, selectedDate, months, initialPage]);
+
+    const handleReset = () => {
+        if (currentPage === 1 && hasTime) {
+            setHasTime(false);
+        } else {
+            setTempSelectedDate(null);
+            setHasTime(false);
+        }
+    };
 
     const handleSave = () => {
-        const finalDate = new Date(tempDate);
+        if (!tempSelectedDate) {
+            onSelectDate(null);
+            onClose();
+            return;
+        }
+
+        const finalDate = new Date(tempSelectedDate);
         if (hasTime) {
             if (tempHour === 24) {
-                // 24:00 -> End of day (23:59:59)
                 finalDate.setHours(23, 59, 59, 999);
             } else {
                 finalDate.setHours(tempHour, tempMinute, 0, 0);
@@ -378,87 +343,50 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
         onClose();
     };
 
-    const adjustTime = (type: 'hour' | 'minute', delta: number) => {
-        setHasTime(true);
-        if (type === 'hour') {
-            setTempHour(prev => (prev + delta + 24) % 24);
-        } else {
-            setTempMinute(prev => (prev + delta + 60) % 60);
-        }
-    };
-
-    // Data for Wheels
-    const hours24 = useMemo(() => Array.from({ length: 25 }, (_, i) => i), []); // 0-24
-    // User requested "00 option for set time ampm". Changing to 1-12 range (standard).
-    // Actually standard is 12, 1, 2, 3 ... 11.
+    const hours24 = useMemo(() => Array.from({ length: 25 }, (_, i) => i), []);
     const hours12 = useMemo(() => [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], []);
     const minutes = useMemo(() => Array.from({ length: 60 }, (_, i) => i), []);
-    const amPm = ['AM', 'PM'];
 
-    // Data helpers
     const current12hHour = useMemo(() => {
         const h = tempHour % 12;
-        return h === 0 ? 12 : h; // Map 0 to 12
+        return h === 0 ? 12 : h;
     }, [tempHour]);
 
     const isPm = tempHour >= 12;
 
     const handleHourChange = (val: number) => {
         if (is24h) {
-            let newMinute = tempMinute;
-            if (val === 24) {
-                newMinute = 0; // Lock to 00 if 24 selected
-                setTempMinute(0);
-            }
-            if (val === 0 && newMinute === 0) {
-                setHasTime(false);
-            } else {
-                setHasTime(true);
-            }
+            if (val === 24) setTempMinute(0);
+            if (!hasTime) setHasTime(true);
             setTempHour(val);
         } else {
-            // val is 12, 1 ... 11
             let newHour;
             if (isPm) {
-                // If PM: 12 -> 12, 1 -> 13 ... 11 -> 23
                 if (val === 12) newHour = 12;
                 else newHour = val + 12;
             } else {
-                // If AM: 12 -> 0, 1 -> 1 ... 11 -> 11
                 if (val === 12) newHour = 0;
                 else newHour = val;
             }
-            // Check for 00:00 in 12h mode (0 hour, 0 minute)
-            if (newHour === 0 && tempMinute === 0) {
-                setHasTime(false);
-            } else {
-                setHasTime(true);
-            }
+            if (!hasTime) setHasTime(true);
             setTempHour(newHour);
-        }
-    };
-
-    const handleAmPmChange = (val: string) => {
-        const newIsPm = val === 'PM';
-        if (newIsPm !== isPm) {
-            setTempHour(prev => (prev + 12) % 24);
         }
     };
 
     const renderItem = useCallback(({ item }: { item: typeof months[0] }) => (
         <MonthSection
             data={item}
-            selectedDate={tempDate}
-            onSelect={setTempDate}
+            selectedDate={tempSelectedDate}
+            onSelect={(d) => {
+                setTempSelectedDate(d);
+            }}
         />
-    ), [tempDate]);
+    ), [tempSelectedDate]);
 
     const handleScroll = (e: any) => {
         const x = e.nativeEvent.contentOffset.x;
         const page = Math.round(x / MODAL_WIDTH);
-        if (page !== currentPage) {
-            setCurrentPage(page);
-        }
+        if (page !== currentPage) setCurrentPage(page);
     };
 
     const scrollToPage = (page: number) => {
@@ -466,20 +394,41 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
         setCurrentPage(page);
     };
 
-    if (!visible) return null;
+    const getConfirmText = () => {
+        if (!tempSelectedDate) return "Confirm";
+        const dateStr = tempSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (hasTime) {
+            const timeStr = is24h
+                ? `${tempHour.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`
+                : `${current12hHour}:${tempMinute.toString().padStart(2, '0')} ${isPm ? 'PM' : 'AM'}`;
+            return `Confirm ${dateStr}, ${timeStr}`;
+        }
+        return `Confirm ${dateStr}`;
+    };
+
+    // Auto-update relative calculation removed
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
                 <View style={[styles.calendarCard, { width: MODAL_WIDTH }]} onStartShouldSetResponder={() => true}>
-                    <GestureHandlerRootView style={{ flex: 1 }}>
+                    <View style={{ flex: 1 }}>
+
+                        {/* HEADER TABS */}
                         <View style={styles.tabIndicatorRow}>
-                            <TouchableOpacity onPress={() => scrollToPage(0)} hitSlop={10}>
-                                <View style={[styles.tabDot, currentPage === 0 && styles.tabDotActive]} />
+                            <TouchableOpacity onPress={() => scrollToPage(0)} style={styles.tabItem}>
+                                <Text style={[styles.tabText, currentPage === 0 && styles.tabTextActive]}>Date</Text>
+                                {currentPage === 0 && <View style={styles.tabLine} />}
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => scrollToPage(1)} hitSlop={10}>
-                                <View style={[styles.tabDot, currentPage === 1 && styles.tabDotActive]} />
+                            <View style={styles.arrowContainer}>
+                                <Ionicons name="chevron-forward" size={16} color="#DDD" />
+                            </View>
+                            <TouchableOpacity onPress={() => scrollToPage(1)} style={styles.tabItem}>
+                                <Text style={[styles.tabText, currentPage === 1 && styles.tabTextActive]}>Time</Text>
+                                {/* No extra text here */}
+                                {currentPage === 1 && <View style={styles.tabLine} />}
                             </TouchableOpacity>
+
                         </View>
 
                         <ScrollView
@@ -493,7 +442,7 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                             scrollEventThrottle={16}
                             bounces={false}
                         >
-                            {/* Calendar Page */}
+                            {/* PAGE 1: Calendar */}
                             <View style={{ width: MODAL_WIDTH, height: '100%' }}>
                                 <View style={styles.headerContainer}>
                                     <View style={styles.weekRow}>
@@ -525,104 +474,91 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                                 />
                             </View>
 
-                            {/* Time Picker Page */}
-                            <View style={{ width: MODAL_WIDTH, height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', paddingHorizontal: 32, marginBottom: 16 }}>
-                                    <Text style={styles.pageTitle}>Set Due Time</Text>
-                                    <TouchableOpacity onPress={() => setIs24h(!is24h)} style={{ padding: 8, backgroundColor: THEME.surface, borderRadius: 8, borderWidth: 1, borderColor: THEME.border }}>
-                                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: THEME.textPrimary }}>{is24h ? '24H' : '12H'}</Text>
-                                    </TouchableOpacity>
-                                </View>
+                            {/* PAGE 2: Time Picker */}
+                            <View style={{ width: MODAL_WIDTH, height: '100%', paddingHorizontal: 20, paddingTop: 20 }}>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
 
-                                <View style={styles.timePickerContainer}>
-                                    {is24h ? (
-                                        // 24H Layout
-                                        <>
-                                            <WheelPicker
-                                                items={hours24}
-                                                selectedValue={tempHour}
-                                                onChange={handleHourChange}
-                                            />
-                                            <Text style={[styles.timeSeparator, { paddingBottom: 10 }]}>:</Text>
-                                            <WheelPicker
-                                                items={minutes}
-                                                selectedValue={tempMinute}
-                                                onChange={(val) => {
-                                                    if (tempHour === 24) {
-                                                        // If 24h is selected, force minute to 00
-                                                        setTempMinute(0);
-                                                        return;
-                                                    }
-                                                    setTempMinute(val);
-                                                    if (tempHour === 0 && val === 0) {
-                                                        setHasTime(false);
-                                                    } else {
-                                                        setHasTime(true);
-                                                    }
-                                                }}
-                                            />
-                                        </>
-                                    ) : (
-                                        // 12H Layout
-                                        <>
-                                            <WheelPicker
-                                                items={hours12}
-                                                selectedValue={current12hHour}
-                                                onChange={handleHourChange}
-                                            />
-                                            <Text style={[styles.timeSeparator, { paddingBottom: 10 }]}>:</Text>
-                                            <WheelPicker
-                                                items={minutes}
-                                                selectedValue={tempMinute}
-                                                onChange={(val) => {
-                                                    setTempMinute(val);
-                                                    // Check 12h No Time Logic
-                                                    if (tempHour === 0 && val === 0) {
-                                                        setHasTime(false);
-                                                    } else {
-                                                        setHasTime(true);
-                                                    }
-                                                }}
-                                            />
-                                            <View style={{ width: 16 }} />
-                                            <WheelPicker
-                                                items={amPm}
-                                                selectedValue={isPm ? 'PM' : 'AM'}
-                                                onChange={handleAmPmChange}
-                                                formatLabel={(s) => s as string}
-                                                loop={false}
-                                            />
-                                        </>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
+                                        <Text style={styles.pageTitle}>Time</Text>
+                                        <TouchableOpacity onPress={() => setIs24h(!is24h)} style={{ padding: 8, backgroundColor: THEME.surface, borderRadius: 8, borderWidth: 1, borderColor: THEME.border }}>
+                                            <Text style={{ fontSize: 12, fontWeight: 'bold', color: THEME.textPrimary }}>{is24h ? '24H' : '12H'}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={[styles.timePickerContainer, { opacity: hasTime ? 1 : 0.3, pointerEvents: 'auto' }]}>
+                                        {is24h ? (
+                                            <>
+                                                <WheelPicker
+                                                    key="24h-hours"
+                                                    items={hours24}
+                                                    selectedValue={tempHour}
+                                                    onChange={handleHourChange}
+                                                    onScrollStart={() => !hasTime && setHasTime(true)}
+                                                />
+                                                <Text style={[styles.timeSeparator, { paddingBottom: 10 }]}>:</Text>
+                                                <WheelPicker
+                                                    key="24h-minutes"
+                                                    items={minutes}
+                                                    selectedValue={tempMinute}
+                                                    onChange={(val) => {
+                                                        if (tempHour === 24) { setTempMinute(0); return; }
+                                                        setTempMinute(val);
+                                                    }}
+                                                    onScrollStart={() => !hasTime && setHasTime(true)}
+                                                />
+                                            </>
+                                        ) : (
+                                            <>
+                                                <WheelPicker
+                                                    key="12h-hours"
+                                                    items={hours12}
+                                                    selectedValue={current12hHour}
+                                                    onChange={handleHourChange}
+                                                    onScrollStart={() => !hasTime && setHasTime(true)}
+                                                />
+                                                <Text style={[styles.timeSeparator, { paddingBottom: 10 }]}>:</Text>
+                                                <WheelPicker
+                                                    key="12h-minutes"
+                                                    items={minutes}
+                                                    selectedValue={tempMinute}
+                                                    onChange={(val) => setTempMinute(val)}
+                                                    onScrollStart={() => !hasTime && setHasTime(true)}
+                                                />
+                                                <View style={{ width: 20 }} />
+                                                <View>
+                                                    <TouchableOpacity onPress={() => { setTempHour(h => (h + 12) % 24); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: !isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>AM</Text></TouchableOpacity>
+                                                    <TouchableOpacity onPress={() => { setTempHour(h => (h + 12) % 24); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>PM</Text></TouchableOpacity>
+                                                </View>
+                                            </>
+                                        )}
+                                    </View>
+
+                                    {!hasTime && (
+                                        <Text style={{ marginTop: 20, color: THEME.textSecondary, fontSize: 14 }}>
+                                            Scroll to set time
+                                        </Text>
                                     )}
+
                                 </View>
-
-                                <TouchableOpacity
-                                    style={[styles.enableTimeToggle, !hasTime && { opacity: 0.8 }]}
-                                    onPress={() => {
-                                        setHasTime(false);
-                                        setTempHour(0);
-                                        setTempMinute(0);
-                                    }}
-                                >
-                                    <Ionicons name="close-circle" size={20} color={hasTime ? "#EF4444" : "#EF4444"} />
-                                    <Text style={[styles.enableTimeText, { color: "#EF4444" }]}>
-                                        No Time
-                                    </Text>
-                                </TouchableOpacity>
                             </View>
-
-                            {/* No Time Option - Explicit Button for clarity if needed, or just relying on toggle above */}
                         </ScrollView>
 
+                        {/* UNIVERSAL FOOTER */}
                         <View style={styles.footer}>
-                            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            <TouchableOpacity style={styles.cancelButton} onPress={handleReset}>
+                                <Text style={[styles.cancelButtonText, { color: '#EF4444' }]}>Reset</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                                <Text style={styles.saveButtonText}>Confirm {tempDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} {hasTime ? `${tempHour.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}` : ''}</Text>
+                            <View style={{ flex: 1 }} />
+                            <TouchableOpacity
+                                style={[styles.saveButton, !tempSelectedDate && { backgroundColor: '#E2E8F0' }]}
+                                onPress={handleSave}
+                            // disabled={!tempSelectedDate} // Now enabled to allow clearing
+                            >
+                                <Text style={[styles.saveButtonText, !tempSelectedDate && { color: '#94A3B8' }]}>{getConfirmText()}</Text>
                             </TouchableOpacity>
                         </View>
-                    </GestureHandlerRootView>
+
+                    </View>
                 </View>
             </TouchableOpacity>
         </Modal >
@@ -630,137 +566,46 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    calendarCard: {
-        height: Math.min(SCREEN_HEIGHT * 0.7, 500),
-        backgroundColor: THEME.bg,
-        borderRadius: 12,
-        overflow: 'hidden',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    tabIndicatorRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 12, // Increased gap for touch targets
-        paddingTop: 8,
-        paddingBottom: 4,
-        backgroundColor: THEME.surface,
-    },
-    tabDot: {
-        width: 8, // Larger
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#E2E8F0',
-    },
-    tabDotActive: {
-        backgroundColor: '#38A169',
-    },
-    headerContainer: {
-        backgroundColor: THEME.surface,
-        paddingTop: 8,
-        paddingBottom: 8,
-        zIndex: 10,
-    },
-    weekRow: {
-        flexDirection: 'row',
-        paddingHorizontal: 12,
-    },
-    weekdayLabel: {
-        flex: 1,
-        textAlign: 'center',
-        fontSize: 11,
-        fontWeight: '600',
-        color: THEME.textSecondary,
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
-    },
-    divider: {
-        height: 1,
-        backgroundColor: THEME.border,
-        marginTop: 8,
-    },
-    monthContainer: {
-        paddingHorizontal: 12,
-        paddingVertical: 4, // Ultra compact
-    },
-    monthTitle: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: THEME.textPrimary,
-        marginBottom: 4, // Compact
-        marginLeft: 4,
-        marginTop: 4,
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
-    },
-    daysGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-    },
-    dayCell: {
-        width: COL_WIDTH,
-        height: ROW_HEIGHT,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    dayButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    selectedDay: {
-        backgroundColor: '#38A169',
-        borderRadius: 8,
-    },
-    currentDayHighlight: {
-        backgroundColor: '#E6FFFA',
-        borderWidth: 1,
-        borderColor: '#38A169',
-        borderRadius: 8,
-    },
-    dayText: {
-        fontSize: 14,
-        color: THEME.textPrimary,
-        fontWeight: '500',
-    },
-    selectedDayText: {
-        color: '#FFFFFF',
-        fontWeight: 'bold',
-    },
-    currentDayText: {
-        fontWeight: 'bold',
-        color: '#38A169',
-    },
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+    calendarCard: { height: 500, backgroundColor: THEME.bg, borderRadius: 16, overflow: 'hidden' },
 
-    // Time Picker Styles
-    pageTitle: { fontSize: 18, fontWeight: 'bold', color: THEME.textPrimary, marginBottom: 24 },
-    timePickerContainer: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 32 },
-    timeColumn: { alignItems: 'center' },
-    timeBtn: { padding: 12 },
-    timeDigit: { fontSize: 32, fontWeight: 'bold', color: THEME.textPrimary, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace' }) },
-    timeSeparator: { fontSize: 32, fontWeight: 'bold', color: THEME.textSecondary, marginBottom: 4 },
-    enableTimeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, backgroundColor: THEME.surface, borderRadius: 8, borderWidth: 1, borderColor: THEME.border },
-    enableTimeText: { fontSize: 14, color: THEME.textSecondary, fontWeight: '600' },
+    // Header Tabs
+    tabIndicatorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, borderBottomWidth: 1, borderColor: '#F1F5F9', backgroundColor: '#FFF' },
+    tabItem: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 4 },
+    tabText: { fontSize: 15, fontWeight: '600', color: '#94A3B8' },
+    tabTextActive: { color: '#333' },
+    tabSubtitle: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
+    tabLine: { position: 'absolute', bottom: 0, width: '100%', height: 3, backgroundColor: '#38A169', borderRadius: 1.5 },
+    arrowContainer: { paddingHorizontal: 4 },
 
-    footer: {
-        padding: 12,
-        borderTopWidth: 1,
-        borderTopColor: THEME.border,
-        backgroundColor: THEME.surface,
-        flexDirection: 'row',
-        gap: 12,
-    },
-    cancelButton: { paddingVertical: 12, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' },
+    headerContainer: { paddingVertical: 10, borderBottomWidth: 1, borderColor: THEME.border, backgroundColor: THEME.surface },
+    monthContainer: { paddingHorizontal: 12, paddingBottom: 10 },
+    monthTitle: { fontSize: 16, fontWeight: 'bold', color: THEME.textPrimary, marginBottom: 12, marginLeft: 8, paddingTop: 12 },
+    weekRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 8 },
+    weekdayLabel: { width: COL_WIDTH, textAlign: 'center', fontSize: 12, color: THEME.textSecondary, fontWeight: '600' },
+    divider: { height: 1, backgroundColor: THEME.border },
+    daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+
+    dayCell: { width: COL_WIDTH, height: ROW_HEIGHT, justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
+    dayButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
+    dayText: { fontSize: 14, color: THEME.textPrimary, fontWeight: '500' },
+    currentDayHighlight: { backgroundColor: '#333' },
+    currentDayText: { color: '#FFF', fontWeight: '700' },
+    selectedDay: { backgroundColor: '#38A169' },
+    selectedDayText: { color: '#FFFFFF', fontWeight: 'bold' },
+
+    pageTitle: { fontSize: 18, fontWeight: '700', color: THEME.textPrimary, textAlign: 'center' },
+    timePickerContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+    timeSeparator: { fontSize: 24, fontWeight: 'bold', marginHorizontal: 10, color: THEME.textPrimary },
+
+    footer: { flexDirection: 'row', alignItems: 'center', padding: 16, borderTopWidth: 1, borderColor: THEME.border, backgroundColor: THEME.surface },
+    cancelButton: { paddingVertical: 10, paddingRight: 15 },
     cancelButtonText: { color: THEME.textSecondary, fontWeight: '600' },
     saveButton: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: '#38A169', borderRadius: 8 },
     saveButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+
+    unitTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+    unitTabActive: { backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1 },
+    unitTabText: { fontWeight: '600', color: '#94A3B8' },
+    unitTabTextActive: { color: '#38A169' },
 });
