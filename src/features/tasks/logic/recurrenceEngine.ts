@@ -10,24 +10,29 @@ export const RecurrenceEngine = {
      * Projects Master tasks onto a date range to create CalendarItems.
      * Merges with Single tasks and filters out Exceptions/Completions.
      */
+    /**
+     * Projects Master tasks onto a date range to create CalendarItems.
+     * Merges with Single tasks and filters out Exceptions/Completions.
+     */
     generateCalendarItems(
         tasks: Task[],
         startDateStr: string,
-        daysToShow: number
+        daysToShow: number,
+        lookbackDays: number = 60 // Default lookback
     ): CalendarItem[] {
         const items: CalendarItem[] = [];
         const startDate = new Date(startDateStr + 'T00:00:00');
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + daysToShow + 30); // Buffer
 
-        // ROLLOVER: Determine Lookback Window (Default 60 days)
+        // ROLLOVER: Determine Lookback Window
         // We scan past dates to find incomplete tasks that need to roll over to Today.
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayStr = toISODateString(today);
 
         const lookbackDate = new Date(today);
-        lookbackDate.setDate(today.getDate() - 60); // 60 days lookback
+        lookbackDate.setDate(today.getDate() - lookbackDays);
 
         tasks.forEach(task => {
             // 1. MASTER TASKS (Recurrence)
@@ -56,14 +61,16 @@ export const RecurrenceEngine = {
 
                         if (isPast) {
                             // ROLLOVER LOGIC
-                            // If it's past and NOT completed (we already returned if completed above),
-                            // then it Rolls Over to Today.
+                            // If it's past and NOT completed, Roll Over to Today.
                             finalDate = todayStr;
 
                             // Calculate Days Rolled
                             const diffTime = Math.abs(today.getTime() - dateObj.getTime());
                             daysRolled = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                         }
+
+                        // Only add if it falls within the requested VIEW range (after rolling)
+                        if (finalDate < startDateStr) return;
 
                         items.push({
                             id: `${task.id}_${dateString}`,
@@ -107,25 +114,17 @@ export const RecurrenceEngine = {
 
                     // ROLLOVER CALCULATION
                     let finalDate = task.date;
-                    let daysRolled = 0;
+                    let daysRolled = task.daysRolled || 0;
 
                     if (task.date < todayStr) {
                         // It matches lookup filter (incomplete) AND is in past -> ROLL IT
                         finalDate = todayStr;
                         const taskDateObj = new Date(task.date + 'T00:00:00');
                         const diffTime = Math.abs(today.getTime() - taskDateObj.getTime());
-                        daysRolled = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                        // DEBUG LOG
-                        console.log(`[RecurrenceEngine] Rollover Task ${task.id}: subtasks=`, task.subtasks?.map(s => s.completed));
+                        daysRolled = (task.daysRolled || 0) + Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     }
 
                     // Only add if it falls within the requested VIEW range (after rolling)
-                    // If rolled, finalDate is Today. If Today is in view (startDateStr <= Today), it shows.
-                    // If original date was future, finalDate is future.
-
-                    // Simple check: Is finalDate >= startDateStr?
-                    // (We assume we only care about showing things within the view or rolled to today)
                     if (finalDate < startDateStr) return;
 
                     items.push({
@@ -144,7 +143,7 @@ export const RecurrenceEngine = {
                         tagIds: task.tagIds,
                         color: task.color,
                         taskType: task.type,
-                        daysRolled: daysRolled // NEW
+                        daysRolled: daysRolled // Upstream or Calculated
                     });
                 }
             }

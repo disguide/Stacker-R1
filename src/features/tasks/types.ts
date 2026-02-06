@@ -27,6 +27,7 @@ export interface Task {
     recurrence?: RecurrenceRule;
     seriesId?: string;
     originalTaskId?: string;
+    daysRolled?: number;
 }
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';

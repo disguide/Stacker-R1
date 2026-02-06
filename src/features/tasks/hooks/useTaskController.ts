@@ -3,6 +3,8 @@ import { Task } from '../types';
 import { TaskRepository } from '../../../services/storage/TaskRepository';
 import { RecurrenceEngine } from '../logic/recurrenceEngine';
 import { RRule } from 'rrule';
+import { RolloverSystem } from '../logic/rolloverSystem';
+import { createRRuleString } from '../../../utils/recurrence';
 
 export const useTaskController = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -12,17 +14,6 @@ export const useTaskController = () => {
     useEffect(() => {
         loadTasks();
     }, []);
-
-    // Auto-Save Effect
-    // Skip saving on initial load by checking if loading is false (and maybe a ref to skip first render if needed)
-    // But simpliest is: only save if tasks changed?
-    // We'll wrap save in a debouncer or just save on every change?
-    // Let's keep it simple: manual saving was fine, but we need functional updates.
-    // We can't easily get the 'next' state out of setTasks(prev => next).
-
-    // Alternative: Use a helper that does both? 
-    // No, functional update is required for the race condition.
-    // So we MUST use useEffect to save `tasks`.
 
     const isFirstRun = useRef(true);
     const isSaving = useRef(false);
@@ -51,8 +42,23 @@ export const useTaskController = () => {
         }
         console.log('[useTaskController] Loading tasks...');
         const data = await TaskRepository.getAll();
-        console.log('[useTaskController] Tasks loaded:', data.length);
-        setTasks(data);
+
+        // ROLLOVER SYSTEM INTEGRATION
+        const { updates, creations } = RolloverSystem.getRolloverActions(data);
+
+        let finalTasks = data;
+
+        if (updates.length > 0 || creations.length > 0) {
+            console.log(`[useTaskController] Rollover Active: ${updates.length} updates, ${creations.length} created`);
+
+            const taskMap = new Map(data.map(t => [t.id, t]));
+            updates.forEach(u => taskMap.set(u.id, u));
+
+            finalTasks = [...Array.from(taskMap.values()), ...creations];
+        }
+
+        console.log('[useTaskController] Tasks loaded (with rollovers):', finalTasks.length);
+        setTasks(finalTasks);
         setLoading(false);
     }, []);
 
@@ -107,13 +113,36 @@ export const useTaskController = () => {
             if (index === -1) return prev;
 
             const updatedTasks = [...prev];
+            const currentTask = updatedTasks[index];
+
+            // RRule Sync Logic: If recurrence object is updated, we must regenerate the rrule string
+            let finalUpdates: Partial<Task> = { ...updates };
+
+            if ('recurrence' in updates) {
+                if (updates.recurrence) {
+                    // Regenerate RRule string
+                    const startDateForRRule = updates.date || currentTask.date;
+                    try {
+                        const newRRule = createRRuleString(updates.recurrence, startDateForRRule);
+                        console.log(`[useTaskController] Regenerated RRule for ${originalId}:`, newRRule);
+                        finalUpdates.rrule = newRRule;
+                    } catch (e) {
+                        console.error("[useTaskController] Failed to generate RRule", e);
+                    }
+                } else {
+                    // Recurrence removal
+                    console.log(`[useTaskController] Removing recurrence for ${originalId}`);
+                    finalUpdates.rrule = undefined;
+                    // Also clear other recurrence fields if needed
+                    finalUpdates.recurrence = undefined;
+                }
+            }
 
             // Protect Master ID: Don't let the Ghost ID overwrite the Master ID
-            // If updates contains the Ghost ID, remove it or ensure we use the originalId
-            const { id: updateId, ...safeUpdates } = updates;
+            const { id: updateId, ...safeUpdates } = finalUpdates;
 
             updatedTasks[index] = {
-                ...updatedTasks[index],
+                ...currentTask,
                 ...safeUpdates
             };
             return updatedTasks;
@@ -150,11 +179,6 @@ export const useTaskController = () => {
 
             const updatedTasks = [...prev];
             const task = { ...updatedTasks[index] };
-
-            // Determine if Instance or Master Logic
-            // If dateString is passed, we treat it as an instance update if RRule exists, 
-            // OR if it's a specific date assignment.
-            // However, consistent with our RecurrenceEngine, we check RRule.
 
             if (task.rrule) {
                 // Instance Logic

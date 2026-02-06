@@ -1,6 +1,56 @@
 import { RecurrenceRule, WeekDay } from '../services/storage';
+import { RRule, Frequency } from 'rrule';
 
 const WEEKDAYS: WeekDay[] = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+
+/**
+ * Converts our internal RecurrenceRule object to an iCal RRule string.
+ */
+export function createRRuleString(rule: RecurrenceRule, startDateStr: string): string {
+    const dtstart = new Date(startDateStr + 'T00:00:00');
+
+    // Map Frequency
+    let freq = RRule.DAILY;
+    switch (rule.frequency) {
+        case 'weekly': freq = RRule.WEEKLY; break;
+        case 'monthly': freq = RRule.MONTHLY; break;
+        case 'yearly': freq = RRule.YEARLY; break;
+    }
+
+    // Map Weekdays
+    let byweekday: any[] | undefined = undefined;
+    if (rule.frequency === 'weekly' && rule.daysOfWeek) {
+        byweekday = rule.daysOfWeek.map(d => {
+            switch (d) {
+                case 'MO': return RRule.MO;
+                case 'TU': return RRule.TU;
+                case 'WE': return RRule.WE;
+                case 'TH': return RRule.TH;
+                case 'FR': return RRule.FR;
+                case 'SA': return RRule.SA;
+                case 'SU': return RRule.SU;
+            }
+        });
+    }
+
+    const options: any = {
+        freq,
+        dtstart,
+        interval: rule.interval || 1,
+        byweekday
+    };
+
+    if (rule.endDate) {
+        options.until = new Date(rule.endDate + 'T00:00:00');
+    }
+
+    if (rule.occurrenceCount) {
+        options.count = rule.occurrenceCount;
+    }
+
+    const rrule = new RRule(options);
+    return rrule.toString();
+}
 
 /**
  * Calculates the next occurrence date based on the recurrence rule and the last occurrence date.
