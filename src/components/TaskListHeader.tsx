@@ -36,12 +36,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                 <ProfileButton avatarUri={userAvatar} />
 
                 <View style={styles.toolbar}>
-                    <TouchableOpacity
-                        style={styles.todayButton}
-                        onPress={() => onOffsetChange(0)}
-                    >
-                        <Text style={styles.todayButtonText}>Today</Text>
-                    </TouchableOpacity>
+
                     <TouchableOpacity
                         style={styles.toolbarButton}
                         onPress={() => {/* Friends Logic */ }}

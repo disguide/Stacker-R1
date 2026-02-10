@@ -40,6 +40,7 @@ interface SwipeableTaskRowProps {
     // activeTags?: TagDefinition[]; // Removed
     color?: string; // New: Color Stripe
     taskType?: 'task' | 'event' | 'work' | 'chore' | 'habit'; // New: Type Shape
+    importance?: number; // New: Importance Level (1, 2, 3)
 
     // Customization
     menuIcon?: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -401,7 +402,26 @@ export default function SwipeableTaskRow({
                             {/* Recurrence Tag */}
                             {props.recurrence && (
                                 <View style={styles.rolledOverTag}>
-                                    <Text style={{ fontSize: 12 }}>🔁</Text>
+                                    <MaterialCommunityIcons name="repeat" size={14} color="#64748B" />
+                                </View>
+                            )}
+                            {/* Importance Tag */}
+                            {(props.importance || 0) > 0 && (
+                                <View style={[
+                                    styles.rolledOverTag,
+                                    {
+                                        backgroundColor: props.importance === 3 ? '#FECACA' : props.importance === 2 ? '#FDE68A' : '#E9D5FF',
+                                    }
+                                ]}>
+                                    <Text style={[
+                                        styles.rolledOverText,
+                                        {
+                                            color: props.importance === 3 ? '#991B1B' : props.importance === 2 ? '#92400E' : '#6B21A8',
+                                            fontSize: 10
+                                        }
+                                    ]}>
+                                        {props.importance === 3 ? '!!!' : props.importance === 2 ? '!!' : '!'}
+                                    </Text>
                                 </View>
                             )}
                         </View>
@@ -511,7 +531,7 @@ const styles = StyleSheet.create({
     metaText: {
         fontSize: 12,
         color: '#64748B',
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
     },
     rolledOverTag: {
         flexDirection: 'row',

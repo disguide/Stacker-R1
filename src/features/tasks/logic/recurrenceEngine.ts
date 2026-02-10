@@ -93,6 +93,7 @@ export const RecurrenceEngine = {
                             tagIds: task.tagIds, // Copy tags
                             color: task.color,
                             taskType: task.type,
+                            importance: task.importance,
                             daysRolled: daysRolled
                         });
                     });
@@ -143,6 +144,7 @@ export const RecurrenceEngine = {
                         tagIds: task.tagIds,
                         color: task.color,
                         taskType: task.type,
+                        importance: task.importance,
                         daysRolled: daysRolled // Upstream or Calculated
                     });
                 }

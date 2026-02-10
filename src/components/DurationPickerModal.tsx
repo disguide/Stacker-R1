@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 16,
         color: THEME.textPrimary,
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
     },
     displayContainer: {
         paddingVertical: 16,

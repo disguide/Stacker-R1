@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
         color: THEME.textPrimary,
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
     },
     closeButton: {
         padding: 8,

@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         color: THEME.textPrimary,
         fontWeight: 'bold',
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
     },
     separator: {
         height: 1,

@@ -28,6 +28,8 @@ export interface Task {
     seriesId?: string;
     originalTaskId?: string;
     daysRolled?: number;
+    originalDate?: string;
+    importance?: number; // 0=None, 1=Low(!), 2=Medium(!!), 3=High(!!!)
 }
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -75,4 +77,5 @@ export interface CalendarItem {
     taskType?: 'task' | 'event' | 'work' | 'chore' | 'habit';
     daysRolled?: number;
     originalDate?: string;
+    importance?: number;
 }

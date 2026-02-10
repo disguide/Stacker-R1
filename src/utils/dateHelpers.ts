@@ -167,3 +167,20 @@ export const formatMinutesAsTime = (totalMinutes: number): string => {
     }
     return `${m}min`;
 };
+
+/**
+ * Calculate the difference in days between the given date and today.
+ * Returns formatted string like "0D", "1D", "-1D".
+ */
+export const getDaysDifference = (date: Date): string => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const target = new Date(date);
+    target.setHours(0, 0, 0, 0);
+
+    const diffTime = target.getTime() - today.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    return `${diffDays}D`;
+};

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Keyboard } from 'react-native';
-import { RecurrenceRule } from '../../../../services/storage';
+import { RecurrenceRule } from '../../../services/storage';
 
 export const useTaskForm = () => {
     const [addingTaskForDate, setAddingTaskForDate] = useState<string | null>(null);

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Task } from '../../features/tasks/types'; // We'll need to define this or import from central types
+import { Task } from '../../core/types';
 
 const KEYS = {
     ACTIVE: '@stacker_tasks_active',

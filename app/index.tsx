@@ -29,7 +29,7 @@ import { RRule } from 'rrule';
 
 // Import extracted modules
 import { THEME, ViewMode, VIEW_CONFIG } from '../src/constants/theme';
-import { toISODateString, isToday, getDayName, generateDates, formatDeadline, parseEstimatedTime, formatMinutesAsTime } from '../src/utils/dateHelpers';
+import { toISODateString, isToday, getDayName, generateDates, formatDeadline, parseEstimatedTime, formatMinutesAsTime, getDaysDifference } from '../src/utils/dateHelpers';
 import { resolveId } from '../src/utils/taskHelpers';
 import { styles } from '../src/styles/taskListStyles';
 
@@ -831,6 +831,8 @@ export default function TaskListScreen() {
             id: (editingSubtask ? subtaskData.id : Date.now().toString()),
             title: subtaskData.title,
             completed: subtaskData.completed || false,
+            deadline: subtaskData.deadline,
+            estimatedTime: subtaskData.estimatedTime,
         };
         // Assuming 'form' destructuring happens at a higher scope,
         // and this is where the instruction intends the variable to be available.
@@ -941,11 +943,11 @@ export default function TaskListScreen() {
             </Modal>
 
             {/* Date List using FlashList */}
-            {/* @ts-ignore */}
-            <FlashList
+            <FlashList<Date>
                 ref={flashListRef}
                 data={dates}
-                extraData={calendarItems}
+                extraData={calendarItems as any}
+                // @ts-ignore
                 estimatedItemSize={150}
                 keyExtractor={(item) => toISODateString(item)}
                 scrollEnabled={isListScrollEnabled}
@@ -1016,7 +1018,7 @@ export default function TaskListScreen() {
                                         {getDayName(date)}
                                     </Text>
                                     <Text style={styles.dateSubtext}>
-                                        {date.getDate()} {date.toLocaleDateString('en-US', { month: 'long' })}
+                                        {date.getDate()} {date.toLocaleDateString('en-US', { month: 'long' })} • {getDaysDifference(date)}
                                     </Text>
                                 </View>
 
@@ -1056,6 +1058,7 @@ export default function TaskListScreen() {
                                             // activeTags removed
                                             color={item.color}
                                             taskType={item.taskType}
+                                            importance={item.importance}
                                         />
 
                                         {/* Subtasks */}
@@ -1086,92 +1089,96 @@ export default function TaskListScreen() {
                             </View>
 
                             {/* Add Task Footer Button */}
-                            {!isAddingHere && (
-                                <TouchableOpacity
-                                    style={styles.addTaskSpace}
-                                    onPress={() => startAddingTask(dateString)}
-                                >
-                                    <Ionicons name="add" style={styles.addTaskIcon} />
-                                    <View style={styles.addTaskTextContainer}>
-                                        <Text style={styles.addTaskText}>Add Task</Text>
-                                        <View style={styles.addTaskUnderline} />
-                                    </View>
-                                </TouchableOpacity>
-                            )}
+                            {
+                                !isAddingHere && (
+                                    <TouchableOpacity
+                                        style={styles.addTaskSpace}
+                                        onPress={() => startAddingTask(dateString)}
+                                    >
+                                        <Ionicons name="add" style={styles.addTaskIcon} />
+                                        <View style={styles.addTaskTextContainer}>
+                                            <Text style={styles.addTaskText}>Add Task</Text>
+                                            <View style={styles.addTaskUnderline} />
+                                        </View>
+                                    </TouchableOpacity>
+                                )
+                            }
 
                             {/* Add Task Input */}
-                            {isAddingHere && (
-                                <View style={styles.addTaskContainer}>
-                                    <View style={styles.addTaskRow}>
-                                        <View style={styles.checkboxPlaceholder} />
-                                        <TextInput
-                                            ref={inputRef}
-                                            style={styles.addTaskInput}
-                                            placeholder="What needs to be done?"
-                                            placeholderTextColor="#999"
-                                            value={newTaskTitle}
-                                            onChangeText={setNewTaskTitle}
-                                            onSubmitEditing={() => handleAddTask(dateString)}
-                                            blurOnSubmit={false}
-                                        />
-                                        <TouchableOpacity onPress={cancelAddingTask}>
-                                            <Ionicons name="close-circle" size={24} color="#CCC" />
-                                        </TouchableOpacity>
+                            {
+                                isAddingHere && (
+                                    <View style={styles.addTaskContainer}>
+                                        <View style={styles.addTaskRow}>
+                                            <View style={styles.checkboxPlaceholder} />
+                                            <TextInput
+                                                ref={inputRef}
+                                                style={styles.addTaskInput}
+                                                placeholder="What needs to be done?"
+                                                placeholderTextColor="#999"
+                                                value={newTaskTitle}
+                                                onChangeText={setNewTaskTitle}
+                                                onSubmitEditing={() => handleAddTask(dateString)}
+                                                blurOnSubmit={false}
+                                            />
+                                            <TouchableOpacity onPress={cancelAddingTask}>
+                                                <Ionicons name="close-circle" size={24} color="#CCC" />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <View style={styles.addTaskActions}>
+                                            <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                                                <TouchableOpacity
+                                                    style={[styles.addOptionChip, newTaskDeadline && styles.addOptionChipActive]}
+                                                    onPress={() => {
+                                                        setCalendarMode('new');
+                                                        setIsCalendarVisible(true);
+                                                    }}
+                                                >
+                                                    <Ionicons name="calendar-outline" size={16} color={newTaskDeadline ? "#FFF" : "#666"} />
+                                                    <Text style={[styles.addOptionText, newTaskDeadline && { color: "#FFF" }]}>
+                                                        {newTaskDeadline ? formatDeadline(newTaskDeadline) : "Date"}
+                                                    </Text>
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={[styles.addOptionChip, newTaskEstimatedTime && styles.addOptionChipActive]}
+                                                    onPress={() => {
+                                                        setDurationMode('new');
+                                                        setIsDurationPickerVisible(true);
+                                                    }}
+                                                >
+                                                    <Feather name="clock" size={16} color={newTaskEstimatedTime ? "#FFF" : "#666"} />
+                                                    <Text style={[styles.addOptionText, newTaskEstimatedTime && { color: "#FFF" }]}>
+                                                        {newTaskEstimatedTime || "Duration"}
+                                                    </Text>
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={[styles.addOptionChip, newTaskReminderTime && styles.addOptionChipActive]}
+                                                    onPress={() => setIsTimePickerVisible(true)}
+                                                >
+                                                    <Ionicons name="notifications-outline" size={16} color={newTaskReminderTime ? "#FFF" : "#666"} />
+                                                    <Text style={[styles.addOptionText, newTaskReminderTime && { color: "#FFF" }]}>
+                                                        {newTaskReminderTime ? `🔔 ${(() => {
+                                                            const [h, m] = newTaskReminderTime.split(':').map(Number);
+                                                            const period = h >= 12 ? 'PM' : 'AM';
+                                                            const displayH = h % 12 || 12;
+                                                            return `${displayH}:${m.toString().padStart(2, '0')} ${period}`;
+                                                        })()}` : "Remind"}
+                                                    </Text>
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    style={styles.addSaveButton}
+                                                    onPress={() => handleAddTask(dateString)}
+                                                >
+                                                    <Text style={styles.addSaveText}>Add</Text>
+                                                </TouchableOpacity>
+                                            </ScrollView>
+                                        </View>
                                     </View>
-
-                                    <View style={styles.addTaskActions}>
-                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                                            <TouchableOpacity
-                                                style={[styles.addOptionChip, newTaskDeadline && styles.addOptionChipActive]}
-                                                onPress={() => {
-                                                    setCalendarMode('new');
-                                                    setIsCalendarVisible(true);
-                                                }}
-                                            >
-                                                <Ionicons name="calendar-outline" size={16} color={newTaskDeadline ? "#FFF" : "#666"} />
-                                                <Text style={[styles.addOptionText, newTaskDeadline && { color: "#FFF" }]}>
-                                                    {newTaskDeadline ? formatDeadline(newTaskDeadline) : "Date"}
-                                                </Text>
-                                            </TouchableOpacity>
-
-                                            <TouchableOpacity
-                                                style={[styles.addOptionChip, newTaskEstimatedTime && styles.addOptionChipActive]}
-                                                onPress={() => {
-                                                    setDurationMode('new');
-                                                    setIsDurationPickerVisible(true);
-                                                }}
-                                            >
-                                                <Feather name="clock" size={16} color={newTaskEstimatedTime ? "#FFF" : "#666"} />
-                                                <Text style={[styles.addOptionText, newTaskEstimatedTime && { color: "#FFF" }]}>
-                                                    {newTaskEstimatedTime || "Duration"}
-                                                </Text>
-                                            </TouchableOpacity>
-
-                                            <TouchableOpacity
-                                                style={[styles.addOptionChip, newTaskReminderTime && styles.addOptionChipActive]}
-                                                onPress={() => setIsTimePickerVisible(true)}
-                                            >
-                                                <Ionicons name="notifications-outline" size={16} color={newTaskReminderTime ? "#FFF" : "#666"} />
-                                                <Text style={[styles.addOptionText, newTaskReminderTime && { color: "#FFF" }]}>
-                                                    {newTaskReminderTime ? `🔔 ${(() => {
-                                                        const [h, m] = newTaskReminderTime.split(':').map(Number);
-                                                        const period = h >= 12 ? 'PM' : 'AM';
-                                                        const displayH = h % 12 || 12;
-                                                        return `${displayH}:${m.toString().padStart(2, '0')} ${period}`;
-                                                    })()}` : "Remind"}
-                                                </Text>
-                                            </TouchableOpacity>
-
-                                            <TouchableOpacity
-                                                style={styles.addSaveButton}
-                                                onPress={() => handleAddTask(dateString)}
-                                            >
-                                                <Text style={styles.addSaveText}>Add</Text>
-                                            </TouchableOpacity>
-                                        </ScrollView>
-                                    </View>
-                                </View>
-                            )}
+                                )
+                            }
                         </View>
                     );
                 }}

@@ -26,7 +26,7 @@ export const useTaskController = () => {
         if (!loading) {
             console.log('[useTaskController] Auto-saving tasks:', tasks.length);
             isSaving.current = true;
-            TaskRepository.saveAll(tasks)
+            TaskRepository.saveAll(tasks as any)
                 .catch(e => console.error("Failed to auto-save", e))
                 .finally(() => {
                     isSaving.current = false;
@@ -41,7 +41,7 @@ export const useTaskController = () => {
             return;
         }
         console.log('[useTaskController] Loading tasks...');
-        const data = await TaskRepository.getAll();
+        const data = (await TaskRepository.getAll()) as unknown as Task[];
 
         // ROLLOVER SYSTEM INTEGRATION
         const { updates, creations } = RolloverSystem.getRolloverActions(data);

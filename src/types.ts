@@ -15,6 +15,14 @@ export interface Task {
     progress?: number;
     instanceProgress?: Record<string, number>;
     instanceSubtasks?: Record<string, Subtask[]>;
+    importance?: number; // 0=None, 1=Low(!), 2=Medium(!!), 3=High(!!!)
+
+    // Recurrence / Instance Tracking
+    originalDate?: string;
+    originalTaskId?: string;
+    daysRolled?: number;
+    seriesId?: string;
+    color?: string;
 }
 
 export interface Subtask {
@@ -41,4 +49,5 @@ export interface CalendarItem {
     estimatedTime?: string;
     subtasks?: Subtask[];
     progress?: number;
+    importance?: number;
 }

@@ -32,26 +32,7 @@ export const styles = StyleSheet.create({
     toolbarButtonActive: {
         backgroundColor: '#E3F2FD',
     },
-    todayButton: {
-        backgroundColor: THEME.surface,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 4, // More squared like paper
-        borderWidth: 1.5,
-        borderColor: THEME.border,
-        // Tactile shadow
-        shadowColor: THEME.border,
-        shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-        elevation: 0, // Disable native Android shadow for custom look
-    },
-    todayButtonText: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: THEME.textPrimary,
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
-    },
+
     toolbarIcon: {
         fontSize: 18,
         color: THEME.textPrimary,
@@ -115,7 +96,7 @@ export const styles = StyleSheet.create({
         fontSize: 22,
         color: THEME.textPrimary,
         fontWeight: 'bold',
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
     },
     arrowTextDisabled: {
         color: '#CCCCCC',
@@ -131,7 +112,7 @@ export const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: THEME.textPrimary,
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
     },
     viewLabelArrow: {
         fontSize: 10,
@@ -166,7 +147,7 @@ export const styles = StyleSheet.create({
         fontSize: 16,
         color: THEME.textPrimary,
         textAlign: 'center',
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
     },
     viewPickerTextActive: {
         fontWeight: 'bold',
@@ -240,7 +221,7 @@ export const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
         color: '#333333',
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
     },
     todayDateNumber: {
         color: '#FFFFFF',
@@ -259,7 +240,7 @@ export const styles = StyleSheet.create({
         fontWeight: '600',
         color: THEME.textPrimary,
         marginBottom: 2,
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed, using system default
     },
     todayDateSubtext: {
         color: THEME.accent,
@@ -467,7 +448,7 @@ export const styles = StyleSheet.create({
     addTaskText: {
         fontSize: 16,
         color: THEME.textSecondary,
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
         fontStyle: 'italic',
     },
     addTaskUnderline: {
@@ -715,7 +696,7 @@ export const styles = StyleSheet.create({
         color: THEME.textPrimary,
         fontWeight: 'bold',
         fontSize: 14,
-        fontFamily: Platform.select({ ios: 'Georgia', android: 'serif' }),
+        // fontFamily removed for system default
     },
     addToolbar: {
         flexDirection: 'row',
