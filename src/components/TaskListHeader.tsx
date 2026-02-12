@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { styles } from '../styles/taskListStyles';
 import { VIEW_CONFIG, ViewMode } from '../constants/theme';
@@ -17,6 +17,7 @@ interface TaskListHeaderProps {
     showViewPicker: boolean;
     setShowViewPicker: (show: boolean) => void;
     onOpenReminders: () => void;
+    onOrganize: () => void;
 }
 
 export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
@@ -28,7 +29,8 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
     onToggleSprint,
     showViewPicker,
     setShowViewPicker,
-    onOpenReminders
+    onOpenReminders,
+    onOrganize
 }) => {
     const router = useRouter();
 
@@ -56,7 +58,10 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                         onPress={() => router.push('/long-term')}
                     >
                         <Ionicons name="telescope-outline" size={24} color="#333" />
+
                     </TouchableOpacity>
+
+
 
                     <TouchableOpacity
                         style={styles.toolbarButton}
@@ -94,7 +99,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                 >
                     <Ionicons name="chevron-forward" size={24} color="#333" />
                 </TouchableOpacity>
-                <View style={{ flex: 1 }} />
+
 
                 <TouchableOpacity
                     style={[
@@ -109,6 +114,19 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                     ]}>
                         {isSprintSelectionMode ? "Cancel" : "Sprint"}
                     </Text>
+                </TouchableOpacity>
+
+                <View style={{ flex: 1 }} />
+
+                <TouchableOpacity
+                    style={styles.toolbarButton} // Reusing toolbar button style for consistency or creating new one?
+                    // Actually, reusing organizeMethodButton style is maybe better but that was removed. 
+                    // Let's use toolbarButton style but in this row.
+                    // Wait, the user said "Put the organise button all the wayright inline with the date navigation."
+                    // I'll use a simple TouchableOpacity with the icon.
+                    onPress={onOrganize}
+                >
+                    <MaterialCommunityIcons name="sort-variant" size={24} color="#333" />
                 </TouchableOpacity>
             </View>
         </View>

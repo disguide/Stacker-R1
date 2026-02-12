@@ -107,7 +107,7 @@ export const formatDeadline = (dateString: string): string => {
     else if (diffDays > 1) relative = `${diffDays}D`;
     else if (diffDays < 0) relative = `${diffDays}D`;
 
-    return `${month} ${day}${timeStr} • ${relative}`;
+    return `${month} ${day}${timeStr} - ${relative}`;
 };
 
 /**

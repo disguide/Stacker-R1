@@ -500,22 +500,26 @@ export const styles = StyleSheet.create({
     },
     startSprintContainer: {
         position: 'absolute',
-        bottom: 40, // Lower it a bit
-        left: 20,
+        bottom: 20, // Lower it a bit
+        left: 12, // Moved closer to left edge
         right: 20,
-        alignItems: 'center',
+        flexDirection: 'column', // Stack vertically
+        alignItems: 'flex-start', // Align to left
+        justifyContent: 'flex-end', // Stick to bottom
         zIndex: 200,
         elevation: 200,
+        pointerEvents: 'box-none', // Allow clicking through empty space
     },
     startSprintButton: {
         backgroundColor: '#FFFFFF',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 18,
-        paddingHorizontal: 32,
-        borderRadius: 12, // Rectangular
-        width: '80%',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 30, // Pill shape
+        // flex: 1, // Remove flex to let it size to content or specific width if needed, but flex:1 fills space
+        // flex: 1, // Removed flex to let it size naturally next to organize button
         gap: 12,
         // Clicky/Tactile Shadow
         shadowColor: "#000",
@@ -534,10 +538,25 @@ export const styles = StyleSheet.create({
     },
     startSprintText: {
         color: '#000000', // Black
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '900', // Extra bold
         letterSpacing: 1,
         textTransform: 'uppercase',
+    },
+    organizeMethodButton: {
+        backgroundColor: '#FFFFFF',
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 6,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
     },
 
 

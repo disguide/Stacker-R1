@@ -15,6 +15,8 @@ interface TaskQuickAddProps {
     onOpenCalendar: () => void;
     onOpenDuration: () => void;
     onOpenRecurrence: () => void;
+    onOpenReminder: () => void;
+    onOpenProperties: () => void;
 
     // Active Values
     deadline: string | null;
@@ -37,6 +39,8 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
     onOpenCalendar,
     onOpenDuration,
     onOpenRecurrence,
+    onOpenReminder,
+    onOpenProperties,
     deadline,
     onClearDeadline,
     estimatedTime,
@@ -97,7 +101,7 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                             <Text style={styles.toolbarEmoji}>⏱</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.toolbarIconBtn} activeOpacity={1}>
+                        <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenReminder}>
                             <Text style={styles.toolbarEmoji}>⏰</Text>
                         </TouchableOpacity>
 
@@ -107,7 +111,7 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                             </TouchableOpacity>
                         )}
 
-                        <TouchableOpacity style={styles.toolbarIconBtn} activeOpacity={1}>
+                        <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenProperties}>
                             <Text style={styles.toolbarEmoji}>🏷️</Text>
                         </TouchableOpacity>
 
