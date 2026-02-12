@@ -9,6 +9,8 @@ export const useTaskForm = () => {
     const [newTaskEstimatedTime, setNewTaskEstimatedTime] = useState<string | null>(null);
     const [newTaskRecurrence, setNewTaskRecurrence] = useState<RecurrenceRule | null>(null);
     const [newTaskReminderTime, setNewTaskReminderTime] = useState<string | null>(null);
+    const [newTaskReminderDate, setNewTaskReminderDate] = useState<string | null>(null);
+    const [newTaskReminderOffset, setNewTaskReminderOffset] = useState<number>(0);
     const [addingSubtaskToParentId, setAddingSubtaskToParentId] = useState<string | null>(null);
 
     const resetForm = useCallback(() => {
@@ -19,6 +21,7 @@ export const useTaskForm = () => {
         setNewTaskEstimatedTime(null);
         setNewTaskRecurrence(null);
         setNewTaskReminderTime(null);
+        setNewTaskReminderDate(null);
         Keyboard.dismiss();
     }, []);
 
@@ -41,6 +44,13 @@ export const useTaskForm = () => {
         setNewTaskRecurrence,
         newTaskReminderTime,
         setNewTaskReminderTime,
+        newTaskReminderDate,
+        setNewTaskReminderDate,
+        newTaskReminderOffset: newTaskReminderOffset || 0, // Default to 0? Or undefined? Let's keep it consistent with usage
+        setNewTaskReminderOffset: (offset: number) => {
+            setNewTaskReminderDate(null); // Clear date when setting offset
+            setNewTaskReminderOffset(offset);
+        },
         addingSubtaskToParentId,
         setAddingSubtaskToParentId,
 

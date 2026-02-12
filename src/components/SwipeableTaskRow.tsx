@@ -41,6 +41,9 @@ interface SwipeableTaskRowProps {
     color?: string; // New: Color Stripe
     taskType?: 'task' | 'event' | 'work' | 'chore' | 'habit'; // New: Type Shape
     importance?: number; // New: Importance Level (1, 2, 3)
+    reminderEnabled?: boolean;
+    reminderTime?: string; // HH:mm
+    reminderDate?: string; // YYYY-MM-DD
 
     // Customization
     menuIcon?: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -51,6 +54,7 @@ interface SwipeableTaskRowProps {
     onComplete: () => void;
     onEdit: () => void;
     onMenu: () => void;
+    onToggleReminder?: () => void; // Toggle callback for reminder tag
     // Formatters handling
     formatDeadline: (date: string) => string;
 
@@ -367,7 +371,7 @@ export default function SwipeableTaskRow({
 
 
 
-                    <View style={{ flex: 1, paddingRight: 8 }} pointerEvents="none">
+                    <View style={{ flex: 1, paddingRight: 8 }} pointerEvents="box-none">
                         <Text style={[styles.taskTitle, (completed || isCompleting) && styles.taskTitleCompleted]}>
                             {title}
                         </Text>
@@ -423,6 +427,30 @@ export default function SwipeableTaskRow({
                                         {props.importance === 3 ? '!!!' : props.importance === 2 ? '!!' : '!'}
                                     </Text>
                                 </View>
+                            )}
+                            {/* Reminder Tag - Toggleable */}
+                            {props.reminderTime && (
+                                <TouchableOpacity
+                                    onPress={props.onToggleReminder}
+                                    style={[
+                                        styles.rolledOverTag,
+                                        {
+                                            backgroundColor: (props.reminderEnabled ?? true) ? '#FEF3C7' : '#F1F5F9', // Amber vs Gray 100
+                                            marginRight: 4
+                                        }
+                                    ]}
+                                >
+                                    <Text style={[
+                                        styles.rolledOverText,
+                                        {
+                                            color: (props.reminderEnabled ?? true) ? '#B45309' : '#94A3B8', // Orange vs Gray 400
+                                            textDecorationLine: (props.reminderEnabled ?? true) ? 'none' : 'line-through'
+                                        }
+                                    ]}>
+                                        🔔 {props.reminderTime}
+                                        {props.reminderDate && props.reminderDate !== new Date().toISOString().split('T')[0] ? ` (${props.reminderDate.slice(5)})` : ''}
+                                    </Text>
+                                </TouchableOpacity>
                             )}
                         </View>
                     </View>
@@ -522,6 +550,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 8,
         marginTop: 2, // Slightly tighter
+        flexWrap: 'wrap',
     },
     metaItem: {
         flexDirection: 'row',

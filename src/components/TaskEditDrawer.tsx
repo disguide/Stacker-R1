@@ -12,10 +12,11 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView, // Import ScrollView
+    Switch,
 } from 'react-native';
 import RecurrencePickerModal from './RecurrencePickerModal';
 import { RecurrenceRule, ColorDefinition } from '../services/storage';
-// import { Task } from '../types'; // Removed to use local definition
+import { formatDeadline } from '../utils/dateHelpers'; // Removed to use local definition
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -36,22 +37,7 @@ const formatDateShort = (dateStr: string) => {
     return `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
 };
 
-interface Task {
-    id: string;
-    title: string;
-    date: string;
-    originalDate?: string;
-    deadline?: string;
-    estimatedTime?: string;
-    completed?: boolean;
-    subtasks?: { id: string; title: string; completed: boolean; }[];
-    recurrence?: RecurrenceRule;
-    originalTaskId?: string;
-    seriesId?: string;
-    color?: string;
-    type?: 'task' | 'event' | 'work' | 'chore' | 'habit';
-    importance?: number;
-}
+import { Task } from '../features/tasks/types';
 
 
 interface TaskEditDrawerProps {
@@ -87,6 +73,9 @@ export default function TaskEditDrawer({
     const [color, setColor] = useState<string | undefined>(undefined);
     const [taskType, setTaskType] = useState<'task' | 'event' | 'work' | 'chore' | 'habit' | undefined>(undefined);
     const [importance, setImportance] = useState<number>(0);
+    const [reminderTime, setReminderTime] = useState<string | null>(null);
+    const [reminderDate, setReminderDate] = useState<string | null>(null);
+    const [reminderEnabled, setReminderEnabled] = useState(false);
     const [isPropertiesModalVisible, setIsPropertiesModalVisible] = useState(false);
 
     const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
@@ -129,6 +118,9 @@ export default function TaskEditDrawer({
                 setColor(task.color);
                 setTaskType(task.type);
                 setImportance(task.importance || 0); // Initialize importance
+                setReminderTime(task.reminderTime || null); // Initialize reminderTime
+                setReminderDate(task.reminderDate || null); // Initialize reminderDate
+                setReminderEnabled(task.reminderEnabled ?? !!task.reminderTime);
                 // Slide up
                 panY.setValue(SCREEN_HEIGHT);
                 Animated.spring(panY, {
@@ -152,6 +144,9 @@ export default function TaskEditDrawer({
                 if (task.color !== prevTask.color) setColor(task.color);
                 if (task.type !== prevTask.type) setTaskType(task.type);
                 if (task.importance !== prevTask.importance) setImportance(task.importance || 0); // Update importance
+                if (task.reminderTime !== prevTask.reminderTime) setReminderTime(task.reminderTime || null);
+                if (task.reminderDate !== prevTask.reminderDate) setReminderDate(task.reminderDate || null);
+                if (task.reminderEnabled !== prevTask.reminderEnabled) setReminderEnabled(task.reminderEnabled ?? !!task.reminderTime);
                 // Do NOT overwrite title or subtasks to preserve unsaved edits
             }
             prevTaskRef.current = task;
@@ -198,6 +193,9 @@ export default function TaskEditDrawer({
                 type: taskType,
                 importance: importance, // Include importance
                 seriesId: finalSeriesId,
+                reminderTime: reminderTime || undefined,
+                reminderDate: reminderDate || undefined,
+                reminderEnabled: reminderEnabled,
             });
         }
         // If title empty, we just close without saving (discard)
@@ -430,16 +428,44 @@ export default function TaskEditDrawer({
                                         </TouchableOpacity>
                                     )}
                                 </TouchableOpacity>
+
+                                {/* Reminder Card - New Addition */}
+                                <TouchableOpacity
+                                    style={styles.featureCardGrid}
+                                    onPress={() => {
+                                        if (reminderTime) {
+                                            // Construct ISO for CalendarModal to parse time correctly
+                                            const baseDate = reminderDate || task?.date || deadline || new Date().toISOString().split('T')[0];
+                                            onRequestTime(`${baseDate}T${reminderTime}`);
+                                        } else {
+                                            onRequestTime(null);
+                                        }
+                                    }}
+                                >
+                                    <View style={styles.featureIconContainer}>
+                                        <Ionicons name={reminderTime ? "notifications" : "notifications-outline"} size={20} color={reminderTime ? THEME.accent : THEME.textSecondary} />
+                                    </View>
+                                    <Text style={styles.featureLabel}>Reminder</Text>
+                                    <Text style={[styles.featureValue, reminderTime && reminderEnabled && styles.featureValueActive]} numberOfLines={1}>
+                                        {reminderTime ? (
+                                            `${formatTime(reminderTime)}${reminderDate && reminderDate !== new Date().toISOString().split('T')[0] ? `, ${formatDeadline(reminderDate)}` : ''}`
+                                        ) : 'None'}
+                                    </Text>
+                                    {reminderTime && (
+                                        <View style={{ position: 'absolute', top: 10, right: 10 }}>
+                                            <Switch
+                                                value={reminderEnabled}
+                                                onValueChange={setReminderEnabled}
+                                                trackColor={{ false: "#767577", true: THEME.accent }}
+                                                thumbColor={"#f4f3f4"}
+                                                style={{ transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] }}
+                                            />
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
                             </View>
-
-
-                            {/* Subtasks Section Removed as per user request */}
                         </>
                     )}
-
-
-
-
                 </ScrollView>
             </Animated.View>
 
@@ -454,7 +480,7 @@ export default function TaskEditDrawer({
             <Modal
                 visible={isPropertiesModalVisible}
                 transparent
-                animationType="slide"
+                animationType="fade"
                 onRequestClose={() => setIsPropertiesModalVisible(false)}
             >
                 <TouchableOpacity
@@ -984,14 +1010,20 @@ const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'flex-end',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     modalContent: {
         backgroundColor: '#FFF',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderRadius: 16,
         padding: 24,
-        paddingBottom: 40,
+        width: '85%',
+        maxHeight: '70%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
     },
     modalHeader: {
         flexDirection: 'row',

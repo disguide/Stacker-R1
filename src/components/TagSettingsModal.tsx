@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TagDefinition } from '../services/storage';
+
+const THEME = {
+    bg: '#FAFAF6',
+    textPrimary: '#333333',
+    textSecondary: '#64748B',
+    border: '#E2E8F0',
+    surface: '#FFFFFF',
+};
 
 interface TagSettingsModalProps {
     visible: boolean;
@@ -11,24 +19,14 @@ interface TagSettingsModalProps {
 }
 
 const COLORS = [
-    '#EF4444', // Red
-    '#F97316', // Orange
-    '#F59E0B', // Amber
-    '#10B981', // Emerald
-    '#3B82F6', // Blue
-    '#6366F1', // Indigo
-    '#8B5CF6', // Violet
-    '#EC4899', // Pink
-    '#64748B', // Slate
-    '#000000', // Black
+    '#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6',
+    '#6366F1', '#8B5CF6', '#EC4899', '#64748B', '#000000',
 ];
 
 const PRESET_EMOJIS = ['🏷️', '📚', '💼', '💪', '🏠', '🛒', '✈️', '🎉', '❤️', '⭐'];
 
 export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }: TagSettingsModalProps) {
     const [localTags, setLocalTags] = useState<TagDefinition[]>([]);
-
-    // Editing State
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editLabel, setEditLabel] = useState('');
     const [editColor, setEditColor] = useState(COLORS[0]);
@@ -57,15 +55,12 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
 
     const handleSaveEdit = () => {
         if (!editLabel.trim()) return;
-
         if (editingId) {
-            // Update existing
             const updated = localTags.map(t =>
                 t.id === editingId ? { ...t, label: editLabel, color: editColor, symbol: editSymbol } : t
             );
             setLocalTags(updated);
         } else {
-            // Create new
             const newTag: TagDefinition = {
                 id: Date.now().toString(),
                 label: editLabel,
@@ -97,41 +92,32 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
     };
 
     return (
-        <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-            <View style={styles.overlay}>
-                <View style={styles.container}>
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
-                            <Ionicons name="close" size={24} color="#000" />
-                        </TouchableOpacity>
-                        <Text style={styles.title}>Manage Tags</Text>
-                        <TouchableOpacity onPress={handleClose}>
-                            <Text style={styles.saveText}>Done</Text>
-                        </TouchableOpacity>
-                    </View>
+        <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
+            <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
+                <View style={styles.container} onStartShouldSetResponder={() => true}>
+                    <Text style={styles.title}>Manage Tags</Text>
 
                     <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
                         {/* Editor Section */}
                         <View style={styles.editorContainer}>
                             <Text style={styles.sectionTitle}>{editingId ? 'Edit Tag' : 'New Tag'}</Text>
 
-                            {/* Label Input */}
                             <TextInput
                                 style={styles.input}
                                 placeholder="Tag Name (e.g. Work)"
+                                placeholderTextColor="#94A3B8"
                                 value={editLabel}
                                 onChangeText={setEditLabel}
                             />
 
                             {/* Symbol Input */}
-                            <View style={styles.row}>
+                            <View style={styles.symbolRow}>
                                 <Text style={styles.label}>Symbol:</Text>
                                 <TextInput
                                     style={styles.symbolInput}
                                     placeholder="🏷️"
                                     value={editSymbol}
-                                    onChangeText={(text) => setEditSymbol(text.slice(0, 2))} // Limit length
+                                    onChangeText={(text) => setEditSymbol(text.slice(0, 2))}
                                 />
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presetRow}>
                                     {PRESET_EMOJIS.map(emo => (
@@ -155,11 +141,11 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
                             </View>
 
                             <TouchableOpacity
-                                style={[styles.actionBtn, { backgroundColor: editLabel ? '#000' : '#CCC' }]}
+                                style={[styles.actionBtn, { backgroundColor: editLabel ? '#38A169' : '#E2E8F0' }]}
                                 onPress={handleSaveEdit}
                                 disabled={!editLabel}
                             >
-                                <Text style={styles.actionBtnText}>
+                                <Text style={[styles.actionBtnText, { color: editLabel ? '#FFF' : '#94A3B8' }]}>
                                     {editingId ? 'Update Tag' : 'Add Tag'}
                                 </Text>
                             </TouchableOpacity>
@@ -187,19 +173,30 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
                                     </View>
                                     <View style={styles.rowActions}>
                                         <TouchableOpacity onPress={() => handleStartEdit(tag)} style={styles.iconBtn}>
-                                            <Ionicons name="pencil" size={20} color="#666" />
+                                            <Ionicons name="pencil" size={18} color={THEME.textSecondary} />
                                         </TouchableOpacity>
                                         <TouchableOpacity onPress={() => handleDelete(tag.id)} style={styles.iconBtn}>
-                                            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
                             ))}
                         </View>
-                        <View style={{ height: 40 }} />
+                        <View style={{ height: 20 }} />
                     </ScrollView>
+
+                    {/* Footer — Unified pattern */}
+                    <View style={styles.footer}>
+                        <TouchableOpacity onPress={handleClose} style={styles.cancelButton}>
+                            <Text style={styles.cancelButtonText}>Close</Text>
+                        </TouchableOpacity>
+                        <View style={{ flex: 1 }} />
+                        <TouchableOpacity onPress={handleClose} style={styles.saveButton}>
+                            <Text style={styles.saveButtonText}>Done</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
+            </TouchableOpacity>
         </Modal>
     );
 }
@@ -208,96 +205,113 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end', // Bottom sheet style or center? Center for settings
+        justifyContent: 'center',
         alignItems: 'center',
     },
     container: {
-        width: '100%',
-        height: '90%',
-        backgroundColor: '#FFF',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        marginTop: '10%',
+        width: 340,
+        maxHeight: '80%',
+        backgroundColor: THEME.bg,
+        borderRadius: 16,
         overflow: 'hidden',
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
+    title: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: THEME.textPrimary,
+        textAlign: 'center',
+        paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#EEE',
+        borderBottomColor: THEME.border,
     },
-    closeBtn: { padding: 4 },
-    title: { fontSize: 18, fontWeight: '600' },
-    saveText: { color: 'blue', fontWeight: '600', fontSize: 16 },
     content: { flex: 1 },
 
-    editorContainer: { padding: 20 },
-    sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#333' },
+    editorContainer: { padding: 16 },
+    sectionTitle: { fontSize: 15, fontWeight: '600', marginBottom: 10, color: THEME.textPrimary },
     input: {
         borderWidth: 1,
-        borderColor: '#DDD',
+        borderColor: THEME.border,
         borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        marginBottom: 16,
-        backgroundColor: '#F9FAFB'
+        padding: 10,
+        fontSize: 15,
+        marginBottom: 12,
+        backgroundColor: THEME.surface,
+        color: THEME.textPrimary,
     },
-    row: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-    label: { fontSize: 14, fontWeight: '500', color: '#666', marginRight: 12, marginBottom: 8 },
+    symbolRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    label: { fontSize: 13, fontWeight: '500', color: THEME.textSecondary, marginRight: 8, marginBottom: 6 },
     symbolInput: {
-        width: 50,
-        height: 50,
+        width: 44,
+        height: 44,
         borderWidth: 1,
-        borderColor: '#DDD',
+        borderColor: THEME.border,
         borderRadius: 8,
-        fontSize: 24,
+        fontSize: 22,
         textAlign: 'center',
-        marginRight: 12,
-        backgroundColor: '#F9FAFB'
+        marginRight: 8,
+        backgroundColor: THEME.surface,
     },
     presetRow: { flex: 1 },
-    presetItem: { padding: 8 },
-    presetEmoji: { fontSize: 20 },
+    presetItem: { padding: 6 },
+    presetEmoji: { fontSize: 18 },
 
-    colorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
-    colorCircle: { width: 36, height: 36, borderRadius: 18 },
-    colorSelected: { borderWidth: 3, borderColor: '#DDD', transform: [{ scale: 1.1 }] },
+    colorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+    colorCircle: { width: 28, height: 28, borderRadius: 14 },
+    colorSelected: { borderWidth: 3, borderColor: THEME.border, transform: [{ scale: 1.15 }] },
 
     actionBtn: {
-        padding: 14,
-        borderRadius: 10,
+        padding: 12,
+        borderRadius: 8,
         alignItems: 'center',
-        marginTop: 8
     },
-    actionBtnText: { color: '#FFF', fontWeight: '600', fontSize: 16 },
-    cancelEditBtn: { padding: 12, alignItems: 'center' },
-    cancelEditText: { color: 'red' },
+    actionBtnText: { fontWeight: '600', fontSize: 14 },
+    cancelEditBtn: { padding: 10, alignItems: 'center' },
+    cancelEditText: { color: '#EF4444', fontWeight: '600', fontSize: 13 },
 
-    divider: { height: 8, backgroundColor: '#F3F4F6' },
+    divider: { height: 1, backgroundColor: THEME.border, marginHorizontal: 16 },
 
-    listContainer: { padding: 20 },
-    emptyText: { color: '#999', fontStyle: 'italic' },
+    listContainer: { padding: 16 },
+    emptyText: { color: THEME.textSecondary, fontStyle: 'italic', fontSize: 13 },
     tagRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        backgroundColor: '#F9FAFB',
-        borderRadius: 12,
+        marginBottom: 8,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        backgroundColor: THEME.surface,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: THEME.border,
     },
     tagPreview: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    tagSymbol: { marginRight: 6, fontSize: 16 },
+    tagLabel: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
+    rowActions: { flexDirection: 'row', gap: 12 },
+    iconBtn: { padding: 4 },
+
+    // Unified footer
+    footer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderTopWidth: 1,
+        borderColor: THEME.border,
+    },
+    cancelButton: { paddingVertical: 10, paddingRight: 15 },
+    cancelButtonText: { color: '#EF4444', fontWeight: '600' },
+    saveButton: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 12,
+        backgroundColor: '#38A169',
         borderRadius: 8,
     },
-    tagSymbol: { marginRight: 8, fontSize: 18 },
-    tagLabel: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
-    rowActions: { flexDirection: 'row', gap: 16 },
-    iconBtn: { padding: 4 }
+    saveButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
 });

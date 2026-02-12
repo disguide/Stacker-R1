@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const MODAL_WIDTH = Math.min(SCREEN_WIDTH * 0.9, 360);
+const MODAL_WIDTH = 340;
 const CONTENT_WIDTH = MODAL_WIDTH - 24; // paddingHorizontal 12 * 2
 const COL_WIDTH = CONTENT_WIDTH / 7;
 const ROW_HEIGHT = 38;
@@ -125,28 +125,35 @@ const WHEEL_HEIGHT = ITEM_HEIGHT * 5;
 // Simple Wheel Picker using ScrollView (Robust)
 const WheelPicker = ({ items, selectedValue, onChange, formatLabel, onScrollStart }: { items: (string | number)[], selectedValue: string | number, onChange: (val: any) => void, formatLabel?: (val: any) => string, loop?: boolean, onScrollStart?: () => void }) => {
     const scrollRef = useRef<ScrollView>(null);
-    const [isScrolling, setIsScrolling] = useState(false);
+    const momentumStarted = useRef(false);
+    const isUserScrolling = useRef(false);
+    const lastSyncedValue = useRef<string | number | null>(null);
+    const needsInitialScroll = useRef(true);
 
-    // Initial Scroll
+    // Scroll to selected value when it changes externally (not on mount — handled by onContentSizeChange)
     useEffect(() => {
+        if (needsInitialScroll.current) return; // Skip during initial mount
         const index = items.indexOf(selectedValue);
-        if (index >= 0) {
+        if (index >= 0 && selectedValue !== lastSyncedValue.current && !isUserScrolling.current) {
+            lastSyncedValue.current = selectedValue;
             setTimeout(() => {
-                scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
-            }, 100);
+                scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
+            }, 50);
         }
-    }, []); // Run once on mount
+    }, [selectedValue, items]);
 
     const handleScrollEnd = (e: any) => {
+        isUserScrolling.current = false;
         const y = e.nativeEvent.contentOffset.y;
         const index = Math.round(y / ITEM_HEIGHT);
         const clampedIndex = Math.max(0, Math.min(index, items.length - 1));
         const newValue = items[clampedIndex];
 
         if (newValue !== undefined && newValue !== selectedValue) {
+            lastSyncedValue.current = newValue; // Prevent useEffect from re-scrolling
             onChange(newValue);
         }
-        setIsScrolling(false);
+        momentumStarted.current = false;
     };
 
     return (
@@ -172,15 +179,32 @@ const WheelPicker = ({ items, selectedValue, onChange, formatLabel, onScrollStar
                 decelerationRate="fast"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingVertical: ITEM_HEIGHT * 2 }}
+                onContentSizeChange={() => {
+                    if (needsInitialScroll.current) {
+                        needsInitialScroll.current = false;
+                        const index = items.indexOf(selectedValue);
+                        if (index >= 0) {
+                            lastSyncedValue.current = selectedValue;
+                            scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
+                        }
+                    }
+                }}
                 onScrollBeginDrag={() => {
-                    setIsScrolling(true);
+                    isUserScrolling.current = true;
+                    momentumStarted.current = false;
                     if (onScrollStart) onScrollStart();
+                }}
+                onMomentumScrollBegin={() => {
+                    momentumStarted.current = true;
                 }}
                 onMomentumScrollEnd={handleScrollEnd}
                 onScrollEndDrag={(e) => {
                     // Fallback if no momentum
+                    e.persist();
                     setTimeout(() => {
-                        if (!isScrolling) handleScrollEnd(e);
+                        if (!momentumStarted.current) {
+                            handleScrollEnd(e);
+                        }
                     }, 50);
                 }}
             >
@@ -191,9 +215,12 @@ const WheelPicker = ({ items, selectedValue, onChange, formatLabel, onScrollStar
                             key={index}
                             style={{ height: ITEM_HEIGHT, justifyContent: 'center', alignItems: 'center' }}
                             onPress={() => {
+                                isUserScrolling.current = true;
+                                lastSyncedValue.current = item; // Prevent useEffect re-scroll
                                 scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
                                 if (onScrollStart) onScrollStart();
                                 onChange(item);
+                                setTimeout(() => { isUserScrolling.current = false; }, 300);
                             }}
                         >
                             <Text style={{
@@ -323,13 +350,27 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
     };
 
     const handleSave = () => {
-        if (!tempSelectedDate) {
+        if (!tempSelectedDate && !hasTime) {
             onSelectDate(null);
             onClose();
             return;
         }
 
-        const finalDate = new Date(tempSelectedDate);
+        if (!tempSelectedDate && hasTime) {
+            // Time-only: create a date with just the time, pass hasTime=true
+            const timeOnlyDate = new Date();
+            timeOnlyDate.setFullYear(1970, 0, 1); // Sentinel date to signal time-only
+            if (tempHour === 24) {
+                timeOnlyDate.setHours(23, 59, 59, 999);
+            } else {
+                timeOnlyDate.setHours(tempHour, tempMinute, 0, 0);
+            }
+            onSelectDate(timeOnlyDate, true);
+            onClose();
+            return;
+        }
+
+        const finalDate = new Date(tempSelectedDate!);
         if (hasTime) {
             if (tempHour === 24) {
                 finalDate.setHours(23, 59, 59, 999);
@@ -395,12 +436,16 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
     };
 
     const getConfirmText = () => {
-        if (!tempSelectedDate) return "Confirm";
+        const timeStr = is24h
+            ? `${tempHour.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`
+            : `${current12hHour}:${tempMinute.toString().padStart(2, '0')} ${isPm ? 'PM' : 'AM'}`;
+
+        if (!tempSelectedDate) {
+            if (hasTime) return `Confirm ${timeStr}`;
+            return "Confirm";
+        }
         const dateStr = tempSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if (hasTime) {
-            const timeStr = is24h
-                ? `${tempHour.toString().padStart(2, '0')}:${tempMinute.toString().padStart(2, '0')}`
-                : `${current12hHour}:${tempMinute.toString().padStart(2, '0')} ${isPm ? 'PM' : 'AM'}`;
             return `Confirm ${dateStr}, ${timeStr}`;
         }
         return `Confirm ${dateStr}`;
@@ -550,11 +595,10 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                             </TouchableOpacity>
                             <View style={{ flex: 1 }} />
                             <TouchableOpacity
-                                style={[styles.saveButton, !tempSelectedDate && { backgroundColor: '#E2E8F0' }]}
+                                style={[styles.saveButton, (!tempSelectedDate && !hasTime) && { backgroundColor: '#E2E8F0' }]}
                                 onPress={handleSave}
-                            // disabled={!tempSelectedDate} // Now enabled to allow clearing
                             >
-                                <Text style={[styles.saveButtonText, !tempSelectedDate && { color: '#94A3B8' }]}>{getConfirmText()}</Text>
+                                <Text style={[styles.saveButtonText, (!tempSelectedDate && !hasTime) && { color: '#94A3B8' }]}>{getConfirmText()}</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -567,7 +611,7 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
 
 const styles = StyleSheet.create({
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    calendarCard: { height: 500, backgroundColor: THEME.bg, borderRadius: 16, overflow: 'hidden' },
+    calendarCard: { width: MODAL_WIDTH, height: 500, backgroundColor: THEME.bg, borderRadius: 16, overflow: 'hidden' },
 
     // Header Tabs
     tabIndicatorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, borderBottomWidth: 1, borderColor: '#F1F5F9', backgroundColor: '#FFF' },

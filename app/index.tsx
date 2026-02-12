@@ -14,6 +14,8 @@ import SwipeableTaskRow from '../src/components/SwipeableTaskRow';
 import RecurrencePickerModal from '../src/components/RecurrencePickerModal';
 import TimePickerModal from '../src/components/TimePickerModal';
 import ColorSettingsModal from '../src/components/ColorSettingsModal'; // Import ColorSettingsModal
+import RemindersManagerModal from '../src/components/RemindersManagerModal';
+import ReminderModal from '../src/components/ReminderModal';
 import { TaskQuickAdd } from '../src/components/TaskQuickAdd';
 import { TaskListHeader } from '../src/components/TaskListHeader';
 import { StorageService, RecurrenceRule, RecurrenceFrequency, WeekDay, ColorDefinition } from '../src/services/storage';
@@ -32,6 +34,7 @@ import { THEME, ViewMode, VIEW_CONFIG } from '../src/constants/theme';
 import { toISODateString, isToday, getDayName, generateDates, formatDeadline, parseEstimatedTime, formatMinutesAsTime, getDaysDifference } from '../src/utils/dateHelpers';
 import { resolveId } from '../src/utils/taskHelpers';
 import { styles } from '../src/styles/taskListStyles';
+import { NotificationService } from '../src/services/notifications';
 
 // ============================================================================
 // === MAIN COMPONENT ===
@@ -44,7 +47,12 @@ export default function TaskListScreen() {
     const router = useRouter();
 
     // Task Controller Hook
-    const { tasks, loading, addTask, toggleTask, deleteTask, updateTask, toggleSubtask, updateSubtask, refresh } = useTaskController();
+    const { tasks, loading, addTask, toggleTask, deleteTask, updateTask, toggleSubtask, updateSubtask, toggleTaskReminder, refresh } = useTaskController();
+
+    // Init Notifications
+    useEffect(() => {
+        NotificationService.requestPermissions();
+    }, []);
 
     // Navigation Hook
     const {
@@ -67,6 +75,8 @@ export default function TaskListScreen() {
 
     // Form Hook
     const form = useTaskForm();
+    const [isRemindersModalVisible, setIsRemindersModalVisible] = useState(false);
+    const [isRemindersPickerVisible, setIsRemindersPickerVisible] = useState(false);
     const {
         addingTaskForDate, setAddingTaskForDate,
         newTaskTitle, setNewTaskTitle,
@@ -74,6 +84,8 @@ export default function TaskListScreen() {
         newTaskEstimatedTime, setNewTaskEstimatedTime,
         newTaskRecurrence, setNewTaskRecurrence,
         newTaskReminderTime, setNewTaskReminderTime,
+        newTaskReminderDate, setNewTaskReminderDate,
+        newTaskReminderOffset, setNewTaskReminderOffset,
         addingSubtaskToParentId, setAddingSubtaskToParentId,
         resetForm: cancelAddingTask,
         startAddingTask
@@ -282,21 +294,46 @@ export default function TaskListScreen() {
             return;
         }
 
+        // Time-only: sentinel date (year 1970) means no date was explicitly picked
+        const isTimeOnly = date.getFullYear() === 1970;
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+
+        if (isTimeOnly) {
+            const timeStr = `${hours}:${minutes}`;
+            if (calendarMode === 'new') {
+                setNewTaskDeadline(timeStr);
+            } else if (editingSubtask) {
+                setEditingSubtask({
+                    ...editingSubtask,
+                    subtask: { ...editingSubtask.subtask, deadline: timeStr }
+                });
+            } else if (editingTask) {
+                setEditingTask({ ...editingTask, deadline: timeStr });
+            }
+            return;
+        }
+
         const dateStr = toISODateString(date);
 
         if (calendarMode === 'new') {
             if (includeTime) {
-                const hours = date.getHours().toString().padStart(2, '0');
-                const minutes = date.getMinutes().toString().padStart(2, '0');
                 setNewTaskDeadline(`${dateStr}T${hours}:${minutes}`);
             } else {
                 setNewTaskDeadline(dateStr);
             }
+        } else if (calendarMode === 'edit_reminder' && editingTask) {
+            const timeStr = `${hours}:${minutes}`;
+
+            setEditingTask({
+                ...editingTask,
+                reminderDate: dateStr,
+                reminderTime: timeStr,
+                reminderEnabled: true
+            });
         } else if (editingSubtask) {
             let newDeadline = dateStr;
             if (includeTime) {
-                const hours = date.getHours().toString().padStart(2, '0');
-                const minutes = date.getMinutes().toString().padStart(2, '0');
                 newDeadline = (`${dateStr}T${hours}:${minutes}`);
             }
             setEditingSubtask({
@@ -306,8 +343,6 @@ export default function TaskListScreen() {
         } else if (editingTask) {
             let newDeadline = dateStr;
             if (includeTime) {
-                const hours = date.getHours().toString().padStart(2, '0');
-                const minutes = date.getMinutes().toString().padStart(2, '0');
                 newDeadline = `${dateStr}T${hours}:${minutes}`;
             }
             setEditingTask({ ...editingTask, deadline: newDeadline });
@@ -327,6 +362,34 @@ export default function TaskListScreen() {
         }
     };
 
+    const handleRecurrenceChange = async (recurrence: RecurrenceRule | null) => {
+        if (!editingTask) return;
+        setEditingTask({ ...editingTask, recurrence });
+    };
+
+    const handleSelectReminder = (offset: number, time: string) => {
+        if (editingTask) {
+            if (isDrawerVisible) {
+                // Drawer Mode: Update transient state
+                setEditingTask({
+                    ...editingTask,
+                    reminderOffset: offset,
+                    reminderTime: time,
+                    reminderDate: undefined, // Clear static date in favor of offset
+                    reminderEnabled: true
+                });
+            } else {
+                // Quick Edit Mode: Save immediately
+                toggleTaskReminder(editingTask.id, true, time, undefined, offset);
+                setEditingTask(null);
+            }
+        } else {
+            setNewTaskReminderOffset(offset);
+            setNewTaskReminderTime(time);
+            setNewTaskReminderDate(null);
+        }
+        setIsRemindersPickerVisible(false);
+    };
     const handleAddTask = (date: string | null) => {
         if (!newTaskTitle.trim()) return;
 
@@ -401,6 +464,8 @@ export default function TaskListScreen() {
             deadline: newTaskDeadline || undefined,
             estimatedTime: newTaskEstimatedTime || undefined,
             reminderTime: newTaskReminderTime || undefined,
+            reminderDate: newTaskReminderDate || undefined,
+            reminderEnabled: !!newTaskReminderTime, // Auto-enable if time is set
             rrule: rruleString,
             subtasks: [],
             progress: 0
@@ -611,6 +676,11 @@ export default function TaskListScreen() {
                 const rrule = generateRRuleString(finalTask.recurrence, finalTask.date);
                 if (rrule) finalTask.rrule = rrule;
             }
+            // Ensure reminders are carried over
+            if (updatedTask.reminderTime) {
+                finalTask.reminderTime = updatedTask.reminderTime;
+                finalTask.reminderEnabled = true;
+            }
             addTask(finalTask);
             setEditingTask(null);
             setIsDrawerVisible(false);
@@ -719,6 +789,11 @@ export default function TaskListScreen() {
                         finalUpdatedTask.seriesId = undefined;
                     }
 
+                    if (updatedTask.reminderTime !== undefined) {
+                        finalUpdatedTask.reminderTime = updatedTask.reminderTime;
+                        finalUpdatedTask.reminderEnabled = !!updatedTask.reminderTime;
+                    }
+
                     updateTask(originalMaster.id, finalUpdatedTask);
 
                 } else {
@@ -766,6 +841,11 @@ export default function TaskListScreen() {
                         // User removed recurrence in drawer -> Become Single Task
                         newMasterTask.rrule = undefined;
                         newMasterTask.seriesId = undefined;
+                    }
+
+                    if (updatedTask.reminderTime !== undefined) {
+                        newMasterTask.reminderTime = updatedTask.reminderTime;
+                        newMasterTask.reminderEnabled = !!updatedTask.reminderTime;
                     }
 
                     addTask(newMasterTask);
@@ -906,6 +986,7 @@ export default function TaskListScreen() {
                 onToggleSprint={toggleSprintSelectionMode}
                 showViewPicker={showViewPicker}
                 setShowViewPicker={setShowViewPicker}
+                onOpenReminders={() => setIsRemindersModalVisible(true)}
             />
 
             {/* View Picker Modal */}
@@ -1059,6 +1140,12 @@ export default function TaskListScreen() {
                                             color={item.color}
                                             taskType={item.taskType}
                                             importance={item.importance}
+                                            reminderEnabled={item.reminderEnabled}
+                                            reminderTime={item.reminderTime}
+                                            reminderDate={item.reminderDate}
+                                            onToggleReminder={() => {
+                                                toggleTaskReminder(item.id, !item.reminderEnabled);
+                                            }}
                                         />
 
                                         {/* Subtasks */}
@@ -1239,29 +1326,46 @@ export default function TaskListScreen() {
                 onRequestCalendar={(currentDeadline) => {
                     setCalendarInitialPage(0);
                     setCalendarMode('edit');
-                    setCalendarTempDate(currentDeadline);
+                    setCalendarTempDate(currentDeadline || null);
                     setIsCalendarVisible(true);
                 }}
                 onRequestDuration={() => {
                     setDurationMode('edit');
                     setIsDurationPickerVisible(true);
                 }}
-                onRequestTime={(currentDeadline) => {
-                    setCalendarInitialPage(1); // Open Time Picker directly
-                    setCalendarMode('edit');
-                    setCalendarTempDate(currentDeadline);
-                    setIsCalendarVisible(true);
+                onRequestTime={(currentReminderISO) => {
+                    setCalendarTempDate(currentReminderISO);
+                    setIsRemindersPickerVisible(true);
                 }}
                 onRequestColorSettings={() => setIsColorSettingsVisible(true)}
                 userColors={userColors}
+            />
+
+            <ReminderModal
+                visible={isRemindersPickerVisible}
+                onClose={() => setIsRemindersPickerVisible(false)}
+                onSelectReminder={handleSelectReminder}
+                initialOffset={editingTask?.reminderOffset || newTaskReminderOffset || 0}
+                initialTime={editingTask?.reminderTime || newTaskReminderTime || undefined}
             />
 
             {/* Task Menu */}
             <TaskMenu
                 visible={isMenuVisible}
                 onClose={() => setIsMenuVisible(false)}
+                onEdit={() => {
+                    setIsMenuVisible(false);
+                    setTimeout(() => {
+                        if (activeMenuTask) openEditDrawer(activeMenuTask);
+                    }, 300);
+                }}
                 onAddSubtask={handleMenuAddSubtask}
-                onDelete={handleMenuDelete}
+                onDelete={() => {
+                    setIsMenuVisible(false);
+                    setTimeout(() => {
+                        handleConfirmDelete(activeMenuTask!.id);
+                    }, 300);
+                }}
                 isSubtask={!!activeMenuSubtask}
             />
 
@@ -1269,13 +1373,22 @@ export default function TaskListScreen() {
             <CalendarModal
                 visible={isCalendarVisible}
                 onClose={() => setIsCalendarVisible(false)}
-                onSelectDate={handleSelectDate}
+                onSelectDate={(date, hasTime) => {
+                    handleSelectDate(date, hasTime);
+                }}
                 selectedDate={
                     calendarMode === 'new'
                         ? newTaskDeadline
                         : (calendarTempDate !== null ? calendarTempDate : editingTask?.deadline)
                 }
                 initialPage={calendarInitialPage}
+            />
+
+            <RemindersManagerModal
+                visible={isRemindersModalVisible}
+                onClose={() => setIsRemindersModalVisible(false)}
+                tasks={tasks}
+                onToggleReminder={toggleTaskReminder}
             />
 
             <ColorSettingsModal
@@ -1308,9 +1421,17 @@ export default function TaskListScreen() {
                 visible={isTimePickerVisible}
                 onClose={() => setIsTimePickerVisible(false)}
                 onSelectTime={(time) => {
-                    setNewTaskReminderTime(time || null);
+                    if (editingTask) {
+                        // Legacy/Direct Edit?
+                        toggleTaskReminder(editingTask.id, true, time);
+                        setIsTimePickerVisible(false);
+                        setEditingTask(null);
+                    } else {
+                        // New Task Creation
+                        setNewTaskReminderTime(time || null);
+                    }
                 }}
-                initialTime={newTaskReminderTime || undefined}
+                initialTime={editingTask?.reminderTime || newTaskReminderTime || undefined}
             />
         </SafeAreaView >
     );

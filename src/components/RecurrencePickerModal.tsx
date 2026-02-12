@@ -102,20 +102,10 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
     };
 
     return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <View style={styles.overlay}>
-                <View style={styles.container}>
-                    <View style={styles.header}>
-                        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                            <Ionicons name="close" size={24} color="#000" />
-                        </TouchableOpacity>
-                        <Text style={styles.title}>Recurrence</Text>
-                        {viewMode === 'custom' ? (
-                            <TouchableOpacity onPress={handleSaveCustom}>
-                                <Text style={styles.saveText}>Done</Text>
-                            </TouchableOpacity>
-                        ) : <View style={{ width: 40 }} />}
-                    </View>
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+            <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+                <View style={styles.container} onStartShouldSetResponder={() => true}>
+                    <Text style={styles.title}>Recurrence</Text>
 
                     <ScrollView style={styles.content}>
                         {viewMode === 'presets' ? (
@@ -200,15 +190,26 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
                                     </View>
                                 )}
 
-                                {/* Back Button */}
-                                <TouchableOpacity style={styles.backBtn} onPress={() => setViewMode('presets')}>
-                                    <Text style={styles.backBtnText}>{'< Back to Presets'}</Text>
-                                </TouchableOpacity>
+
+
                             </View>
                         )}
                     </ScrollView>
+
+                    {/* Footer — Unified pattern */}
+                    {viewMode === 'custom' && (
+                        <View style={styles.footer}>
+                            <TouchableOpacity onPress={() => setViewMode('presets')} style={styles.cancelButton}>
+                                <Text style={styles.cancelButtonText}>Back</Text>
+                            </TouchableOpacity>
+                            <View style={{ flex: 1 }} />
+                            <TouchableOpacity onPress={handleSaveCustom} style={styles.saveButton}>
+                                <Text style={styles.saveButtonText}>Confirm</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
-            </View>
+            </TouchableOpacity>
         </Modal>
     );
 }
@@ -221,23 +222,21 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     container: {
-        width: '85%',
-        backgroundColor: '#FFF',
-        borderRadius: 12,
+        width: 340,
+        backgroundColor: '#FAFAF6',
+        borderRadius: 16,
         maxHeight: '70%',
         overflow: 'hidden',
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 16,
+    title: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#333333',
+        textAlign: 'center',
+        paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#EEE',
+        borderBottomColor: '#E2E8F0',
     },
-    closeBtn: { padding: 4 },
-    title: { fontSize: 18, fontWeight: '600' },
-    saveText: { color: 'blue', fontWeight: '600', fontSize: 16 },
     content: { padding: 0 },
     presetList: { paddingVertical: 8 },
     presetItem: {
@@ -247,9 +246,9 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         paddingHorizontal: 16,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#EEE',
+        borderBottomColor: '#E2E8F0',
     },
-    presetText: { fontSize: 16 },
+    presetText: { fontSize: 16, color: '#333333' },
     customBtn: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -258,21 +257,22 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         marginTop: 8,
     },
-    customBtnText: { fontSize: 16, fontWeight: '500' },
+    customBtnText: { fontSize: 16, fontWeight: '500', color: '#333333' },
 
     // Custom Form Styles
     customForm: { padding: 16 },
     formRow: { marginBottom: 16 },
-    label: { fontSize: 14, color: '#666', marginBottom: 8 },
+    label: { fontSize: 14, color: '#64748B', marginBottom: 8 },
     intervalRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     intervalInput: {
         width: 60,
         height: 40,
         borderWidth: 1,
-        borderColor: '#CCC',
+        borderColor: '#E2E8F0',
         borderRadius: 8,
         fontSize: 18,
         padding: 4,
+        backgroundColor: '#FFFFFF',
     },
     freqTabs: {
         flexDirection: 'row',
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 6,
     },
-    freqOptionSelected: { backgroundColor: '#000' },
+    freqOptionSelected: { backgroundColor: '#333' },
     freqText: { fontSize: 13, color: '#333', fontWeight: '500' },
     weekdaysContainer: { marginBottom: 20 },
     weekdaysRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -302,8 +302,27 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    dayCircleSelected: { backgroundColor: '#000' },
+    dayCircleSelected: { backgroundColor: '#333' },
     dayText: { fontSize: 12, fontWeight: '600', color: '#333' },
     backBtn: { marginTop: 10, padding: 10, alignItems: 'center' },
-    backBtnText: { color: 'blue' },
+    backBtnText: { color: '#64748B', fontWeight: '600' },
+
+    // Unified footer
+    footer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderTopWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    cancelButton: { paddingVertical: 10, paddingRight: 15 },
+    cancelButtonText: { color: '#EF4444', fontWeight: '600' },
+    saveButton: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 12,
+        backgroundColor: '#38A169',
+        borderRadius: 8,
+    },
+    saveButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
 });

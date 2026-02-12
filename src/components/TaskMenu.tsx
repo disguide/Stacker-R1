@@ -22,15 +22,16 @@ const THEME = {
     shadowColor: '#333333',
 };
 
-interface TaskMenuProps {
+export interface TaskMenuProps {
     visible: boolean;
     onClose: () => void;
     onAddSubtask: () => void;
     onDelete: () => void;
     isSubtask?: boolean;
+    onEdit: () => void;
 }
 
-export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false }: TaskMenuProps) {
+export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit }: TaskMenuProps) {
     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     useEffect(() => {

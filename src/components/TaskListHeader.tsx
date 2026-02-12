@@ -16,6 +16,7 @@ interface TaskListHeaderProps {
     onToggleSprint: () => void;
     showViewPicker: boolean;
     setShowViewPicker: (show: boolean) => void;
+    onOpenReminders: () => void;
 }
 
 export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
@@ -26,7 +27,8 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
     isSprintSelectionMode,
     onToggleSprint,
     showViewPicker,
-    setShowViewPicker
+    setShowViewPicker,
+    onOpenReminders
 }) => {
     const router = useRouter();
 
@@ -54,6 +56,13 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                         onPress={() => router.push('/long-term')}
                     >
                         <Ionicons name="telescope-outline" size={24} color="#333" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.toolbarButton}
+                        onPress={onOpenReminders}
+                    >
+                        <Ionicons name="notifications-outline" size={24} color="#333" />
                     </TouchableOpacity>
                 </View>
 

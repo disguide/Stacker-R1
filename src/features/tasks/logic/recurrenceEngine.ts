@@ -94,6 +94,9 @@ export const RecurrenceEngine = {
                             color: task.color,
                             taskType: task.type,
                             importance: task.importance,
+                            reminderEnabled: task.reminderEnabled,
+                            reminderDate: task.reminderDate,
+                            reminderTime: task.reminderTime,
                             daysRolled: daysRolled
                         });
                     });
@@ -145,6 +148,9 @@ export const RecurrenceEngine = {
                         color: task.color,
                         taskType: task.type,
                         importance: task.importance,
+                        reminderEnabled: task.reminderEnabled,
+                        reminderDate: task.reminderDate,
+                        reminderTime: task.reminderTime,
                         daysRolled: daysRolled // Upstream or Calculated
                     });
                 }

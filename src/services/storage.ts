@@ -47,6 +47,9 @@ export interface Task {
     completedDates?: string[];
     exceptionDates?: string[];
     tagIds?: string[]; // New: Array of tag IDs
+    reminderEnabled?: boolean;
+    reminderDate?: string;
+    reminderTime?: string;
     instanceProgress?: Record<string, number>; // Map of date -> progress (0-100) for recurring instances
     instanceSubtasks?: Record<string, { id: string; title: string; completed: boolean; }[]>; // Map of date -> subtasks
 

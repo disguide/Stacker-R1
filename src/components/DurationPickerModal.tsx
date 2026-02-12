@@ -9,17 +9,13 @@ import {
     Platform
 } from 'react-native';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-
-// Theme Constants
+// Theme Constants — Unified with CalendarModal / ReminderModal
 const THEME = {
     bg: '#FAFAF6',
     textPrimary: '#333333',
     textSecondary: '#64748B',
-    border: '#333333',
-    surface: '#FFFDF5',
-    shadowColor: '#333333',
-    accent: '#007AFF',
+    border: '#E2E8F0',
+    surface: '#FFFFFF',
 };
 
 interface DurationPickerModalProps {
@@ -31,7 +27,6 @@ interface DurationPickerModalProps {
 
 const parseDuration = (durationStr?: string | null): number => {
     if (!durationStr) return 0;
-    // Simple parsing logic: "1h 30m" -> 90, "45m" -> 45
     let totalMinutes = 0;
     const hoursMatch = durationStr.match(/(\d+)h/);
     const minutesMatch = durationStr.match(/(\d+)m/);
@@ -68,7 +63,7 @@ export default function DurationPickerModal({ visible, onClose, onSelectDuration
         if (currentMinutes > 0) {
             onSelectDuration(formatDuration(currentMinutes));
         } else {
-            onSelectDuration(''); // Clear if 0
+            onSelectDuration('');
         }
         onClose();
     };
@@ -87,7 +82,7 @@ export default function DurationPickerModal({ visible, onClose, onSelectDuration
             onRequestClose={onClose}
         >
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-                <View style={styles.pickerContainer}>
+                <View style={styles.card} onStartShouldSetResponder={() => true}>
                     <Text style={styles.title}>Estimate Time</Text>
 
                     {/* Display */}
@@ -116,14 +111,16 @@ export default function DurationPickerModal({ visible, onClose, onSelectDuration
                         </TouchableOpacity>
                     </View>
 
-                    {/* Actions */}
-                    <View style={styles.actionsRow}>
-                        <TouchableOpacity onPress={handleReset} style={styles.resetBtn}>
-                            <Text style={styles.resetText}>Reset</Text>
+                    {/* Footer — Unified pattern */}
+                    <View style={styles.footer}>
+                        <TouchableOpacity onPress={handleReset} style={styles.cancelButton}>
+                            <Text style={styles.cancelButtonText}>Reset</Text>
                         </TouchableOpacity>
                         <View style={{ flex: 1 }} />
-                        <TouchableOpacity onPress={handleConfirm} style={styles.confirmBtn}>
-                            <Text style={styles.confirmText}>Done</Text>
+                        <TouchableOpacity onPress={handleConfirm} style={styles.saveButton}>
+                            <Text style={styles.saveButtonText}>
+                                {currentMinutes > 0 ? `Confirm ${formatDuration(currentMinutes)}` : 'Confirm'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -135,38 +132,30 @@ export default function DurationPickerModal({ visible, onClose, onSelectDuration
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(51, 51, 51, 0.4)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    pickerContainer: {
-        width: SCREEN_WIDTH * 0.8,
+    card: {
+        width: 340,
         backgroundColor: THEME.bg,
-        borderRadius: 4,
+        borderRadius: 16,
         padding: 20,
         alignItems: 'center',
-        borderWidth: 2,
-        borderColor: THEME.border,
-        shadowColor: THEME.shadowColor,
-        shadowOffset: { width: 4, height: 4 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-        elevation: 10,
     },
     title: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 16,
+        fontSize: 18,
+        fontWeight: '700',
         color: THEME.textPrimary,
-        // fontFamily removed for system default
+        marginBottom: 20,
     },
     displayContainer: {
         paddingVertical: 16,
         paddingHorizontal: 32,
         backgroundColor: THEME.surface,
-        borderWidth: 1.5,
-        borderColor: '#E2E8F0',
-        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: THEME.border,
+        borderRadius: 12,
         marginBottom: 20,
         minWidth: 150,
         alignItems: 'center',
@@ -186,42 +175,42 @@ const styles = StyleSheet.create({
     timeBtn: {
         paddingVertical: 10,
         paddingHorizontal: 16,
-        backgroundColor: '#FFF',
-        borderWidth: 1.5,
+        backgroundColor: THEME.surface,
+        borderWidth: 1,
         borderColor: THEME.border,
-        borderRadius: 4,
-        shadowColor: 'rgba(0,0,0,0.1)',
-        shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
+        borderRadius: 8,
     },
     timeBtnText: {
         fontSize: 16,
         fontWeight: '600',
         color: THEME.textPrimary,
     },
-    actionsRow: {
+    footer: {
         flexDirection: 'row',
         width: '100%',
         alignItems: 'center',
+        borderTopWidth: 1,
+        borderColor: THEME.border,
+        paddingTop: 16,
     },
-    resetBtn: {
-        padding: 10,
-    },
-    resetText: {
-        color: '#C53030',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    confirmBtn: {
-        backgroundColor: THEME.textPrimary,
+    cancelButton: {
         paddingVertical: 10,
-        paddingHorizontal: 24,
-        borderRadius: 4,
+        paddingRight: 15,
     },
-    confirmText: {
-        color: '#FFF',
+    cancelButtonText: {
+        color: '#EF4444',
+        fontWeight: '600',
+    },
+    saveButton: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 12,
+        backgroundColor: '#38A169',
+        borderRadius: 8,
+    },
+    saveButtonText: {
+        color: '#FFFFFF',
         fontWeight: 'bold',
-        fontSize: 16,
+        fontSize: 14,
     },
 });

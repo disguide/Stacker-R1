@@ -5,6 +5,7 @@ import { RecurrenceEngine } from '../logic/recurrenceEngine';
 import { RRule } from 'rrule';
 import { RolloverSystem } from '../logic/rolloverSystem';
 import { createRRuleString } from '../../../utils/recurrence';
+import { NotificationService } from '../../../services/notifications';
 
 export const useTaskController = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -68,6 +69,10 @@ export const useTaskController = () => {
     const addTask = useCallback((task: Task) => {
         console.log('[useTaskController] Adding task:', task.id);
         setTasks(prev => [...prev, task]);
+        // Schedule Notification
+        if (task.reminderEnabled && task.reminderTime) {
+            NotificationService.scheduleTaskNotification(task);
+        }
     }, []);
 
     /**
@@ -89,10 +94,20 @@ export const useTaskController = () => {
 
             // Logic: Add/Remove from completedDates array
             const completedDates = new Set(task.completedDates || []);
-            if (completedDates.has(dateString)) {
+            const wasCompleted = completedDates.has(dateString);
+
+            if (wasCompleted) {
                 completedDates.delete(dateString);
+                // Un-completing: Reschedule notification if enabled
+                if (task.reminderEnabled && task.reminderTime) {
+                    NotificationService.scheduleTaskNotification(task);
+                }
             } else {
                 completedDates.add(dateString);
+                // Completing: Cancel notification
+                if (task.reminderEnabled) {
+                    NotificationService.cancelTaskNotification(task.id);
+                }
             }
             task.completedDates = Array.from(completedDates);
 
@@ -145,6 +160,16 @@ export const useTaskController = () => {
                 ...currentTask,
                 ...safeUpdates
             };
+            // Schedule Notification if changed (includes reminderOffset)
+            if (safeUpdates.reminderEnabled !== undefined || safeUpdates.reminderTime !== undefined || safeUpdates.date !== undefined || safeUpdates.reminderOffset !== undefined) {
+                const updatedTask = updatedTasks[index];
+                if (updatedTask.reminderEnabled && updatedTask.reminderTime) {
+                    NotificationService.scheduleTaskNotification(updatedTask);
+                } else {
+                    NotificationService.cancelTaskNotification(updatedTask.id);
+                }
+            }
+
             return updatedTasks;
         });
     }, []);
@@ -283,6 +308,49 @@ export const useTaskController = () => {
 
             return updatedTasks;
         });
+
+        // Cancel Notification
+        if (mode === 'all' || mode === 'future') {
+            NotificationService.cancelTaskNotification(taskId);
+        }
+    }, []);
+
+    /**
+     * TOGGLE REMINDER
+     */
+    const toggleTaskReminder = useCallback((taskId: string, enabled: boolean, time?: string, date?: string, offset?: number) => {
+        setTasks(prev => {
+            const index = prev.findIndex(t => t.id === taskId);
+            if (index === -1) return prev;
+
+            const updatedTasks = [...prev];
+            const task = { ...updatedTasks[index] };
+
+            task.reminderEnabled = enabled;
+            if (time !== undefined) task.reminderTime = time || undefined;
+
+            // Offset Logic:
+            // If offset is provided, use it and clear legacy date
+            if (offset !== undefined) {
+                task.reminderOffset = offset;
+                task.reminderDate = undefined;
+            } else if (date !== undefined) {
+                // Legacy/Specific Date logic (if we still support it in some paths)
+                task.reminderDate = date || undefined;
+                task.reminderOffset = undefined;
+            }
+
+            updatedTasks[index] = task;
+
+            // Handle Notification Side Effect
+            if (enabled && task.reminderTime) {
+                NotificationService.scheduleTaskNotification(task);
+            } else {
+                NotificationService.cancelTaskNotification(task.id);
+            }
+
+            return updatedTasks;
+        });
     }, []);
 
     return {
@@ -294,6 +362,7 @@ export const useTaskController = () => {
         toggleSubtask,
         updateSubtask,
         deleteTask,
+        toggleTaskReminder,
         refresh: loadTasks
     };
 };

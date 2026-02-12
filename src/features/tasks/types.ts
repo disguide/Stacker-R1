@@ -11,7 +11,14 @@ export interface Task {
     // Legacy/Optional fields we might still need for UI
     deadline?: string;
     estimatedTime?: string;
+    reminderDate?: string; // YYYY-MM-DD (Optional, defaults to task.date)
     reminderTime?: string; // HH:mm format for notification time
+    reminderOffset?: number; // Minutes (or days?) Let's use MINUTES for flexibility, or DAYS if UI only offers days. User asked "x day before".
+    // Let's use MINUTES for maximum flexibility (e.g. 15 mins before). 
+    // But for "Days before", 24*60.
+    // Actually, simple number of days is easier for "Date" calculation. 
+    // Let's call it `reminderOffsetDays` or just stick to `reminderOffset` (number of days).
+    reminderEnabled?: boolean; // Toggle for notification
     subtasks?: Subtask[];
     progress?: number;
     completed?: boolean; // For single tasks
@@ -78,4 +85,7 @@ export interface CalendarItem {
     daysRolled?: number;
     originalDate?: string;
     importance?: number;
+    reminderEnabled?: boolean;
+    reminderDate?: string; // YYYY-MM-DD
+    reminderTime?: string;
 }
