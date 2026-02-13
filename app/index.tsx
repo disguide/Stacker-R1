@@ -20,6 +20,7 @@ import { TaskListHeader } from '../src/components/TaskListHeader';
 import { StorageService, RecurrenceRule, RecurrenceFrequency, WeekDay, ColorDefinition } from '../src/services/storage';
 import { RecurrenceEngine } from '../src/features/tasks/logic/recurrenceEngine';
 import { OrganizeMenu } from '../src/components/OrganizeMenu';
+import RemindersManagerModal from '../src/components/RemindersManagerModal';
 import { useTaskController } from '../src/features/tasks/hooks/useTaskController';
 import { useTaskForm } from '../src/features/tasks/hooks/useTaskForm';
 import { useTaskNavigation } from '../src/features/tasks/hooks/useTaskNavigation';
@@ -101,7 +102,8 @@ export default function TaskListScreen() {
         editingSubtask, setEditingSubtask,
         isMenuVisible, setIsMenuVisible,
         activeMenuTask, setActiveMenuTask,
-        activeMenuSubtask, setActiveMenuSubtask
+        activeMenuSubtask, setActiveMenuSubtask,
+        isRemindersManagerVisible, setIsRemindersManagerVisible
     } = useTaskUI();
 
     const [historyTasks, setHistoryTasks] = useState<Task[]>([]);
@@ -967,7 +969,7 @@ export default function TaskListScreen() {
                 onToggleSprint={toggleSprintSelectionMode}
                 showViewPicker={showViewPicker}
                 setShowViewPicker={setShowViewPicker}
-                onOpenReminders={() => openAddDrawer('reminder')}
+                onOpenReminders={() => setIsRemindersManagerVisible(true)}
                 onOrganize={() => setIsOrganizeMenuVisible(true)}
             />
 
@@ -1404,6 +1406,20 @@ export default function TaskListScreen() {
                     console.log('Selected filter:', filter);
                     setSortOption(filter === sortOption ? null : filter); // Toggle off if selected again
                     setIsOrganizeMenuVisible(false);
+                }}
+            />
+
+            <RemindersManagerModal
+                visible={isRemindersManagerVisible}
+                onClose={() => setIsRemindersManagerVisible(false)}
+                tasks={tasks}
+                onToggleReminder={(taskId, enabled, time, date, offset) => {
+                    updateTask(taskId, {
+                        reminderEnabled: enabled,
+                        reminderTime: time,
+                        reminderDate: date,
+                        reminderOffset: offset
+                    });
                 }}
             />
         </SafeAreaView >

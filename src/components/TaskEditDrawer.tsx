@@ -36,22 +36,8 @@ const formatDateShort = (dateStr: string) => {
     return `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
 };
 
-interface Task {
-    id: string;
-    title: string;
-    date: string;
-    originalDate?: string;
-    deadline?: string;
-    estimatedTime?: string;
-    completed?: boolean;
-    subtasks?: { id: string; title: string; completed: boolean; }[];
-    recurrence?: RecurrenceRule;
-    originalTaskId?: string;
-    seriesId?: string;
-    color?: string;
-    type?: 'task' | 'event' | 'work' | 'chore' | 'habit';
-    importance?: number;
-}
+import { Task } from '../features/tasks/types';
+import { Switch } from 'react-native'; // Import Switch
 
 
 interface TaskEditDrawerProps {
@@ -94,7 +80,9 @@ export default function TaskEditDrawer({
     const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
     const [activeFeature, setActiveFeature] = useState<FeatureKey | null>(null);
     const [reminderOffset, setReminderOffset] = useState<number | null>(null);
+
     const [reminderTime, setReminderTime] = useState<string | null>(null);
+    const [reminderEnabled, setReminderEnabled] = useState(true);
     // const [isTimePickerVisible, setIsTimePickerVisible] = useState(false); // Removed
     // const [selectedHour, setSelectedHour] = useState(9); // Removed
     // const [selectedMinute, setSelectedMinute] = useState(0); // Removed
@@ -134,6 +122,13 @@ export default function TaskEditDrawer({
                 setColor(task.color);
                 setTaskType(task.type);
                 setImportance(task.importance || 0); // Initialize importance
+                setImportance(task.importance || 0); // Initialize importance
+
+                // Initialize Reminder State
+                setReminderOffset(task.reminderOffset !== undefined ? task.reminderOffset : null);
+                setReminderTime(task.reminderTime || null);
+                setReminderEnabled(task.reminderEnabled !== undefined ? task.reminderEnabled : true);
+
                 setActiveFeature(initialActiveFeature || null);
                 // Slide up
                 panY.setValue(SCREEN_HEIGHT);
@@ -203,6 +198,13 @@ export default function TaskEditDrawer({
                 color: color,
                 type: taskType,
                 importance: importance, // Include importance
+
+
+                // Persist Reminder State
+                reminderOffset: reminderOffset !== null ? reminderOffset : undefined,
+                reminderTime: reminderTime || undefined,
+                reminderEnabled: reminderEnabled,
+
                 seriesId: finalSeriesId,
             });
         }
@@ -420,22 +422,41 @@ export default function TaskEditDrawer({
                             onPress={() => setActiveFeature('reminder')}
                         >
                             <View style={styles.featureIconContainer}>
-                                <MaterialCommunityIcons name="bell-outline" size={20} color={reminderOffset !== null ? THEME.textPrimary : THEME.textSecondary} />
+                                <MaterialCommunityIcons name="bell-outline" size={20} color={reminderOffset !== null && reminderEnabled ? THEME.textPrimary : THEME.textSecondary} />
                             </View>
                             <Text style={styles.featureLabel}>Remind</Text>
-                            <Text style={[styles.featureValue, reminderOffset !== null && styles.featureValueActive]} numberOfLines={1}>
+                            <Text style={[
+                                styles.featureValue,
+                                reminderOffset !== null && reminderEnabled && styles.featureValueActive,
+                                !reminderEnabled && { color: THEME.textSecondary, fontWeight: 'normal' }
+                            ]} numberOfLines={1}>
                                 {reminderOffset !== null
                                     ? reminderOffset === 0 ? 'Same day' : `${reminderOffset}d before`
                                     : 'None'}
                             </Text>
                             {reminderOffset !== null && (
-                                <TouchableOpacity
-                                    style={styles.featureClearHtml}
-                                    onPress={() => { setReminderOffset(null); setReminderTime(null); }}
-                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                >
-                                    <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
-                                </TouchableOpacity>
+                                <>
+                                    <View style={{ position: 'absolute', bottom: 10, right: 10 }}>
+                                        <Switch
+                                            value={reminderEnabled}
+                                            onValueChange={setReminderEnabled}
+                                            trackColor={{ false: "#E2E8F0", true: "#BFDBFE" }}
+                                            thumbColor={reminderEnabled ? "#2563EB" : "#F1F5F9"}
+                                            style={{ transform: [{ scale: 0.7 }] }} // Data densification
+                                        />
+                                    </View>
+                                    <TouchableOpacity
+                                        style={{ position: 'absolute', top: 8, right: 8, padding: 4 }}
+                                        onPress={(e) => {
+                                            e.stopPropagation(); // Prevent card press
+                                            setReminderOffset(null);
+                                            setReminderTime(null);
+                                        }}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <Ionicons name="close" size={16} color={THEME.textSecondary} />
+                                    </TouchableOpacity>
+                                </>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -481,6 +502,7 @@ export default function TaskEditDrawer({
                                 onReminderChange={(offset, time) => { setReminderOffset(offset); setReminderTime(time); }}
                                 reminderOffset={reminderOffset}
                                 reminderTime={reminderTime}
+                                reminderEnabled={reminderEnabled}
                                 onClose={() => setActiveFeature(null)}
                                 userColors={userColors}
                             />

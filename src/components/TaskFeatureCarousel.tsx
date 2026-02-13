@@ -111,6 +111,7 @@ interface TaskFeatureCarouselProps {
     // Reminder values
     reminderOffset: number | null;
     reminderTime: string | null;
+    reminderEnabled: boolean;
     // Color system
     userColors?: ColorDefinition[];
 }
@@ -138,6 +139,7 @@ export default function TaskFeatureCarousel({
     onClose,
     reminderOffset,
     reminderTime,
+    reminderEnabled,
     userColors,
 }: TaskFeatureCarouselProps) {
     const scrollViewRef = useRef<ScrollView>(null);
@@ -248,6 +250,7 @@ export default function TaskFeatureCarousel({
                     width={pageWidth}
                     reminderOffset={reminderOffset}
                     reminderTime={reminderTime}
+                    reminderEnabled={reminderEnabled}
                     onReminderChange={onReminderChange}
                     onClose={onClose}
                 />
@@ -1123,10 +1126,13 @@ function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose }: {
 // PAGE 4: REMINDER — simple alarm time picker for current day
 // ═══════════════════════════════════════════════════════════════════════════
 
-function ReminderPage({ width, reminderOffset, reminderTime, onReminderChange, onClose }: {
+import { Pressable } from 'react-native'; // Import Pressable
+
+function ReminderPage({ width, reminderOffset, reminderTime, reminderEnabled, onReminderChange, onClose }: {
     width: number;
     reminderOffset: number | null;
     reminderTime: string | null;
+    reminderEnabled: boolean;
     onReminderChange: (offset: number | null, time: string | null) => void;
     onClose: () => void;
 }) {
@@ -1163,12 +1169,27 @@ function ReminderPage({ width, reminderOffset, reminderTime, onReminderChange, o
 
     return (
         <View style={{ width, flex: 1 }}>
-            <TimeWheelPanel
-                hour={tempHour}
-                minute={tempMinute}
-                onHourChange={setTempHour}
-                onMinuteChange={setTempMinute}
-            />
+            <Pressable
+                style={{ flex: 1, opacity: reminderEnabled ? 1 : 0.3 }}
+                onPress={() => {
+                    if (!reminderEnabled) {
+                        // Activate on touch if disabled
+                        // Default to Same Day (0) at existing temp time or 9:00
+                        const hh = String(tempHour).padStart(2, '0');
+                        const mm = String(tempMinute).padStart(2, '0');
+                        onReminderChange(0, `${hh}:${mm}`);
+                    }
+                }}
+            >
+                <View pointerEvents={reminderEnabled ? 'auto' : 'none'}>
+                    <TimeWheelPanel
+                        hour={tempHour}
+                        minute={tempMinute}
+                        onHourChange={setTempHour}
+                        onMinuteChange={setTempMinute}
+                    />
+                </View>
+            </Pressable>
             <ActionBar onReset={handleReset} onConfirm={handleConfirm} hasValue={hasReminder} />
         </View>
     );

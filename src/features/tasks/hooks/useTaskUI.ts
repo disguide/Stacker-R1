@@ -30,6 +30,9 @@ export const useTaskUI = () => {
     const [activeMenuTask, setActiveMenuTask] = useState<Task | null>(null);
     const [activeMenuSubtask, setActiveMenuSubtask] = useState<{ parentId: string, subtaskId: string } | null>(null);
 
+    // Reminders Manager
+    const [isRemindersManagerVisible, setIsRemindersManagerVisible] = useState(false);
+
     return {
         // Modals
         isTimePickerVisible, setIsTimePickerVisible,
@@ -55,6 +58,9 @@ export const useTaskUI = () => {
         // Menu
         isMenuVisible, setIsMenuVisible,
         activeMenuTask, setActiveMenuTask,
-        activeMenuSubtask, setActiveMenuSubtask
+        activeMenuSubtask, setActiveMenuSubtask,
+
+        // Reminders
+        isRemindersManagerVisible, setIsRemindersManagerVisible
     };
 };

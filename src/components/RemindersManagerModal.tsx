@@ -13,7 +13,7 @@ interface RemindersManagerModalProps {
     onToggleReminder: (taskId: string, enabled: boolean, time?: string, date?: string, offset?: number) => void;
 }
 
-const ReminderRow = ({ task, onEdit, onDelete }: { task: Task, onEdit: () => void, onDelete: () => void }) => {
+const ReminderRow = ({ task, onEdit, onDelete, onToggle }: { task: Task, onEdit: () => void, onDelete: () => void, onToggle: (val: boolean) => void }) => {
     return (
         <TouchableOpacity style={styles.row} onPress={onEdit}>
             <View style={styles.textContainer}>
@@ -29,14 +29,24 @@ const ReminderRow = ({ task, onEdit, onDelete }: { task: Task, onEdit: () => voi
                 </View>
             </View>
 
-            <TouchableOpacity
-                onPress={onDelete}
-                style={styles.deleteButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-                <Ionicons name="trash-outline" size={20} color="#EF4444" />
-            </TouchableOpacity>
-        </TouchableOpacity>
+
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Switch
+                    value={task.reminderEnabled}
+                    onValueChange={onToggle}
+                    trackColor={{ false: "#E2E8F0", true: "#BFDBFE" }}
+                    thumbColor={task.reminderEnabled ? "#2563EB" : "#F1F5F9"}
+                />
+                <TouchableOpacity
+                    onPress={onDelete}
+                    style={styles.deleteButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                </TouchableOpacity>
+            </View>
+        </TouchableOpacity >
     );
 };
 
@@ -49,17 +59,18 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
         const today = toISODateString(new Date());
         return tasks
             .filter(t => {
-                const isEnabled = t.reminderEnabled && !t.completed;
-                if (!isEnabled) return false;
+                // Show if it has a reminder set (time or offset), even if disabled
+                // But hide completed ones
+                if (t.completed) return false;
 
-                // Rings Today if:
-                // 1. Explicitly set to Today
-                // 2. Not set explicitly, but Task Date is Today
-                const ringsToday = (t.reminderDate === today) || (!t.reminderDate && t.date === today);
-                return ringsToday;
+                const hasReminderConfig = t.reminderTime || (t.reminderOffset !== undefined && t.reminderOffset !== null);
+                return !!hasReminderConfig;
             })
             .sort((a, b) => {
-                // Sort by time
+                // Sort by Date then Time
+                const dateA = a.reminderDate || a.date;
+                const dateB = b.reminderDate || b.date;
+                if (dateA !== dateB) return dateA.localeCompare(dateB);
                 return (a.reminderTime || '').localeCompare(b.reminderTime || '');
             });
     }, [tasks]);
@@ -112,12 +123,13 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
                                 task={item}
                                 onDelete={() => onToggleReminder(item.id, false)}
                                 onEdit={() => handleEdit(item)}
+                                onToggle={(val) => onToggleReminder(item.id, val, item.reminderTime, item.reminderDate, item.reminderOffset)}
                             />
                         )}
                         contentContainerStyle={{ padding: 16 }}
                         ListEmptyComponent={
                             <View style={{ alignItems: 'center', marginTop: 40 }}>
-                                <Text style={{ color: THEME.textSecondary }}>No active reminders for today</Text>
+                                <Text style={{ color: THEME.textSecondary }}>No active reminders</Text>
                             </View>
                         }
                     />

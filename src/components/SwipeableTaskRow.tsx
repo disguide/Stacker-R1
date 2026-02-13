@@ -399,7 +399,7 @@ export default function SwipeableTaskRow({
                             )}
                             {daysRolled > 0 && (
                                 <View style={styles.rolledOverTag}>
-                                    <MaterialCommunityIcons name="redo-variant" size={14} color="#C05621" style={{ marginRight: 2 }} />
+                                    <MaterialCommunityIcons name="redo-variant" size={14} color="#64748B" style={{ marginRight: 2 }} />
                                     <Text style={styles.rolledOverText}>Roll x{daysRolled}</Text>
                                 </View>
                             )}
@@ -566,15 +566,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginRight: 4,
-        backgroundColor: '#FEEBC8',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
+        // backgroundColor: '#F1F5F9', // Removed background
+        paddingHorizontal: 0, // Removed padding
+        paddingVertical: 0,
+        // borderRadius: 4,
     },
     rolledOverText: {
         fontSize: 11,
         fontWeight: 'bold',
-        color: '#C05621',
+        color: '#64748B', // Slate-500
     },
     actionZone: {
         position: 'absolute',

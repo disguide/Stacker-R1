@@ -39,6 +39,7 @@ interface CalendarModalProps {
     onSelectDate: (date: Date | null, hasTime?: boolean) => void;
     selectedDate?: string | null; // YYYY-MM-DD or ISO
     initialPage?: number;
+    showTimePicker?: boolean;
 }
 
 // Simple Day Cell (No Memo)
@@ -239,7 +240,7 @@ const WheelPicker = ({ items, selectedValue, onChange, formatLabel, onScrollStar
     );
 };
 
-export default function CalendarModal({ visible, onClose, onSelectDate, selectedDate, initialPage = 0 }: CalendarModalProps) {
+export default function CalendarModal({ visible, onClose, onSelectDate, selectedDate, initialPage = 0, showTimePicker = true }: CalendarModalProps) {
     const listRef = useRef<FlatList>(null);
     const scrollRef = useRef<ScrollView>(null);
 
@@ -431,6 +432,7 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
     };
 
     const scrollToPage = (page: number) => {
+        if (!showTimePicker && page === 1) return;
         scrollRef.current?.scrollTo({ x: page * MODAL_WIDTH, animated: true });
         setCurrentPage(page);
     };
@@ -465,23 +467,27 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                                 <Text style={[styles.tabText, currentPage === 0 && styles.tabTextActive]}>Date</Text>
                                 {currentPage === 0 && <View style={styles.tabLine} />}
                             </TouchableOpacity>
-                            <View style={styles.arrowContainer}>
-                                <Ionicons name="chevron-forward" size={16} color="#DDD" />
-                            </View>
-                            <TouchableOpacity onPress={() => scrollToPage(1)} style={styles.tabItem}>
-                                <Text style={[styles.tabText, currentPage === 1 && styles.tabTextActive]}>Time</Text>
-                                {/* No extra text here */}
-                                {currentPage === 1 && <View style={styles.tabLine} />}
-                            </TouchableOpacity>
 
+                            {showTimePicker && (
+                                <>
+                                    <View style={styles.arrowContainer}>
+                                        <Ionicons name="chevron-forward" size={16} color="#DDD" />
+                                    </View>
+                                    <TouchableOpacity onPress={() => scrollToPage(1)} style={styles.tabItem}>
+                                        <Text style={[styles.tabText, currentPage === 1 && styles.tabTextActive]}>Time</Text>
+                                        {currentPage === 1 && <View style={styles.tabLine} />}
+                                    </TouchableOpacity>
+                                </>
+                            )}
                         </View>
 
                         <ScrollView
                             ref={scrollRef}
                             horizontal
                             pagingEnabled
+                            scrollEnabled={showTimePicker}
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ width: MODAL_WIDTH * 2 }}
+                            contentContainerStyle={{ width: showTimePicker ? MODAL_WIDTH * 2 : MODAL_WIDTH }}
                             keyboardShouldPersistTaps="handled"
                             onMomentumScrollEnd={handleScroll}
                             scrollEventThrottle={16}
@@ -520,72 +526,74 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                             </View>
 
                             {/* PAGE 2: Time Picker */}
-                            <View style={{ width: MODAL_WIDTH, height: '100%', paddingHorizontal: 20, paddingTop: 20 }}>
-                                <View style={{ flex: 1, alignItems: 'center' }}>
+                            {showTimePicker && (
+                                <View style={{ width: MODAL_WIDTH, height: '100%', paddingHorizontal: 20, paddingTop: 20 }}>
+                                    <View style={{ flex: 1, alignItems: 'center' }}>
 
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
-                                        <Text style={styles.pageTitle}>Time</Text>
-                                        <TouchableOpacity onPress={() => setIs24h(!is24h)} style={{ padding: 8, backgroundColor: THEME.surface, borderRadius: 8, borderWidth: 1, borderColor: THEME.border }}>
-                                            <Text style={{ fontSize: 12, fontWeight: 'bold', color: THEME.textPrimary }}>{is24h ? '24H' : '12H'}</Text>
-                                        </TouchableOpacity>
-                                    </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
+                                            <Text style={styles.pageTitle}>Time</Text>
+                                            <TouchableOpacity onPress={() => setIs24h(!is24h)} style={{ padding: 8, backgroundColor: THEME.surface, borderRadius: 8, borderWidth: 1, borderColor: THEME.border }}>
+                                                <Text style={{ fontSize: 12, fontWeight: 'bold', color: THEME.textPrimary }}>{is24h ? '24H' : '12H'}</Text>
+                                            </TouchableOpacity>
+                                        </View>
 
-                                    <View style={[styles.timePickerContainer, { opacity: hasTime ? 1 : 0.3, pointerEvents: 'auto' }]}>
-                                        {is24h ? (
-                                            <>
-                                                <WheelPicker
-                                                    key="24h-hours"
-                                                    items={hours24}
-                                                    selectedValue={tempHour}
-                                                    onChange={handleHourChange}
-                                                    onScrollStart={() => !hasTime && setHasTime(true)}
-                                                />
-                                                <Text style={[styles.timeSeparator, { paddingBottom: 10 }]}>:</Text>
-                                                <WheelPicker
-                                                    key="24h-minutes"
-                                                    items={minutes}
-                                                    selectedValue={tempMinute}
-                                                    onChange={(val) => {
-                                                        if (tempHour === 24) { setTempMinute(0); return; }
-                                                        setTempMinute(val);
-                                                    }}
-                                                    onScrollStart={() => !hasTime && setHasTime(true)}
-                                                />
-                                            </>
-                                        ) : (
-                                            <>
-                                                <WheelPicker
-                                                    key="12h-hours"
-                                                    items={hours12}
-                                                    selectedValue={current12hHour}
-                                                    onChange={handleHourChange}
-                                                    onScrollStart={() => !hasTime && setHasTime(true)}
-                                                />
-                                                <Text style={[styles.timeSeparator, { paddingBottom: 10 }]}>:</Text>
-                                                <WheelPicker
-                                                    key="12h-minutes"
-                                                    items={minutes}
-                                                    selectedValue={tempMinute}
-                                                    onChange={(val) => setTempMinute(val)}
-                                                    onScrollStart={() => !hasTime && setHasTime(true)}
-                                                />
-                                                <View style={{ width: 20 }} />
-                                                <View>
-                                                    <TouchableOpacity onPress={() => { setTempHour(h => (h + 12) % 24); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: !isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>AM</Text></TouchableOpacity>
-                                                    <TouchableOpacity onPress={() => { setTempHour(h => (h + 12) % 24); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>PM</Text></TouchableOpacity>
-                                                </View>
-                                            </>
+                                        <View style={[styles.timePickerContainer, { opacity: hasTime ? 1 : 0.3, pointerEvents: 'auto' }]}>
+                                            {is24h ? (
+                                                <>
+                                                    <WheelPicker
+                                                        key="24h-hours"
+                                                        items={hours24}
+                                                        selectedValue={tempHour}
+                                                        onChange={handleHourChange}
+                                                        onScrollStart={() => !hasTime && setHasTime(true)}
+                                                    />
+                                                    <Text style={[styles.timeSeparator, { paddingBottom: 10 }]}>:</Text>
+                                                    <WheelPicker
+                                                        key="24h-minutes"
+                                                        items={minutes}
+                                                        selectedValue={tempMinute}
+                                                        onChange={(val) => {
+                                                            if (tempHour === 24) { setTempMinute(0); return; }
+                                                            setTempMinute(val);
+                                                        }}
+                                                        onScrollStart={() => !hasTime && setHasTime(true)}
+                                                    />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <WheelPicker
+                                                        key="12h-hours"
+                                                        items={hours12}
+                                                        selectedValue={current12hHour}
+                                                        onChange={handleHourChange}
+                                                        onScrollStart={() => !hasTime && setHasTime(true)}
+                                                    />
+                                                    <Text style={[styles.timeSeparator, { paddingBottom: 10 }]}>:</Text>
+                                                    <WheelPicker
+                                                        key="12h-minutes"
+                                                        items={minutes}
+                                                        selectedValue={tempMinute}
+                                                        onChange={(val) => setTempMinute(val)}
+                                                        onScrollStart={() => !hasTime && setHasTime(true)}
+                                                    />
+                                                    <View style={{ width: 20 }} />
+                                                    <View>
+                                                        <TouchableOpacity onPress={() => { setTempHour(h => (h + 12) % 24); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: !isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>AM</Text></TouchableOpacity>
+                                                        <TouchableOpacity onPress={() => { setTempHour(h => (h + 12) % 24); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>PM</Text></TouchableOpacity>
+                                                    </View>
+                                                </>
+                                            )}
+                                        </View>
+
+                                        {!hasTime && (
+                                            <Text style={{ marginTop: 20, color: THEME.textSecondary, fontSize: 14 }}>
+                                                Scroll to set time
+                                            </Text>
                                         )}
+
                                     </View>
-
-                                    {!hasTime && (
-                                        <Text style={{ marginTop: 20, color: THEME.textSecondary, fontSize: 14 }}>
-                                            Scroll to set time
-                                        </Text>
-                                    )}
-
                                 </View>
-                            </View>
+                            )}
                         </ScrollView>
 
                         {/* UNIVERSAL FOOTER */}
@@ -608,7 +616,6 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
         </Modal >
     );
 }
-
 const styles = StyleSheet.create({
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     calendarCard: { width: MODAL_WIDTH, height: 500, backgroundColor: THEME.bg, borderRadius: 16, overflow: 'hidden' },

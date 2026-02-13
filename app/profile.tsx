@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Animated, NativeSyntheticEvent, NativeScrollEvent, TextInput, Image, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, TextInput, Image, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { StorageService, Task, UserProfile } from '../src/services/storage';
 import CompletedTasksModal from '../src/components/CompletedTasksModal';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import IdentityCard from '../src/components/IdentityCard';
 
 const { width } = Dimensions.get('window');
 
@@ -16,8 +17,6 @@ export default function ProfileScreen() {
     const [isHistoryVisible, setIsHistoryVisible] = useState(false);
     const [historyTasks, setHistoryTasks] = useState<Task[]>([]);
     const [activeTab, setActiveTab] = useState(0);
-    const scrollRef = useRef<ScrollView>(null);
-    const scrollX = useRef(new Animated.Value(0)).current;
 
     const [profile, setProfile] = useState<UserProfile>({
         name: '',
@@ -26,6 +25,8 @@ export default function ProfileScreen() {
     });
 
     const [stats, setStats] = useState({ completed: 0, active: 0, streak: 0 });
+
+    const [milestones, setMilestones] = useState<Task[]>([]);
 
     useEffect(() => {
         loadData();
@@ -36,6 +37,19 @@ export default function ProfileScreen() {
         setHistoryTasks(history);
 
         const active = await StorageService.loadActiveTasks();
+
+        // Load Milestones (Logic adapted from identity.tsx)
+        const tags = await StorageService.loadTags();
+        const identityTag = tags.find(t => t.label.trim().toLowerCase() === 'identity');
+        const identityTagId = identityTag?.id;
+
+        const milestonTasks = active.filter(t => {
+            const hasTag = identityTagId ? t.tagIds?.includes(identityTagId) : false;
+            const isRef = t.id.startsWith('milestone_');
+            return (hasTag || isRef) && !t.completed;
+        }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        setMilestones(milestonTasks);
 
         // Simple Streak Calculation
         const streak = calculateStreak(history);
@@ -58,13 +72,48 @@ export default function ProfileScreen() {
 
     const calculateStreak = (history: Task[]) => {
         if (!history.length) return 0;
-        // Sort by date descending
-        const sorted = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        /* 
-           Real streak logic needs unique dates. 
-           For this MVP, valid streak = consecutive days backward from today/yesterday.
-        */
-        return 0; // Placeholder until we have robust generic date helper for this
+
+        // distinct dates from history, sorted descending
+        const uniqueDates = [...new Set(history.map(t => t.date.split('T')[0]))]
+            .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+        if (uniqueDates.length === 0) return 0;
+
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+        // If no task today AND no task yesterday, streak is broken -> 0
+        if (uniqueDates[0] !== today && uniqueDates[0] !== yesterday) {
+            return 0;
+        }
+
+        let streak = 0;
+        let currentDate = new Date(uniqueDates[0]);
+
+        // If the latest task is today, start counting. If yesterday, also start.
+        // We iterate through the sorted dates and check simple day difference
+
+        // Simplification: Just iterate unique dates and check if they are consecutive
+        let currentString = uniqueDates[0];
+        streak = 1;
+
+        for (let i = 1; i < uniqueDates.length; i++) {
+            const prevDate = new Date(currentString);
+            const thisDate = new Date(uniqueDates[i]);
+
+            // Difference in days
+            const diffTime = Math.abs(prevDate.getTime() - thisDate.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 1) {
+                streak++;
+                currentString = uniqueDates[i];
+            } else {
+                break;
+            }
+        }
+
+        return streak;
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -96,104 +145,58 @@ export default function ProfileScreen() {
         }
     };
 
-    const handleTabPress = (index: number) => {
-        setActiveTab(index);
-        scrollRef.current?.scrollTo({ x: index * width, animated: true });
-    };
 
-    const handleScroll = Animated.event(
-        [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-        { useNativeDriver: false }
-    );
-
-    const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        const position = event.nativeEvent.contentOffset.x;
-        const index = Math.round(position / width);
-        setActiveTab(index);
-    };
-
-    const indicatorTranslateX = scrollX.interpolate({
-        inputRange: [0, width],
-        outputRange: [0, width / 2],
-    });
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Text style={styles.backButtonText}>‹ Back</Text>
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Profile</Text>
-                <View style={styles.placeholder} />
-            </View>
-
-            {/* Custom Tab Bar */}
-            <View style={styles.tabBar}>
-                <TouchableOpacity style={styles.tabItem} onPress={() => handleTabPress(0)}>
-                    <Text style={[styles.tabText, activeTab === 0 && styles.activeTabText]}>Me</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.tabItem} onPress={() => handleTabPress(1)}>
-                    <Text style={[styles.tabText, activeTab === 1 && styles.activeTabText]}>Archive</Text>
-                </TouchableOpacity>
-                <Animated.View style={[styles.tabIndicator, { transform: [{ translateX: indicatorTranslateX }] }]} />
-            </View>
-
+        <View style={styles.container}>
             <ScrollView
-                ref={scrollRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={handleScroll}
-                onMomentumScrollEnd={handleMomentumScrollEnd}
-                scrollEventThrottle={16}
-                contentContainerStyle={{ width: width * 2 }}
+                style={styles.pageScroll}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
             >
-                {/* PAGE 1: ME */}
-                <View style={styles.page}>
-                    <ScrollView
-                        style={styles.pageScroll}
-                        contentContainerStyle={styles.contentContainer}
-                        keyboardShouldPersistTaps="handled"
-                    >
+                {/* 1. GLOBAL HEADER (Banner, Avatar, Bio, Stats) */}
+                <View style={styles.headerContainer}>
+                    {/* Banner */}
+                    <TouchableOpacity activeOpacity={0.9} onPress={() => handlePickImage('banner')}>
+                        {profile.banner ? (
+                            <Image source={{ uri: profile.banner }} style={styles.bannerImage} />
+                        ) : (
+                            <LinearGradient colors={['#cbd5e1', '#94a3b8']} style={styles.bannerImage} />
+                        )}
+                        <View style={styles.bannerEditIcon}>
+                            <Ionicons name="camera" size={16} color="#FFF" />
+                        </View>
 
-                        {/* Banner & Header (Existing) */}
-                        <TouchableOpacity activeOpacity={0.9} onPress={() => handlePickImage('banner')}>
-                            {profile.banner ? (
-                                <Image source={{ uri: profile.banner }} style={styles.bannerImage} />
-                            ) : (
-                                <LinearGradient colors={['#e0e0e0', '#d0d0d0']} style={styles.bannerImage} />
-                            )}
-                            <View style={styles.bannerOverlay}>
-                                <Ionicons name="camera-outline" size={20} color="#FFF" />
-                            </View>
+                        {/* EXIT BUTTON (Floating Overlay) */}
+                        <TouchableOpacity onPress={() => router.back()} style={styles.exitBtnFloating}>
+                            <Ionicons name="arrow-back" size={24} color="#FFF" />
                         </TouchableOpacity>
+                    </TouchableOpacity>
 
-                        {/* Profile Info Card */}
-                        <View style={styles.profileHeaderCard}>
-                            {/* Avatar & Streak Row */}
-                            <View style={styles.avatarRow}>
-                                <TouchableOpacity style={styles.avatarWrapper} onPress={() => handlePickImage('avatar')}>
-                                    {profile.avatar ? (
-                                        <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
-                                    ) : (
-                                        <View style={styles.avatarPlaceholder}>
-                                            <Text style={{ fontSize: 32 }}>👤</Text>
-                                        </View>
-                                    )}
-                                    <View style={styles.avatarEditIcon}>
-                                        <Ionicons name="add-circle" size={24} color="#007AFF" />
+                    {/* Profile Block (Overlapping) */}
+                    <View style={styles.profileBlock}>
+                        <View style={styles.avatarRow}>
+                            <TouchableOpacity activeOpacity={0.9} onPress={() => handlePickImage('avatar')}>
+                                {profile.avatar ? (
+                                    <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
+                                ) : (
+                                    <View style={styles.avatarPlaceholder}>
+                                        <Text style={{ fontSize: 40 }}>👤</Text>
                                     </View>
-                                </TouchableOpacity>
-
-                                {/* STREAK BADGE - Now right of Avatar */}
-                                <View style={styles.streakBadge}>
-                                    <Ionicons name="flame" size={16} color="#DC2626" />
-                                    <Text style={styles.streakText}>{stats.streak} Streak</Text>
+                                )}
+                                <View style={styles.avatarEditIcon}>
+                                    <Ionicons name="add" size={16} color="#FFF" />
                                 </View>
-                            </View>
+                            </TouchableOpacity>
 
-                            {/* Inline Editable Name */}
+                            {/* Edit Profile Button */}
+                            <TouchableOpacity style={styles.editProfileBtn}>
+                                <Text style={styles.editProfileText}>Edit Profile</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Name & Bio */}
+                        <View style={styles.infoBlock}>
                             <TextInput
                                 style={styles.userNameInput}
                                 value={profile.name}
@@ -201,8 +204,6 @@ export default function ProfileScreen() {
                                 placeholder="Name"
                                 placeholderTextColor="#94A3B8"
                             />
-
-                            {/* Inline Editable Bio */}
                             <TextInput
                                 style={styles.userBioInput}
                                 value={profile.bio || ''}
@@ -212,59 +213,132 @@ export default function ProfileScreen() {
                                 multiline
                             />
                         </View>
+                    </View>
 
+                    {/* STATS ROW */}
+                    <View style={styles.statsRow}>
+                        <View style={styles.statItem}>
+                            <Text style={[styles.statValue, { color: '#DC2626' }]}>{stats.streak}</Text>
+                            <Text style={styles.statLabel}>Streak</Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
+                            <Text style={[styles.statValue, { color: '#16A34A' }]}>{stats.completed}</Text>
+                            <Text style={styles.statLabel}>Done</Text>
+                        </View>
+                        <View style={styles.statDivider} />
+                        <View style={styles.statItem}>
+                            <Text style={[styles.statValue, { color: '#2563EB' }]}>{stats.active}</Text>
+                            <Text style={styles.statLabel}>Active</Text>
+                        </View>
+                    </View>
+                </View>
 
+                {/* 2. TABS (Sticky-ish) */}
+                <View style={styles.tabContainer}>
+                    {['Identity', 'Plans', 'Archive'].map((tab, i) => (
+                        <TouchableOpacity
+                            key={tab}
+                            style={[styles.tabBtn, activeTab === i && styles.tabBtnActive]}
+                            onPress={() => setActiveTab(i)}
+                        >
+                            <Text style={[styles.tabBtnText, activeTab === i && styles.tabBtnTextActive]}>
+                                {tab}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
 
-                        {/* Goals Section - Clean List Card */}
-                        <View style={styles.goalsContainer}>
-                            <Text style={styles.sectionHeader}>Current Focus</Text>
-                            <View style={styles.sectionCard}>
-                                {(profile.goals || []).map((goal, index) => (
-                                    <View key={index}>
-                                        <View style={styles.goalItemRow}>
-                                            <Ionicons name="location-outline" size={22} color="#64748B" />
-                                            <TextInput
-                                                style={styles.goalInput}
-                                                value={goal}
-                                                onChangeText={(text) => {
-                                                    const newGoals = [...(profile.goals || [])];
-                                                    newGoals[index] = text;
-                                                    setProfile({ ...profile, goals: newGoals }); // Optimistic update
-                                                }}
-                                                onEndEditing={() => updateProfile({ goals: profile.goals?.filter(g => g.trim().length > 0) })} // Save on blur
-                                                onSubmitEditing={() => updateProfile({ goals: [...(profile.goals || []), ''] })} // Enter -> Add new
-                                                placeholder="What's your focus?"
-                                                placeholderTextColor="#94A3B8"
-                                                returnKeyType="next"
-                                            />
-                                            <TouchableOpacity
-                                                onPress={() => updateProfile({ goals: profile.goals?.filter((_, i) => i !== index) })}
-                                                style={{ padding: 4 }}
-                                            >
-                                                <Ionicons name="close-circle" size={18} color="#CBD5E1" />
-                                            </TouchableOpacity>
+                {/* 3. TAB CONTENT */}
+                <View style={styles.tabContent}>
+                    {/* ID CARD */}
+                    {activeTab === 0 && (
+                        <View style={styles.identityTab}>
+                            <TouchableOpacity
+                                style={styles.identityCardRow}
+                                onPress={() => router.push('/identity')}
+                                activeOpacity={0.8}
+                            >
+                                <View style={styles.idCardLeft}>
+                                    <LinearGradient colors={['#0F172A', '#334155']} style={styles.idIconBox}>
+                                        <Ionicons name="finger-print" size={24} color="#FFF" />
+                                    </LinearGradient>
+                                    <View>
+                                        <Text style={styles.idCardTitle}>Identity Engineering</Text>
+                                        <Text style={styles.idCardSub}>Frankenstein vs. Hero Model</Text>
+                                    </View>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
+                            </TouchableOpacity>
+                            <Text style={{ textAlign: 'center', marginTop: 12, color: '#94A3B8', fontSize: 12 }}>
+                                Tap to configure your identity card
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* PLANS (Milestones & Focus) */}
+                    {activeTab === 1 && (
+                        <View>
+                            {/* MILESTONES SECTION */}
+                            <Text style={styles.sectionHeader}>NEXT MILESTONES</Text>
+                            <View style={styles.milestoneList}>
+                                {milestones.length > 0 ? (
+                                    milestones.slice(0, 3).map((m, i) => ( // Show top 3
+                                        <View key={m.id} style={styles.milestoneItem}>
+                                            <View style={styles.milestoneIcon}>
+                                                <Ionicons name="flag" size={14} color="#8B5CF6" />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.milestoneTitle}>{m.title}</Text>
+                                                <Text style={styles.milestoneDate}>{new Date(m.date).toLocaleDateString()}</Text>
+                                            </View>
+                                            <View style={styles.milestoneLine} />
                                         </View>
-                                        {index < (profile.goals || []).length - 1 && <View style={styles.separator} />}
+                                    ))
+                                ) : (
+                                    <Text style={styles.emptyStateText}>No upcoming milestones set.</Text>
+                                )}
+                            </View>
+
+                            {/* CURRENT FOCUS LIST */}
+                            <Text style={[styles.sectionHeader, { marginTop: 24 }]}>CURRENT FOCUS</Text>
+                            <View style={styles.focusList}>
+                                {(profile.goals || []).map((goal, index) => (
+                                    <View key={index} style={styles.focusItem}>
+                                        <View style={styles.focusIconBox}>
+                                            <Ionicons name="radio-button-on" size={10} color="#3B82F6" />
+                                        </View>
+                                        <TextInput
+                                            style={styles.focusInput}
+                                            value={goal}
+                                            onChangeText={(text) => {
+                                                const newGoals = [...(profile.goals || [])];
+                                                newGoals[index] = text;
+                                                setProfile({ ...profile, goals: newGoals });
+                                            }}
+                                            onEndEditing={() => updateProfile({ goals: profile.goals?.filter(g => g.trim().length > 0) })}
+                                            onSubmitEditing={() => updateProfile({ goals: [...(profile.goals || []), ''] })}
+                                            placeholder="Add focus item..."
+                                        />
+                                        <TouchableOpacity onPress={() => updateProfile({ goals: profile.goals?.filter((_, i) => i !== index) })}>
+                                            <Ionicons name="close" size={16} color="#CBD5E1" />
+                                        </TouchableOpacity>
                                     </View>
                                 ))}
-                                {(profile.goals?.length || 0) > 0 && <View style={styles.separator} />}
                                 <TouchableOpacity
-                                    style={styles.addGoalChecklistButton}
+                                    style={styles.addItemBtn}
                                     onPress={() => updateProfile({ goals: [...(profile.goals || []), ''] })}
                                 >
-                                    <Ionicons name="add" size={20} color="#64748B" />
-                                    <Text style={styles.addGoalText}>Add New Focus Item</Text>
+                                    <Ionicons name="add" size={16} color="#64748B" />
+                                    <Text style={styles.addItemText}>Add Item</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    </ScrollView>
-                </View>
+                    )}
 
-                {/* PAGE 2: ARCHIVE */}
-                <View style={styles.page}>
-                    <ScrollView style={styles.pageScroll} contentContainerStyle={styles.contentContainer}>
-                        <Text style={styles.sectionHeader}>Records</Text>
-                        <View style={styles.sectionCard}>
+                    {/* ARCHIVE */}
+                    {activeTab === 2 && (
+                        <View>
                             <TouchableOpacity style={styles.menuItem} onPress={() => setIsHistoryVisible(true)}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                     <Ionicons name="time-outline" size={24} color="#333" />
@@ -273,19 +347,11 @@ export default function ProfileScreen() {
                                 <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
                             </TouchableOpacity>
 
-                            <View style={styles.separator} />
-
-                            <TouchableOpacity style={styles.menuItem}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                    <Ionicons name="stats-chart-outline" size={24} color="#333" />
-                                    <Text style={styles.menuItemText}>Statistics</Text>
-                                </View>
-                                <View style={styles.comingSoonTag}>
-                                    <Text style={styles.comingSoonText}>Soon</Text>
-                                </View>
-                            </TouchableOpacity>
+                            <View style={{ padding: 20, alignItems: 'center', marginTop: 20 }}>
+                                <Text style={{ color: '#94A3B8' }}>Past performance analytics...</Text>
+                            </View>
                         </View>
-                    </ScrollView>
+                    )}
                 </View>
             </ScrollView>
 
@@ -299,218 +365,93 @@ export default function ProfileScreen() {
                     setHistoryTasks(prev => prev.filter(t => t.id !== id));
                 }}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F9FAFB' },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#FFFFFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
-    },
-    backButton: { paddingVertical: 4, paddingRight: 12 },
-    backButtonText: { fontSize: 16, color: '#007AFF', fontWeight: '500' },
-    headerTitle: { fontSize: 17, fontWeight: '600', color: '#000000' },
-    placeholder: { width: 60 },
-
-    // Tabs
-    tabBar: { flexDirection: 'row', position: 'relative', backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-    tabItem: { flex: 1, alignItems: 'center', paddingVertical: 12 },
-    tabText: { fontSize: 15, fontWeight: '600', color: '#94A3B8' },
-    activeTabText: { color: '#007AFF' },
-    tabIndicator: { position: 'absolute', bottom: 0, left: 0, height: 2, width: '50%', backgroundColor: '#007AFF' },
-
-    // Pages
-    page: { width: width, flex: 1 },
+    container: { flex: 1, backgroundColor: '#FFF' }, // Cleaner white bg
     pageScroll: { flex: 1 },
-    contentContainer: { paddingBottom: 40 }, // Removed padding: 20 to let banner go edge-to-edge
+    scrollContent: { paddingBottom: 40 },
 
-    // Pro Social Style Profile
-    bannerImage: {
-        height: 120,
+    // HEADER
+    headerContainer: { marginBottom: 0 },
+    bannerImage: { width: '100%', height: 140, backgroundColor: '#CBD5E1' },
+    bannerEditIcon: { position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(0,0,0,0.4)', padding: 6, borderRadius: 20 },
+    exitBtnFloating: { position: 'absolute', top: 40, left: 20, backgroundColor: 'rgba(0,0,0,0.4)', padding: 8, borderRadius: 20 },
+
+    profileBlock: { paddingHorizontal: 16, marginTop: -50 }, // Overlap
+    avatarRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 },
+    avatarImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 4, borderColor: '#FFF' },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 50, borderWidth: 4, borderColor: '#FFF', backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+    avatarEditIcon: { position: 'absolute', bottom: 4, left: 70, backgroundColor: '#007AFF', borderRadius: 12, padding: 2, borderWidth: 2, borderColor: '#FFF' },
+
+    editProfileBtn: { paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: '#CBD5E1', marginBottom: 12, backgroundColor: '#FFF' },
+    editProfileText: { fontSize: 13, fontWeight: '600', color: '#0F172A' },
+
+    infoBlock: { marginTop: 4, marginBottom: 16 },
+    userNameInput: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginBottom: 2 },
+    userBioInput: { fontSize: 15, color: '#475569', lineHeight: 20 },
+
+    // STATS ROW
+    statsRow: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+    statItem: { alignItems: 'center' },
+    statValue: { fontSize: 18, fontWeight: '800' },
+    statLabel: { fontSize: 12, color: '#64748B', fontWeight: '600', textTransform: 'uppercase' },
+    statDivider: { width: 1, height: '60%', backgroundColor: '#E2E8F0', alignSelf: 'center' },
+
+    // TABS
+    tabContainer: { flexDirection: 'row', borderBottomWidth: 1, borderTopWidth: 1, borderColor: '#F1F5F9', backgroundColor: '#FFF' },
+    tabBtn: { flex: 1, alignItems: 'center', paddingVertical: 14 },
+    tabBtnActive: { borderBottomWidth: 2, borderBottomColor: '#0F172A' },
+    tabBtnText: { fontSize: 14, fontWeight: '600', color: '#94A3B8' },
+    tabBtnTextActive: { color: '#0F172A' },
+
+    tabContent: { padding: 16, minHeight: 300 },
+    identityTab: { padding: 16, alignItems: 'center' },
+
+    // IDENTITY CARD ROW
+    identityCardRow: {
         width: '100%',
-        backgroundColor: '#E2E8F0',
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        padding: 16, backgroundColor: '#F8FAFC', borderRadius: 16,
+        borderWidth: 1, borderColor: '#E2E8F0'
     },
-    bannerOverlay: {
-        position: 'absolute',
-        top: 10,
-        right: 10,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        padding: 8,
-        borderRadius: 20,
-    },
+    idCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    idIconBox: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    idCardTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
+    idCardSub: { fontSize: 12, color: '#64748B' },
 
-    // Header Info Section
-    profileHeaderCard: {
-        alignItems: 'flex-start', // Left aligned
-        paddingHorizontal: 20,
-        marginTop: -45,
-        marginBottom: 24,
-        zIndex: 10, // Ensure inputs are clickable over banner
+    // MILESTONES
+    milestoneList: {
+        backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9',
+        overflow: 'hidden', paddingVertical: 8
     },
-    avatarRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: 16,
-        marginBottom: 12,
+    milestoneItem: {
+        flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12
     },
-    avatarWrapper: {
-        padding: 4,
-        backgroundColor: '#F9FAFB',
-        borderRadius: 24, // Square-ish
-        // Removed marginBottom as it's handled by row
+    milestoneIcon: {
+        width: 24, height: 24, borderRadius: 12, backgroundColor: '#F3E8FF', alignItems: 'center', justifyContent: 'center'
     },
-    avatarImage: {
-        width: 84,
-        height: 84,
-        borderRadius: 20, // Square-ish
-        borderWidth: 1,
-        borderColor: '#00000010'
+    milestoneTitle: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
+    milestoneDate: { fontSize: 12, color: '#94A3B8' },
+    milestoneLine: {
+        position: 'absolute', left: 28, top: 32, bottom: -12, width: 1, backgroundColor: '#E2E8F0', zIndex: -1
     },
-    avatarPlaceholder: {
-        width: 84,
-        height: 84,
-        borderRadius: 20, // Square-ish
-        backgroundColor: '#FFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    avatarEditIcon: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        backgroundColor: '#FFF',
-        borderRadius: 12,
-        zIndex: 2,
-    },
+    emptyStateText: { padding: 16, fontStyle: 'italic', color: '#94A3B8', fontSize: 13 },
 
-    // Inline Inputs - Left Aligned
-    userNameInput: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: '#0F172A',
-        marginBottom: 2,
-        textAlign: 'left',
-        minWidth: 150,
-        marginLeft: -2 // Offsetting default padding
-    },
-    userHandleInput: {
-        fontSize: 15,
-        color: '#64748B',
-        marginBottom: 12,
-        textAlign: 'left',
-        fontWeight: '500',
-        marginLeft: -2
-    },
-    userBioInput: {
-        fontSize: 15,
-        color: '#334155',
-        lineHeight: 22,
-        textAlign: 'left',
-        width: '100%',
-        marginBottom: 16,
-    },
+    // FOCUS LIST
+    sectionHeader: { fontSize: 12, fontWeight: '700', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 },
+    focusList: { backgroundColor: '#F8FAFC', borderRadius: 16, borderWidth: 1, borderColor: '#F1F5F9', overflow: 'hidden' },
+    focusItem: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+    focusIconBox: { width: 20, alignItems: 'center' },
+    focusInput: { flex: 1, fontSize: 15, color: '#334155', fontWeight: '500' },
+    addItemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, gap: 8 },
+    addItemText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
 
-    // Streak Badge - Now next to Avatar
-    streakBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FEF2F2',
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 12,
-        gap: 6,
-        borderWidth: 1,
-        borderColor: '#FECACA',
-        marginBottom: 12, // Align visually with bottom of avatar
-    },
-    streakText: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#DC2626',
-    },
-    // Removed streakContainer as it is no longer distinct
-
-    // Goals - Clean List Rows
-    goalsContainer: { marginBottom: 50, paddingHorizontal: 20 },
-    sectionHeader: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#64748B',
-        marginBottom: 12,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5
-    },
-    goalItemRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        gap: 12,
-    },
-    goalInput: { flex: 1, fontSize: 16, color: '#333' },
-    addGoalChecklistButton: {
-        alignItems: 'center',
-        padding: 16,
-        flexDirection: 'row',
-        justifyContent: 'flex-start',
-        gap: 12,
-    },
-    addGoalText: { color: '#64748B', fontWeight: '500', fontSize: 16 },    // Content Card Standard
-    sectionCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#F1F5F9', // Subtle border
-        overflow: 'hidden',
-        marginBottom: 24,
-        shadowColor: '#64748B',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 2,
-        elevation: 1,
-    },
-
-    // Archive Menu
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 18,
-        backgroundColor: '#FFF'
-    },
-    menuItemText: {
-        fontSize: 16,
-        color: '#1E293B',
-        fontWeight: '500'
-    },
-    separator: {
-        height: 1,
-        backgroundColor: '#F1F5F9',
-        marginLeft: 54 // Indented past icon
-    },
-    comingSoonTag: {
-        backgroundColor: '#F1F5F9',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6
-    },
-    comingSoonText: {
-        fontSize: 11,
-        color: '#64748B',
-        fontWeight: '600'
-    },
+    // DATA/LOGS
+    menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#F1F5F9' },
+    menuItemText: { fontSize: 16, fontWeight: '500', color: '#1E293B' },
+    emptyTab: { alignItems: 'center', padding: 40 },
+    emptyTabText: { color: '#94A3B8', marginTop: 16, fontWeight: '500' },
 });

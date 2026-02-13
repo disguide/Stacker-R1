@@ -17,6 +17,20 @@ export interface UserProfile {
     banner?: string; // URL or Hex color
     bio?: string;
     goals?: string[]; // Array of strings
+    identity?: {
+        anti: {
+            head?: string;  // Traits
+            torso?: string; // Environment
+            arms?: string;  // Habits
+            legs?: string;  // Outcomes
+        };
+        hero: {
+            head?: string;
+            torso?: string;
+            arms?: string;
+            legs?: string;
+        };
+    };
 }
 
 export type ColorLabelMap = Record<string, string>; // Color Hex -> Label
