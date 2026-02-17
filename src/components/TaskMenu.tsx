@@ -29,9 +29,10 @@ export interface TaskMenuProps {
     onDelete: () => void;
     isSubtask?: boolean;
     onEdit: () => void;
+    enableSubtasks?: boolean;
 }
 
-export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit }: TaskMenuProps) {
+export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, enableSubtasks = true }: TaskMenuProps) {
     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     useEffect(() => {
@@ -69,7 +70,7 @@ export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isS
                             </View>
 
                             {/* Options */}
-                            {!isSubtask && (
+                            {!isSubtask && enableSubtasks && (
                                 <>
                                     <TouchableOpacity
                                         style={styles.option}

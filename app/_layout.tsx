@@ -1,10 +1,10 @@
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
-
 export default function Layout() {
     return (
-        <>
+        <GestureHandlerRootView style={{ flex: 1 }}>
             <StatusBar style="dark" />
             <Stack
                 screenOptions={{
@@ -16,6 +16,6 @@ export default function Layout() {
                 <Stack.Screen name="mail" />
                 <Stack.Screen name="settings" />
             </Stack>
-        </>
+        </GestureHandlerRootView>
     );
 }

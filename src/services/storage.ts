@@ -43,6 +43,7 @@ export interface ColorDefinition {
 
 // Red, Orange, Amber, Emerald, Blue, Violet, Pink
 export const TASK_COLORS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
+export const TASK_COLOR_LABELS = ['Urgent', 'High', 'Medium', 'Low', 'Work', 'Personal', 'Health'];
 
 export interface Task {
     id: string;

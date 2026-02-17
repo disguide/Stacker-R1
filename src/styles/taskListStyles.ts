@@ -178,9 +178,9 @@ export const styles = StyleSheet.create({
     },
     dateSubtext: {
         fontSize: 14,
-        color: '#64748B',
-        marginTop: -4, // Tweak alignment
-        fontWeight: '500',
+        color: '#475569',
+        marginTop: 0, // Reset
+        fontWeight: '600',
     },
     dailyStatsContainer: {
         backgroundColor: '#F1F5F9',
@@ -236,19 +236,18 @@ export const styles = StyleSheet.create({
         color: '#E2E8F0',
     },
     dayName: {
-        fontSize: 22, // Same as todayDayName
+        fontSize: 16,
         fontWeight: '600',
-        color: THEME.textPrimary,
-        marginBottom: 2,
-        // fontFamily removed, using system default
+        color: '#475569',
+        marginBottom: 0,
     },
     todayDateSubtext: {
         color: THEME.accent,
     },
     todayDayName: {
         color: THEME.accent,
-        fontSize: 22, // Bigger than regular 16
-        fontWeight: 'bold',
+        // fontSize: 22, // Bigger than regular 16
+        // fontWeight: 'bold',
     },
     dailyTaskCount: {
         fontSize: 13,
@@ -665,17 +664,16 @@ export const styles = StyleSheet.create({
         color: THEME.textSecondary,
     },
     taskCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        marginBottom: 8,
+        backgroundColor: THEME.bg, // Transparent/Matching background
+        borderRadius: 0, // Flatten for stacked look
+        marginBottom: 0, // Remove gap
         // Ensure content (slider) doesn't bleed
         overflow: 'hidden',
-        // Shadow (optional but good for card)
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        // Remove shadow for flat list
+        shadowColor: "transparent",
+        elevation: 0,
+        borderBottomWidth: 1, // Add separator
+        borderBottomColor: '#E2E8F0', // Slightly darker separator for contrast
     },
     subtaskRowWrapper: {
         borderTopWidth: 1,
@@ -726,5 +724,22 @@ export const styles = StyleSheet.create({
     },
     toolbarIconBtn: {
         padding: 4,
+    },
+    fab: {
+        position: 'absolute',
+        bottom: 32,
+        right: 24,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#0F172A',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4.65,
+        elevation: 8,
+        zIndex: 100, // Ensure it sits above other content but below modals
     },
 });

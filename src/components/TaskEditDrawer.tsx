@@ -11,7 +11,8 @@ import {
     Dimensions,
     KeyboardAvoidingView,
     Platform,
-    ScrollView, // Import ScrollView
+    ScrollView,
+    Pressable
 } from 'react-native';
 import RecurrencePickerModal from './RecurrencePickerModal';
 import { RecurrenceRule, ColorDefinition } from '../services/storage';
@@ -55,6 +56,72 @@ interface TaskEditDrawerProps {
     initialActiveFeature?: FeatureKey | null;
 }
 
+// ─── HOOKS ─────────────────────────────────────────────────────────────────
+
+/**
+ * Encapsulates all Reminder-related logic to keep the main component clean.
+ * Handles initialization, toggling, updating, and resetting.
+ */
+function useTaskReminders(task: Task | null) {
+    const [reminderOffset, setReminderOffset] = useState<number | null>(null);
+    const [reminderTime, setReminderTime] = useState<string | null>(null);
+    const [reminderEnabled, setReminderEnabled] = useState<boolean>(false);
+
+    // 1. Initialization
+    useEffect(() => {
+        if (task) {
+            setReminderOffset(task.reminderOffset !== undefined ? task.reminderOffset : null);
+            setReminderTime(task.reminderTime || null);
+            // If explicit enabled flag exists, use it. Otherwise, infer from offset presence.
+            setReminderEnabled(task.reminderEnabled !== undefined
+                ? task.reminderEnabled
+                : (task.reminderOffset !== null && task.reminderOffset !== undefined)
+            );
+        }
+    }, [task]);
+
+    // 2. Actions
+    const toggleReminder = (enabled: boolean) => {
+        setReminderEnabled(enabled);
+
+        // Intelligent Toggle: If turning ON and no data exists, set defaults.
+        if (enabled && reminderOffset === null) {
+            setReminderOffset(0); // Default: Same Day (Always 0 now)
+            setReminderTime('09:00'); // Default: 9 AM
+        }
+    };
+
+    const updateReminder = (offset: number | null, time: string | null) => {
+        setReminderOffset(offset);
+        setReminderTime(time);
+
+        // If we get valid data, auto-enable. If null, disable.
+        if (offset !== null) {
+            setReminderEnabled(true);
+        } else {
+            setReminderEnabled(false);
+        }
+    };
+
+    const clearReminder = () => {
+        setReminderOffset(null);
+        setReminderTime(null);
+        setReminderEnabled(false);
+    };
+
+    return {
+        reminderOffset,
+        reminderTime,
+        reminderEnabled,
+        toggleReminder,
+        updateReminder,
+        clearReminder,
+        setReminderOffset, // Expose raw setters if absolutely needed (try to avoid)
+        setReminderTime,
+        setReminderEnabled
+    };
+}
+
 export default function TaskEditDrawer({
     visible,
     task,
@@ -67,6 +134,8 @@ export default function TaskEditDrawer({
     onRequestColorSettings,
     initialActiveFeature
 }: TaskEditDrawerProps) {
+    // Debug Log
+    // console.log('[TaskEditDrawer] Rendered', { visible, onRequestColorSettings: !!onRequestColorSettings });
     const [title, setTitle] = useState('');
     const [deadline, setDeadline] = useState<string | null>(null);
     const [estimatedTime, setEstimatedTime] = useState<string | null>(null);
@@ -79,13 +148,16 @@ export default function TaskEditDrawer({
 
     const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
     const [activeFeature, setActiveFeature] = useState<FeatureKey | null>(null);
-    const [reminderOffset, setReminderOffset] = useState<number | null>(null);
 
-    const [reminderTime, setReminderTime] = useState<string | null>(null);
-    const [reminderEnabled, setReminderEnabled] = useState(true);
-    // const [isTimePickerVisible, setIsTimePickerVisible] = useState(false); // Removed
-    // const [selectedHour, setSelectedHour] = useState(9); // Removed
-    // const [selectedMinute, setSelectedMinute] = useState(0); // Removed
+    // Use Custom Hook for Reminders
+    const {
+        reminderOffset,
+        reminderTime,
+        reminderEnabled,
+        toggleReminder,
+        updateReminder,
+        clearReminder
+    } = useTaskReminders(task);
 
     // Helper to format time as 12-hour
     const formatTime = (time: string) => {
@@ -94,11 +166,6 @@ export default function TaskEditDrawer({
         const displayHours = hours % 12 || 12;
         return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
     };
-
-    // Subtask Handlers
-
-
-    // Removed local subtask state management as it is now handled in parent
 
     // Animation value for translateY
     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -122,12 +189,8 @@ export default function TaskEditDrawer({
                 setColor(task.color);
                 setTaskType(task.type);
                 setImportance(task.importance || 0); // Initialize importance
-                setImportance(task.importance || 0); // Initialize importance
 
-                // Initialize Reminder State
-                setReminderOffset(task.reminderOffset !== undefined ? task.reminderOffset : null);
-                setReminderTime(task.reminderTime || null);
-                setReminderEnabled(task.reminderEnabled !== undefined ? task.reminderEnabled : true);
+                // Note: Reminder state is handled by useTaskReminders hook
 
                 setActiveFeature(initialActiveFeature || null);
                 // Slide up
@@ -417,6 +480,7 @@ export default function TaskEditDrawer({
                         </TouchableOpacity>
 
                         {/* Reminder Card */}
+                        {/* Reminder Card */}
                         <TouchableOpacity
                             style={styles.featureCardGrid}
                             onPress={() => setActiveFeature('reminder')}
@@ -431,38 +495,41 @@ export default function TaskEditDrawer({
                                 !reminderEnabled && { color: THEME.textSecondary, fontWeight: 'normal' }
                             ]} numberOfLines={1}>
                                 {reminderOffset !== null
-                                    ? reminderOffset === 0 ? 'Same day' : `${reminderOffset}d before`
+                                    ? (
+                                        <>
+                                            {formatTime(reminderTime || '09:00')}
+                                        </>
+                                    )
                                     : 'None'}
                             </Text>
                             {reminderOffset !== null && (
-                                <>
-                                    <View style={{ position: 'absolute', bottom: 10, right: 10 }}>
-                                        <Switch
-                                            value={reminderEnabled}
-                                            onValueChange={setReminderEnabled}
-                                            trackColor={{ false: "#E2E8F0", true: "#BFDBFE" }}
-                                            thumbColor={reminderEnabled ? "#2563EB" : "#F1F5F9"}
-                                            style={{ transform: [{ scale: 0.7 }] }} // Data densification
-                                        />
-                                    </View>
-                                    <TouchableOpacity
-                                        style={{ position: 'absolute', top: 8, right: 8, padding: 4 }}
+                                <View style={{ position: 'absolute', top: 8, right: 8, padding: 4 }}>
+                                    <Pressable
                                         onPress={(e) => {
-                                            e.stopPropagation(); // Prevent card press
-                                            setReminderOffset(null);
-                                            setReminderTime(null);
+                                            e.stopPropagation();
+                                            clearReminder();
                                         }}
                                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                     >
                                         <Ionicons name="close" size={16} color={THEME.textSecondary} />
-                                    </TouchableOpacity>
-                                </>
+                                    </Pressable>
+                                </View>
                             )}
+
+                            <View style={{ position: 'absolute', bottom: 10, right: 10 }}>
+                                <Switch
+                                    value={reminderEnabled}
+                                    onValueChange={toggleReminder}
+                                    trackColor={{ false: "#E2E8F0", true: "#BFDBFE" }}
+                                    thumbColor={reminderEnabled ? "#2563EB" : "#F1F5F9"}
+                                    style={{ transform: [{ scale: 0.7 }] }}
+                                />
+                            </View>
                         </TouchableOpacity>
                     </View>
 
 
-                    {/* Subtasks Section Removed as per user request */}
+
 
 
 
@@ -499,12 +566,16 @@ export default function TaskEditDrawer({
                                 onColorChange={setColor}
                                 onTypeChange={setTaskType}
                                 onImportanceChange={setImportance}
-                                onReminderChange={(offset, time) => { setReminderOffset(offset); setReminderTime(time); }}
+                                onReminderChange={updateReminder}
                                 reminderOffset={reminderOffset}
                                 reminderTime={reminderTime}
                                 reminderEnabled={reminderEnabled}
                                 onClose={() => setActiveFeature(null)}
                                 userColors={userColors}
+                                onRequestColorSettings={() => {
+                                    console.log('[TaskEditDrawer] onRequestColorSettings called');
+                                    if (onRequestColorSettings) onRequestColorSettings();
+                                }}
                             />
                         </View>
                     </View>

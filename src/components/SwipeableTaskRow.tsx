@@ -69,6 +69,8 @@ interface SwipeableTaskRowProps {
     onSelect?: () => void;
     // NEW: Cooldown State
     isCompleting?: boolean;
+    onDrag?: () => void;
+    isReorderMode?: boolean;
 }
 
 // Helper to calculate remaining time locally
@@ -137,6 +139,7 @@ export default function SwipeableTaskRow({
     isSelected = false,
     onSelect,
     isCompleting = false,
+    isReorderMode = false,
     ...props // Catch-all for recurrence to avoid destructuring mess or add it explicitly
 }: SwipeableTaskRowProps) {
     const [containerWidth, setContainerWidth] = useState(0);
@@ -175,7 +178,7 @@ export default function SwipeableTaskRow({
             onStartShouldSetPanResponder: () => false,
             // Only capture if drag is significant (avoids stealing taps on checkbox)
             onMoveShouldSetPanResponder: (_, gestureState) => {
-                if (isSelectionMode) return false;
+                if (isSelectionMode || isReorderMode) return false;
                 return !completed && Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) * 1.2 > Math.abs(gestureState.dy);
             },
             onPanResponderTerminationRequest: () => false,
@@ -298,7 +301,11 @@ export default function SwipeableTaskRow({
 
     return (
         <View
-            style={[styles.container, (completed || isCompleting) && styles.containerCompleted]}
+            style={[
+                styles.container,
+                (completed || isCompleting) && styles.containerCompleted,
+                isSubtask && { minHeight: 40 }
+            ]}
             onLayout={handleLayout} // Measure Full Container
         >
 
@@ -320,13 +327,18 @@ export default function SwipeableTaskRow({
             {/* Slider Zone */}
             <View
                 style={styles.sliderZone}
-                {...(!isSelectionMode ? panResponder.panHandlers : {})}
+                {...(!isSelectionMode && !isReorderMode ? panResponder.panHandlers : {})}
             >
                 {/* Make entire row tappable in Selection Mode */}
                 <TouchableOpacity
-                    style={[styles.sliderContent, isSubtask && { paddingLeft: 44 }]}
+                    style={[
+                        styles.sliderContent,
+                        isSubtask && { paddingLeft: 44, paddingVertical: 4 }
+                    ]}
                     onPress={isSelectionMode ? onSelect : undefined}
-                    disabled={!isSelectionMode}
+                    onLongPress={props.onDrag}
+                    delayLongPress={200}
+                    disabled={isSelectionMode}
                     activeOpacity={1} // No opacity change for row tap, checking box handles visual
                 >
                     {/* Color Stripe */}
@@ -350,10 +362,14 @@ export default function SwipeableTaskRow({
                             isSelectionMode && isSelected && styles.selectionCheckboxSelected,
                             !isSelectionMode && {
                                 borderColor: props.color || '#444',
-                                borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 12 : 6
+                                borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 12 : 6,
+                                width: isSubtask ? 18 : 24,
+                                height: isSubtask ? 18 : 24,
                             }
                         ]}
                         onPress={isSelectionMode ? onSelect : onComplete}
+                        onLongPress={props.onDrag}
+                        delayLongPress={1500}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
                         {isSelectionMode ? (
@@ -363,7 +379,9 @@ export default function SwipeableTaskRow({
                                 styles.taskCheckboxInner,
                                 {
                                     backgroundColor: props.color || '#38A169',
-                                    borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 6 : 2
+                                    borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 6 : 2,
+                                    width: isSubtask ? 10 : 14,
+                                    height: isSubtask ? 10 : 14,
                                 }
                             ]} />
                         )}
@@ -372,14 +390,18 @@ export default function SwipeableTaskRow({
 
 
                     <View style={{ flex: 1, paddingRight: 8 }} pointerEvents="box-none">
-                        <Text style={[styles.taskTitle, (completed || isCompleting) && styles.taskTitleCompleted]}>
+                        <Text style={[
+                            styles.taskTitle,
+                            (completed || isCompleting) && styles.taskTitleCompleted,
+                            isSubtask && { fontSize: 14 }
+                        ]}>
                             {title}
                         </Text>
 
                         <View style={styles.taskMetaRow}>
                             {deadline && (
                                 <View style={styles.metaItem}>
-                                    <Ionicons name="calendar-outline" size={12} color={THEME.textSecondary} />
+                                    <Ionicons name="calendar-outline" size={14} color={THEME.textSecondary} />
                                     <Text style={styles.metaText}>
                                         {(() => {
                                             try {
@@ -483,9 +505,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'stretch',
         backgroundColor: 'transparent',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9', // Very subtle divider
-        minHeight: 60,
+        borderBottomWidth: 0, // Handled by taskCard now
+        minHeight: 52, // Enforce consistent thickness for 1-line meta
         overflow: 'hidden', // Contain progress bar
         position: 'relative',
     },
@@ -510,8 +531,8 @@ const styles = StyleSheet.create({
     sliderContent: {
         flex: 1, // Ensure it fills available space for absolute positioning
         flexDirection: 'row',
-        alignItems: 'center', // Middle of the task
-        paddingVertical: 12,
+        alignItems: 'flex-start', // Top alignment for tall tasks
+        paddingVertical: 12, // Increased from 6
         paddingLeft: 12,
     },
     taskCheckbox: {
@@ -525,7 +546,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'transparent',
-        zIndex: 20
+        zIndex: 20,
+        alignSelf: 'center', // Added: Vertically center the checkbox independently
     },
     taskCheckboxInner: {
         width: 14,
@@ -538,7 +560,7 @@ const styles = StyleSheet.create({
         color: '#333333',
         lineHeight: 22, // HEIGHT REFERENCE
         marginBottom: 0, // Reduced to tighten vertical gap
-        paddingRight: 60, // Avoid overlapping Absolute Action Buttons
+        paddingRight: 74, // Avoid overlapping Absolute Action Buttons
     },
     taskTitleCompleted: {
         color: '#38A169',
@@ -578,40 +600,43 @@ const styles = StyleSheet.create({
     },
     actionZone: {
         position: 'absolute',
-        top: 0,
         right: 0,
+        top: 0,
+        bottom: 0,
         flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 8,
-        paddingVertical: 8,
-        zIndex: 10,
+        alignItems: 'flex-start', // Top align
+        paddingTop: 6, // Align with top content
+        paddingHorizontal: 8, // Add padding to separate from edge
+        zIndex: 20
     },
     actionButton: {
-        padding: 5,
+        padding: 8,
+        marginHorizontal: 2
     },
-    // Selection Styles
+    percentageText: {
+        position: 'absolute',
+        bottom: 2,
+        right: 6, // Far bottom right
+        fontSize: 10,
+        color: '#94A3B8',
+        fontWeight: 'bold',
+        opacity: 0.6,
+        zIndex: 10
+    },
     selectionCheckbox: {
-        borderColor: '#007AFF', // Blue for selection
-        borderRadius: 12, // Circle
+        borderWidth: 1.5,
+        borderColor: '#CCC',
+        borderRadius: 4,
+        backgroundColor: '#FFF'
     },
     selectionCheckboxSelected: {
         backgroundColor: '#007AFF',
+        borderColor: '#007AFF'
     },
     selectionInner: {
         width: 10,
         height: 10,
         borderRadius: 5,
         backgroundColor: '#FFFFFF',
-    },
-
-    percentageText: {
-        position: 'absolute',
-        bottom: 1,
-        right: 0,
-        fontSize: 10,
-        color: '#94A3B8',
-        fontWeight: 'bold',
-        opacity: 0.6,
-        zIndex: 20
     }
 });

@@ -22,15 +22,15 @@ const HEADER_HEIGHT = 40;
 
 // Theme Constants
 const THEME = {
-    bg: '#FAFAF6',
-    textPrimary: '#333333',
-    textSecondary: '#64748B',
-    accent: '#333',
-    border: '#E2E8F0',
+    bg: '#FFFFFF',
+    textPrimary: '#334155', // Slate 700
+    textSecondary: '#94A3B8', // Slate 400
+    accent: '#475569', // Slate 600
+    border: '#F1F5F9', // Slate 100
     surface: '#FFFFFF',
-    shadowColor: '#000000',
-    activeBlue: '#E3F2FD',
-    activeBlueText: '#333',
+    shadowColor: '#64748B', // Slate 500
+    activeBlue: '#F1F5F9', // Slate 100
+    activeBlueText: '#334155',
 };
 
 interface CalendarModalProps {
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     tabText: { fontSize: 15, fontWeight: '600', color: '#94A3B8' },
     tabTextActive: { color: '#333' },
     tabSubtitle: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
-    tabLine: { position: 'absolute', bottom: 0, width: '100%', height: 3, backgroundColor: '#38A169', borderRadius: 1.5 },
+    tabLine: { position: 'absolute', bottom: 0, width: '100%', height: 3, backgroundColor: '#475569', borderRadius: 1.5 },
     arrowContainer: { paddingHorizontal: 4 },
 
     headerContainer: { paddingVertical: 10, borderBottomWidth: 1, borderColor: THEME.border, backgroundColor: THEME.surface },
@@ -640,9 +640,9 @@ const styles = StyleSheet.create({
     dayCell: { width: COL_WIDTH, height: ROW_HEIGHT, justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
     dayButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
     dayText: { fontSize: 14, color: THEME.textPrimary, fontWeight: '500' },
-    currentDayHighlight: { backgroundColor: '#333' },
+    currentDayHighlight: { backgroundColor: '#334155' }, // Slate 700 for Today
     currentDayText: { color: '#FFF', fontWeight: '700' },
-    selectedDay: { backgroundColor: '#38A169' },
+    selectedDay: { backgroundColor: '#475569' }, // Slate 600 for Selected
     selectedDayText: { color: '#FFFFFF', fontWeight: 'bold' },
 
     pageTitle: { fontSize: 18, fontWeight: '700', color: THEME.textPrimary, textAlign: 'center' },
@@ -652,11 +652,11 @@ const styles = StyleSheet.create({
     footer: { flexDirection: 'row', alignItems: 'center', padding: 16, borderTopWidth: 1, borderColor: THEME.border, backgroundColor: THEME.surface },
     cancelButton: { paddingVertical: 10, paddingRight: 15 },
     cancelButtonText: { color: THEME.textSecondary, fontWeight: '600' },
-    saveButton: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: '#38A169', borderRadius: 8 },
+    saveButton: { flex: 1, alignItems: 'center', paddingVertical: 12, backgroundColor: '#475569', borderRadius: 8 }, // Slate 600
     saveButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
 
     unitTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
     unitTabActive: { backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1 },
     unitTabText: { fontWeight: '600', color: '#94A3B8' },
-    unitTabTextActive: { color: '#38A169' },
+    unitTabTextActive: { color: '#475569' },
 });

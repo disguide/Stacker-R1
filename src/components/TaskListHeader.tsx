@@ -43,7 +43,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
 
                     <TouchableOpacity
                         style={styles.toolbarButton}
-                        onPress={() => {/* Friends Logic */ }}
+                        onPress={() => router.push('/friends')}
                     >
                         <Ionicons name="people-outline" size={24} color="#333" />
                     </TouchableOpacity>

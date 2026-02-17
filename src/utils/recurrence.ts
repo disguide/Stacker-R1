@@ -207,3 +207,46 @@ function toLocalISOString(date: Date): string {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
+
+/**
+ * Parses an RRule string into a RecurrenceRule object for the UI.
+ */
+export function parseRRuleString(rruleString: string): RecurrenceRule | null {
+    try {
+        const rule = RRule.fromString(rruleString);
+        const opts = rule.options;
+
+        const freqMap: { [key: number]: 'daily' | 'weekly' | 'monthly' | 'yearly' } = {
+            [RRule.DAILY]: 'daily',
+            [RRule.WEEKLY]: 'weekly',
+            [RRule.MONTHLY]: 'monthly',
+            [RRule.YEARLY]: 'yearly'
+        };
+
+        const recurrenceObj: RecurrenceRule = {
+            frequency: freqMap[opts.freq] || 'daily',
+            interval: opts.interval || 1,
+        };
+
+        if (opts.until) {
+            recurrenceObj.endDate = toLocalISOString(opts.until);
+        }
+        if (opts.count) {
+            recurrenceObj.occurrenceCount = opts.count;
+        }
+        if (opts.byweekday && opts.byweekday.length > 0) {
+            const weekdayCodeMap: { [key: number]: WeekDay } = {
+                0: 'MO', 1: 'TU', 2: 'WE', 3: 'TH', 4: 'FR', 5: 'SA', 6: 'SU'
+            };
+            recurrenceObj.daysOfWeek = opts.byweekday.map((w: any) => {
+                const weekdayNum = typeof w === 'number' ? w : w.weekday;
+                return weekdayCodeMap[weekdayNum];
+            }).filter(Boolean);
+        }
+
+        return recurrenceObj;
+    } catch (e) {
+        console.warn('Failed to parse rrule string', e);
+        return null;
+    }
+}

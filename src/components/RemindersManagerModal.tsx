@@ -63,6 +63,11 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
                 // But hide completed ones
                 if (t.completed) return false;
 
+                // For recurring tasks, check if completed TODAY
+                if (t.rrule && Array.isArray(t.completedDates) && t.completedDates.includes(today)) {
+                    return false;
+                }
+
                 const hasReminderConfig = t.reminderTime || (t.reminderOffset !== undefined && t.reminderOffset !== null);
                 return !!hasReminderConfig;
             })

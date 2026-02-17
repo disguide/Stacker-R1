@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, ScrollView, KeyboardAvoidingView, Platform, Alert, LayoutAnimation, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ColorDefinition, TASK_COLORS, StorageService } from '../services/storage';
+import { ColorDefinition, TASK_COLORS, StorageService, TASK_COLOR_LABELS } from '../services/storage';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -246,6 +246,7 @@ const styles = StyleSheet.create({
     },
     container: {
         width: 340,
+        minHeight: 550,
         maxHeight: '80%',
         backgroundColor: THEME.bg,
         borderRadius: 16,

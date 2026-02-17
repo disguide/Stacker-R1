@@ -56,6 +56,7 @@ export const useTaskForm = () => {
 
         // Actions
         resetForm,
+        cancelAddingTask: resetForm,
         startAddingTask
     };
 };

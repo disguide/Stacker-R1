@@ -25,13 +25,11 @@ export const useTaskController = () => {
             return;
         }
         if (!loading) {
-            console.log('[useTaskController] Auto-saving tasks:', tasks.length);
             isSaving.current = true;
             TaskRepository.saveAll(tasks as any)
                 .catch(e => console.error("Failed to auto-save", e))
                 .finally(() => {
                     isSaving.current = false;
-                    console.log('[useTaskController] Auto-save finished');
                 });
         }
     }, [tasks, loading]);
@@ -41,7 +39,6 @@ export const useTaskController = () => {
             console.warn('[useTaskController] Skipping loadTasks - Save in progress');
             return;
         }
-        console.log('[useTaskController] Loading tasks...');
         const data = (await TaskRepository.getAll()) as unknown as Task[];
 
         // ROLLOVER SYSTEM INTEGRATION
@@ -57,8 +54,6 @@ export const useTaskController = () => {
 
             finalTasks = [...Array.from(taskMap.values()), ...creations];
         }
-
-        console.log('[useTaskController] Tasks loaded (with rollovers):', finalTasks.length);
         setTasks(finalTasks);
         setLoading(false);
     }, []);
@@ -67,7 +62,6 @@ export const useTaskController = () => {
      * ADD TASK
      */
     const addTask = useCallback((task: Task) => {
-        console.log('[useTaskController] Adding task:', task.id);
         setTasks(prev => [...prev, task]);
         // Schedule Notification
         if (task.reminderEnabled && task.reminderTime) {
@@ -139,14 +133,12 @@ export const useTaskController = () => {
                     const startDateForRRule = updates.date || currentTask.date;
                     try {
                         const newRRule = createRRuleString(updates.recurrence, startDateForRRule);
-                        console.log(`[useTaskController] Regenerated RRule for ${originalId}:`, newRRule);
                         finalUpdates.rrule = newRRule;
                     } catch (e) {
                         console.error("[useTaskController] Failed to generate RRule", e);
                     }
                 } else {
                     // Recurrence removal
-                    console.log(`[useTaskController] Removing recurrence for ${originalId}`);
                     finalUpdates.rrule = undefined;
                     // Also clear other recurrence fields if needed
                     finalUpdates.recurrence = undefined;
@@ -178,7 +170,6 @@ export const useTaskController = () => {
      * DELETE TASK (Single or Series)
      */
     const toggleSubtask = useCallback((taskId: string, subtaskId: string, dateString: string) => {
-        console.log(`[useTaskController] toggleSubtask called`, { taskId, subtaskId, dateString });
         setTasks(prev => {
             // Robust ID Resolution
             let index = prev.findIndex(t => t.id === taskId);

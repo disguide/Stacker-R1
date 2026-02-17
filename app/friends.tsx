@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-export default function MailScreen() {
+export default function FriendsScreen() {
     const router = useRouter();
 
     return (
@@ -15,7 +15,7 @@ export default function MailScreen() {
                 >
                     <Text style={styles.backButtonText}>‹ Back</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Mail</Text>
+                <Text style={styles.headerTitle}>Friends</Text>
                 <View style={styles.placeholder} />
             </View>
 
@@ -56,15 +56,17 @@ const styles = StyleSheet.create({
         color: '#000000',
     },
     placeholder: {
-        width: 60,
+        width: 60, // Balance back button width roughly
     },
     content: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        paddingHorizontal: 32,
     },
     placeholderText: {
-        fontSize: 18,
-        color: '#CCCCCC',
+        fontSize: 16,
+        color: '#999',
+        textAlign: 'center',
     },
 });
