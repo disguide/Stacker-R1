@@ -21,34 +21,26 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
     onRequestColorSettings?: () => void;
     onClose: () => void;
 }) {
-    // Store local state so changes only apply on confirm
-    const [localType, setLocalType] = useState(taskType);
-    const [localImportance, setLocalImportance] = useState(importance);
-    const [localColor, setLocalColor] = useState(color);
+    // Auto-Save Mode: No local state needed.
+    // We use the props directly to drive value, and callbacks update parent immediately.
 
-    useEffect(() => {
-        setLocalType(taskType);
-        setLocalImportance(importance);
-        setLocalColor(color);
-    }, [taskType, importance, color]);
+    // Ensure safe access to colors array with strict filtering
+    const safeUserColors = React.useMemo(() => {
+        if (!userColors || !Array.isArray(userColors)) return [];
+        return userColors.filter(c => !!c && typeof c === 'object' && typeof c.color === 'string');
+    }, [userColors]);
 
     const handleReset = () => {
-        setLocalType('task');
-        setLocalImportance(0);
-        setLocalColor(undefined);
         onTypeChange('task');
         onImportanceChange(0);
         onColorChange(undefined);
     };
 
     const handleConfirm = () => {
-        if (localType) onTypeChange(localType);
-        onImportanceChange(localImportance);
-        onColorChange(localColor);
         onClose();
     };
 
-    const hasValue = (localType && localType !== 'task') || localImportance > 0 || !!localColor;
+    const hasValue = (taskType && taskType !== 'task') || importance > 0 || !!color;
 
     return (
         <View style={{ width, flex: 1 }}>
@@ -61,10 +53,10 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
                             key={t}
                             style={[
                                 p.typeButton,
-                                localType === t && p.typeButtonActive,
-                                localType === t && localColor ? { backgroundColor: localColor + '20', borderColor: localColor } : {},
+                                taskType === t && p.typeButtonActive,
+                                taskType === t && color ? { backgroundColor: color + '20', borderColor: color } : {},
                             ]}
-                            onPress={() => setLocalType(t)}
+                            onPress={() => onTypeChange(t)}
                         >
                             <MaterialCommunityIcons
                                 name={
@@ -75,11 +67,11 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
                                                     'checkbox-marked-outline'
                                 }
                                 size={20}
-                                color={localType === t ? (localColor || THEME.textPrimary) : THEME.textSecondary}
+                                color={taskType === t ? (color || THEME.textPrimary) : THEME.textSecondary}
                             />
                             <Text style={[
                                 p.typeButtonText,
-                                localType === t && { color: localColor || THEME.textPrimary, fontWeight: 'bold' }
+                                taskType === t && { color: color || THEME.textPrimary, fontWeight: 'bold' }
                             ]}>
                                 {t.charAt(0).toUpperCase() + t.slice(1)}
                             </Text>
@@ -95,13 +87,13 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
                             key={lvl}
                             style={[
                                 p.importanceButton,
-                                localImportance === lvl && p.importanceButtonActive,
+                                importance === lvl && p.importanceButtonActive,
                             ]}
-                            onPress={() => setLocalImportance(lvl)}
+                            onPress={() => onImportanceChange(lvl)}
                         >
                             <Text style={[
                                 p.importanceText,
-                                localImportance === lvl && p.importanceTextActive,
+                                importance === lvl && p.importanceTextActive,
                             ]}>
                                 {lvl === 0 ? 'None' : lvl === 1 ? '!' : lvl === 2 ? '!!' : '!!!'}
                             </Text>
@@ -113,9 +105,9 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 10 }}>
                     <Text style={[p.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>Color</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        {localColor && userColors?.find(c => c.color === localColor)?.label && (
-                            <Text style={{ fontSize: 14, color: localColor, fontWeight: 'bold' }}>
-                                {userColors.find(c => c.color === localColor)?.label}
+                        {color && safeUserColors.find(c => c.color === color)?.label && (
+                            <Text style={{ fontSize: 14, color: color, fontWeight: 'bold' }}>
+                                {safeUserColors.find(c => c.color === color)?.label}
                             </Text>
                         )}
                         {onRequestColorSettings && (
@@ -144,23 +136,23 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
                         style={[
                             p.colorCircle,
                             { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DDD' },
-                            !localColor && p.colorSelected,
+                            !color && p.colorSelected,
                         ]}
-                        onPress={() => setLocalColor(undefined)}
+                        onPress={() => onColorChange(undefined)}
                     >
-                        {!localColor && <Ionicons name="checkmark" size={16} color="#333" />}
+                        {!color && <Ionicons name="checkmark" size={16} color="#333" />}
                     </TouchableOpacity>
-                    {userColors && userColors.map(c => (
+                    {safeUserColors.map(c => (
                         <TouchableOpacity
                             key={c.id}
                             style={[
                                 p.colorCircle,
                                 { backgroundColor: c.color },
-                                localColor === c.color && p.colorSelected,
+                                color === c.color && p.colorSelected,
                             ]}
-                            onPress={() => setLocalColor(c.color)}
+                            onPress={() => onColorChange(c.color)}
                         >
-                            {localColor === c.color && <Ionicons name="checkmark" size={16} color="#FFF" />}
+                            {color === c.color && <Ionicons name="checkmark" size={16} color="#FFF" />}
                         </TouchableOpacity>
                     ))}
                 </ScrollView>

@@ -1,4 +1,4 @@
-﻿import { useRef, useMemo, useCallback, useState } from 'react';
+import { useRef, useMemo, useCallback, useState } from 'react';
 import { View, Modal, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -75,7 +75,7 @@ export default function TaskListScreen() {
         useCallback(() => {
             refresh();
             StorageService.loadUserColors().then(colors => setUserColors(colors));
-            StorageService.loadUserProfile().then(profile => setUserProfile(profile));
+            StorageService.loadProfile().then(profile => setUserProfile(profile));
         }, [refresh])
     );
 
@@ -184,7 +184,7 @@ export default function TaskListScreen() {
                 ops={{
                     ...ops,
                     openEditDrawer: creation.openEditDrawer,
-                    openMenu: ui.setMenuState ? (task) => { ui.setActiveMenuTask(task); homeState.setIsMenuVisible(true); } : (task) => { ui.setActiveMenuTask(task); homeState.setIsMenuVisible(true); },
+                    openMenu: (task) => { ui.setActiveMenuTask(task); homeState.setIsMenuVisible(true); },
                     openEditSubtask: (parentId, subtask) => { ui.setEditingSubtask({ parentId, subtask }); ui.setIsDrawerVisible(true); },
                     openSubtaskMenu: (parentId, subtaskId) => { ui.setActiveMenuSubtask({ parentId, subtaskId }); homeState.setIsMenuVisible(true); },
                     isSprintSelectionMode: sprintMode.isSprintSelectionMode,

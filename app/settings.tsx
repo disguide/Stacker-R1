@@ -11,14 +11,22 @@ export default function SettingsScreen() {
     const [isColorModalVisible, setIsColorModalVisible] = useState(false);
     const [userColors, setUserColors] = useState<ColorDefinition[]>([]);
 
-    useEffect(() => {
-        loadData();
-    }, []);
+
 
     const loadData = async () => {
         const colors = await StorageService.loadUserColors();
         setUserColors(colors);
     };
+
+    useEffect(() => {
+        let mounted = true;
+        const loadData = async () => {
+            const colors = await StorageService.loadUserColors();
+            if (mounted) setUserColors(colors);
+        };
+        loadData();
+        return () => { mounted = false; };
+    }, []);
 
     const handleSaveUserColors = async (colors: ColorDefinition[]) => {
         setUserColors(colors);

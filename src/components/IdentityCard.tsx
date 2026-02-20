@@ -16,7 +16,7 @@ type Side = 'anti' | 'hero';
 
 export default function IdentityCard({ identity, onUpdate }: IdentityCardProps) {
     // Animation State
-    const flipAnim = React.useRef(new Animated.Value(0)).current;
+    const flipAnim = React.useMemo(() => new Animated.Value(0), []);
     const [flipped, setFlipped] = useState(false);
     const [isFlipping, setIsFlipping] = useState(false);
 

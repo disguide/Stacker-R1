@@ -10,6 +10,7 @@ import {
     TouchableWithoutFeedback,
     Platform
 } from 'react-native';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -79,7 +80,9 @@ export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isS
                                             setTimeout(onAddSubtask, 300);
                                         }}
                                     >
-                                        <Text style={styles.optionIcon}>↳</Text>
+                                        <View style={styles.optionIconContainer}>
+                                            <MaterialCommunityIcons name="subdirectory-arrow-right" size={22} color={THEME.textPrimary} />
+                                        </View>
                                         <Text style={styles.optionText}>Add Subtask</Text>
                                     </TouchableOpacity>
 
@@ -94,7 +97,9 @@ export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isS
                                     setTimeout(onDelete, 300);
                                 }}
                             >
-                                <Text style={[styles.optionIcon, styles.deleteText]}>🗑️</Text>
+                                <View style={styles.optionIconContainer}>
+                                    <Ionicons name="trash-outline" size={22} color="#C53030" />
+                                </View>
                                 <Text style={[styles.optionText, styles.deleteText]}>{isSubtask ? 'Delete Subtask' : 'Delete Task'}</Text>
                             </TouchableOpacity>
 
@@ -144,6 +149,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 18,
+    },
+    optionIconContainer: {
+        width: 24,
+        alignItems: 'center',
+        marginRight: 16,
     },
     optionIcon: {
         fontSize: 20,

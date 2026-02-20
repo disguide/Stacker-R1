@@ -1,0 +1,765 @@
+[0m[0m
+[0m[4mC:\Calendar App R1\app\identity.tsx[24m[0m
+[0m  [2m60:9[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\identity.tsx:60:9[0m
+[0m  58 |[0m
+[0m  59 |     useEffect(() => {[0m
+[0m> 60 |         loadProfile();[0m
+[0m     |         ^^^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  61 |         ensureIdentityTag();[0m
+[0m  62 |     }, []);[0m
+[0m  63 |  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\app\profile.tsx[24m[0m
+[0m  [2m147:9[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\profile.tsx:147:9[0m
+[0m  145 |[0m
+[0m  146 |     useEffect(() => {[0m
+[0m> 147 |         loadData();[0m
+[0m      |         ^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  148 |     }, []);[0m
+[0m  149 |[0m
+[0m  150 |  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\app\settings.tsx[24m[0m
+[0m  [2m22:9[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\settings.tsx:22:9[0m
+[0m  20 |[0m
+[0m  21 |     useEffect(() => {[0m
+[0m> 22 |         loadData();[0m
+[0m     |         ^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  23 |     }, []);[0m
+[0m  24 |[0m
+[0m  25 |     const handleSaveUserColors = async (colors: ColorDefinition[]) => {  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\app\sprint-summary.tsx[24m[0m
+[0m   [2m72:29[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\sprint-summary.tsx:72:29[0m
+[0m   70 |[0m
+[0m   71 |     const panResponder = useRef([0m
+[0m>  72 |         PanResponder.create({[0m
+[0m      |                             ^[0m
+[0m>  73 |             // Capture touches immediately for responsive sliding[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m>  74 |             onStartShouldSetPanResponder: () => true,[0m
+[0m      …[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 144 |             }[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 145 |         })[0m
+[0m      | ^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  146 |     ).current;[0m
+[0m  147 |[0m
+[0m  148 |     // Toggle via checkmark tap  [2mreact-hooks/refs[22m[0m
+[0m  [2m172:28[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\sprint-summary.tsx:172:28[0m
+[0m  170 |                 styles.progressFill,[0m
+[0m  171 |                 {[0m
+[0m> 172 |                     width: progressAnim.interpolate({[0m
+[0m      |                            ^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  173 |                         inputRange: [0, 100],[0m
+[0m  174 |                         outputRange: ['0%', '100%'][0m
+[0m  175 |                     }),                                                                                                                                                                                                                                                                                                        [2mreact-hooks/refs[22m[0m
+[0m  [2m172:28[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\sprint-summary.tsx:172:28[0m
+[0m  170 |                 styles.progressFill,[0m
+[0m  171 |                 {[0m
+[0m> 172 |                     width: progressAnim.interpolate({[0m
+[0m      |                            ^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  173 |                         inputRange: [0, 100],[0m
+[0m  174 |                         outputRange: ['0%', '100%'][0m
+[0m  175 |                     }),                                                                                                                                                                                                                                                                                            [2mreact-hooks/refs[22m[0m
+[0m  [2m177:38[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\sprint-summary.tsx:177:38[0m
+[0m  175 |                     }),[0m
+[0m  176 |                     // visual feedback: darker green when confirmed, slightly muted when dragging?[0m
+[0m> 177 |                     backgroundColor: progressAnim.interpolate({[0m
+[0m      |                                      ^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  178 |                         inputRange: [0, 100],[0m
+[0m  179 |                         outputRange: ['#F1F5F9', THEME.successBg] // Grey to Green[0m
+[0m  180 |                     })                                                                                                                                                                                  [2mreact-hooks/refs[22m[0m
+[0m  [2m177:38[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\sprint-summary.tsx:177:38[0m
+[0m  175 |                     }),[0m
+[0m  176 |                     // visual feedback: darker green when confirmed, slightly muted when dragging?[0m
+[0m> 177 |                     backgroundColor: progressAnim.interpolate({[0m
+[0m      |                                      ^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  178 |                         inputRange: [0, 100],[0m
+[0m  179 |                         outputRange: ['#F1F5F9', THEME.successBg] // Grey to Green[0m
+[0m  180 |                     })                                                                                                                                                                      [2mreact-hooks/refs[22m[0m
+[0m  [2m187:21[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\sprint-summary.tsx:187:21[0m
+[0m  185 |             <View[0m
+[0m  186 |                 style={styles.taskContent}[0m
+[0m> 187 |                 {...panResponder.panHandlers}[0m
+[0m      |                     ^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  188 |             >[0m
+[0m  189 |                 {/* Checkmark Area - Tappable specifically to toggle */}[0m
+[0m  190 |                 <TouchableOpacity                                                                                                                                                                                                                                                                                                                             [2mreact-hooks/refs[22m[0m
+[0m  [2m232:21[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\sprint-summary.tsx:232:21[0m
+[0m  230 |             <View[0m
+[0m  231 |                 style={styles.sliderOverlay}[0m
+[0m> 232 |                 {...panResponder.panHandlers}[0m
+[0m      |                     ^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  233 |             />[0m
+[0m  234 |         </View>[0m
+[0m  235 |     );                                                                                                                                                                                                                                                                                                                                                                                                              [2mreact-hooks/refs[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\app\sprint.tsx[24m[0m
+[0m  [2m60:9[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\app\sprint.tsx:60:9[0m
+[0m  58 |     useEffect(() => {[0m
+[0m  59 |         startTimeRef.current = Date.now();[0m
+[0m> 60 |         loadSprintTasks();[0m
+[0m     |         ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  61 |     }, [taskIds]);[0m
+[0m  62 |[0m
+[0m  63 |     const handleCompleteTask = async () => {  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\eslint.config.js[24m[0m
+[0m  [2m6:20[22m  [31merror[39m  '__dirname' is not defined  [2mno-undef[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\ColorSettingsModal.tsx[24m[0m
+[0m  [2m38:13[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\ColorSettingsModal.tsx:38:13[0m
+[0m  36 |                 safeColors = StorageService.getDefaultUserColors();[0m
+[0m  37 |             }[0m
+[0m> 38 |             setColors(JSON.parse(JSON.stringify(safeColors)));[0m
+[0m     |             ^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  39 |             setIsEditing(false);[0m
+[0m  40 |             setIsAdding(false);[0m
+[0m  41 |             setNewColorHex('');  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\DurationPickerModal.tsx[24m[0m
+[0m  [2m54:13[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\DurationPickerModal.tsx:54:13[0m
+[0m  52 |     useEffect(() => {[0m
+[0m  53 |         if (visible) {[0m
+[0m> 54 |             setCurrentMinutes(parseDuration(initialDuration));[0m
+[0m     |             ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  55 |         }[0m
+[0m  56 |     }, [visible, initialDuration]);[0m
+[0m  57 |  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\IdentityCard.tsx[24m[0m
+[0m  [2m43:30[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\IdentityCard.tsx:43:30[0m
+[0m  41 |     };[0m
+[0m  42 |[0m
+[0m> 43 |     const frontInterpolate = flipAnim.interpolate({[0m
+[0m     |                              ^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  44 |         inputRange: [0, 180],[0m
+[0m  45 |         outputRange: ['0deg', '180deg'],[0m
+[0m  46 |     });               [2mreact-hooks/refs[22m[0m
+[0m  [2m43:30[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\IdentityCard.tsx:43:30[0m
+[0m  41 |     };[0m
+[0m  42 |[0m
+[0m> 43 |     const frontInterpolate = flipAnim.interpolate({[0m
+[0m     |                              ^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  44 |         inputRange: [0, 180],[0m
+[0m  45 |         outputRange: ['0deg', '180deg'],[0m
+[0m  46 |     });   [2mreact-hooks/refs[22m[0m
+[0m  [2m48:29[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\IdentityCard.tsx:48:29[0m
+[0m  46 |     });[0m
+[0m  47 |[0m
+[0m> 48 |     const backInterpolate = flipAnim.interpolate({[0m
+[0m     |                             ^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  49 |         inputRange: [0, 180],[0m
+[0m  50 |         outputRange: ['180deg', '360deg'],[0m
+[0m  51 |     });              [2mreact-hooks/refs[22m[0m
+[0m  [2m48:29[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\IdentityCard.tsx:48:29[0m
+[0m  46 |     });[0m
+[0m  47 |[0m
+[0m> 48 |     const backInterpolate = flipAnim.interpolate({[0m
+[0m     |                             ^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  49 |         inputRange: [0, 180],[0m
+[0m  50 |         outputRange: ['180deg', '360deg'],[0m
+[0m  51 |     });  [2mreact-hooks/refs[22m[0m
+[0m  [2m53:26[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\IdentityCard.tsx:53:26[0m
+[0m  51 |     });[0m
+[0m  52 |[0m
+[0m> 53 |     const frontOpacity = flipAnim.interpolate({[0m
+[0m     |                          ^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  54 |         inputRange: [89, 90],[0m
+[0m  55 |         outputRange: [1, 0],[0m
+[0m  56 |     });                                  [2mreact-hooks/refs[22m[0m
+[0m  [2m53:26[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\IdentityCard.tsx:53:26[0m
+[0m  51 |     });[0m
+[0m  52 |[0m
+[0m> 53 |     const frontOpacity = flipAnim.interpolate({[0m
+[0m     |                          ^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  54 |         inputRange: [89, 90],[0m
+[0m  55 |         outputRange: [1, 0],[0m
+[0m  56 |     });                      [2mreact-hooks/refs[22m[0m
+[0m  [2m58:25[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\IdentityCard.tsx:58:25[0m
+[0m  56 |     });[0m
+[0m  57 |[0m
+[0m> 58 |     const backOpacity = flipAnim.interpolate({[0m
+[0m     |                         ^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  59 |         inputRange: [89, 90],[0m
+[0m  60 |         outputRange: [0, 1],[0m
+[0m  61 |     });                                    [2mreact-hooks/refs[22m[0m
+[0m  [2m58:25[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\IdentityCard.tsx:58:25[0m
+[0m  56 |     });[0m
+[0m  57 |[0m
+[0m> 58 |     const backOpacity = flipAnim.interpolate({[0m
+[0m     |                         ^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  59 |         inputRange: [89, 90],[0m
+[0m  60 |         outputRange: [0, 1],[0m
+[0m  61 |     });                        [2mreact-hooks/refs[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\RecurrencePickerModal.tsx[24m[0m
+[0m  [2m43:13[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\RecurrencePickerModal.tsx:43:13[0m
+[0m  41 |     useEffect(() => {[0m
+[0m  42 |         if (initialRule) {[0m
+[0m> 43 |             setViewMode('custom'); // Or detect if it matches a preset[0m
+[0m     |             ^^^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  44 |             setFrequency(initialRule.frequency);[0m
+[0m  45 |             setInterval(initialRule.interval.toString());[0m
+[0m  46 |             if (initialRule.daysOfWeek) {  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\SwipeableTaskRow.tsx[24m[0m
+[0m  [2m182:29[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\SwipeableTaskRow.tsx:182:29[0m
+[0m  180 |[0m
+[0m  181 |     const panResponder = useRef([0m
+[0m> 182 |         PanResponder.create({[0m
+[0m      |                             ^[0m
+[0m> 183 |             onStartShouldSetPanResponder: () => false,[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 184 |             // Only capture if drag is significant (avoids stealing taps on checkbox)[0m
+[0m      …[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 309 |             }[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 310 |         })[0m
+[0m      | ^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  311 |[0m
+[0m  312 |     ).current;[0m
+[0m  313 |  [2mreact-hooks/refs[22m[0m
+[0m  [2m330:32[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\SwipeableTaskRow.tsx:330:32[0m
+[0m  328 |                     styles.progressFill,[0m
+[0m  329 |                     {[0m
+[0m> 330 |                         width: progressAnim.interpolate({[0m
+[0m      |                                ^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  331 |                             inputRange: [0, 100],[0m
+[0m  332 |                             outputRange: ['0%', '100%'][0m
+[0m  333 |                         }),                                                                                                                                                                                                                                 [2mreact-hooks/refs[22m[0m
+[0m  [2m330:32[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\SwipeableTaskRow.tsx:330:32[0m
+[0m  328 |                     styles.progressFill,[0m
+[0m  329 |                     {[0m
+[0m> 330 |                         width: progressAnim.interpolate({[0m
+[0m      |                                ^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  331 |                             inputRange: [0, 100],[0m
+[0m  332 |                             outputRange: ['0%', '100%'][0m
+[0m  333 |                         }),                                                                                                                                                                                                                     [2mreact-hooks/refs[22m[0m
+[0m  [2m342:22[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\SwipeableTaskRow.tsx:342:22[0m
+[0m  340 |             <View[0m
+[0m  341 |                 style={styles.sliderZone}[0m
+[0m> 342 |                 {...(!isSelectionMode && !isReorderMode ? panResponder.panHandlers : {})}[0m
+[0m      |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  343 |             >[0m
+[0m  344 |                 {/* Make entire row tappable in Selection Mode */}[0m
+[0m  345 |                 <TouchableOpacity                                                                                                                                                                                                  [2mreact-hooks/refs[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\TagSettingsModal.tsx[24m[0m
+[0m  [2m38:13[22m  [31merror[39m  Error: Cannot access variable before it is declared[0m
+[0m[0m
+[0m`resetEdit` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TagSettingsModal.tsx:38:13[0m
+[0m  36 |         if (visible) {[0m
+[0m  37 |             setLocalTags(tags);[0m
+[0m> 38 |             resetEdit();[0m
+[0m     |             ^^^^^^^^^ `resetEdit` accessed before it is declared[0m
+[0m  39 |         }[0m
+[0m  40 |     }, [visible, tags]);[0m
+[0m  41 |[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TagSettingsModal.tsx:42:5[0m
+[0m  40 |     }, [visible, tags]);[0m
+[0m  41 |[0m
+[0m> 42 |     const resetEdit = () => {[0m
+[0m     |     ^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 43 |         setEditingId(null);[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 44 |         setEditLabel('');[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 45 |         setEditColor(COLORS[0]);[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 46 |         setEditSymbol('🏷️');[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 47 |     };[0m
+[0m     | ^^^^^^^ `resetEdit` is declared here[0m
+[0m  48 |[0m
+[0m  49 |     const handleStartEdit = (tag: TagDefinition) => {[0m
+[0m  50 |         setEditingId(tag.id);  [2mreact-hooks/immutability[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\TaskEditDrawer.tsx[24m[0m
+[0m   [2m73:13[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:73:13[0m
+[0m  71 |     useEffect(() => {[0m
+[0m  72 |         if (task) {[0m
+[0m> 73 |             setReminderOffset(task.reminderOffset !== undefined ? task.reminderOffset : null);[0m
+[0m     |             ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  74 |             setReminderTime(task.reminderTime || null);[0m
+[0m  75 |             // If explicit enabled flag exists, use it. Otherwise, infer from offset presence.[0m
+[0m  76 |             setReminderEnabled(task.reminderEnabled !== undefined  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m  [2m294:29[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:294:29[0m
+[0m  292 |[0m
+[0m  293 |     const panResponder = useRef([0m
+[0m> 294 |         PanResponder.create({[0m
+[0m      |                             ^[0m
+[0m> 295 |             onStartShouldSetPanResponder: () => false, // Allow clicks to pass through[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 296 |             onMoveShouldSetPanResponder: (_, gestureState) => {[0m
+[0m      …[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 317 |             },[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 318 |         })[0m
+[0m      | ^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  319 |     ).current;[0m
+[0m  320 |[0m
+[0m  321 |     const handleRequestColorSettings = useCallback(() => {                              [2mreact-hooks/refs[22m[0m
+[0m  [2m335:30[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:335:30[0m
+[0m  333 |             <Animated.View[0m
+[0m  334 |                 style={[styles.backdrop, {[0m
+[0m> 335 |                     opacity: panY.interpolate({[0m
+[0m      |                              ^^^^ Passing a ref to a function may read its value during render[0m
+[0m  336 |                         inputRange: [0, SCREEN_HEIGHT],[0m
+[0m  337 |                         outputRange: [1, 0],[0m
+[0m  338 |                     })                                                                                                                                                                                                                                                                                                                                                                                                                                                          [2mreact-hooks/refs[22m[0m
+[0m  [2m335:30[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:335:30[0m
+[0m  333 |             <Animated.View[0m
+[0m  334 |                 style={[styles.backdrop, {[0m
+[0m> 335 |                     opacity: panY.interpolate({[0m
+[0m      |                              ^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render[0m
+[0m  336 |                         inputRange: [0, SCREEN_HEIGHT],[0m
+[0m  337 |                         outputRange: [1, 0],[0m
+[0m  338 |                     })                                                                                                                                                                                                                                                                                                                                                                                                                                              [2mreact-hooks/refs[22m[0m
+[0m  [2m346:24[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:346:24[0m
+[0m  344 |[0m
+[0m  345 |             <Animated.View[0m
+[0m> 346 |                 style={[styles.drawer, { transform: [{ translateY: panY }] }]}[0m
+[0m      |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  347 |                 {...panResponder.panHandlers}[0m
+[0m  348 |             >[0m
+[0m  349 |                 {/* Handle Bar */}                                                                                                                                                                                                                                                                                                                                                                                                                                                                              [2mreact-hooks/refs[22m[0m
+[0m  [2m346:40[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:346:40[0m
+[0m  344 |[0m
+[0m  345 |             <Animated.View[0m
+[0m> 346 |                 style={[styles.drawer, { transform: [{ translateY: panY }] }]}[0m
+[0m      |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  347 |                 {...panResponder.panHandlers}[0m
+[0m  348 |             >[0m
+[0m  349 |                 {/* Handle Bar */}                                                                                                                                                                                                                                                                                                                                                                                                                                                                               [2mreact-hooks/refs[22m[0m
+[0m  [2m346:53[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:346:53[0m
+[0m  344 |[0m
+[0m  345 |             <Animated.View[0m
+[0m> 346 |                 style={[styles.drawer, { transform: [{ translateY: panY }] }]}[0m
+[0m      |                                                     ^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  347 |                 {...panResponder.panHandlers}[0m
+[0m  348 |             >[0m
+[0m  349 |                 {/* Handle Bar */}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 [2mreact-hooks/refs[22m[0m
+[0m  [2m346:54[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:346:54[0m
+[0m  344 |[0m
+[0m  345 |             <Animated.View[0m
+[0m> 346 |                 style={[styles.drawer, { transform: [{ translateY: panY }] }]}[0m
+[0m      |                                                      ^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  347 |                 {...panResponder.panHandlers}[0m
+[0m  348 |             >[0m
+[0m  349 |                 {/* Handle Bar */}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  [2mreact-hooks/refs[22m[0m
+[0m  [2m346:68[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:346:68[0m
+[0m  344 |[0m
+[0m  345 |             <Animated.View[0m
+[0m> 346 |                 style={[styles.drawer, { transform: [{ translateY: panY }] }]}[0m
+[0m      |                                                                    ^^^^ Cannot access ref value during render[0m
+[0m  347 |                 {...panResponder.panHandlers}[0m
+[0m  348 |             >[0m
+[0m  349 |                 {/* Handle Bar */}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    [2mreact-hooks/refs[22m[0m
+[0m  [2m347:21[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskEditDrawer.tsx:347:21[0m
+[0m  345 |             <Animated.View[0m
+[0m  346 |                 style={[styles.drawer, { transform: [{ translateY: panY }] }]}[0m
+[0m> 347 |                 {...panResponder.panHandlers}[0m
+[0m      |                     ^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  348 |             >[0m
+[0m  349 |                 {/* Handle Bar */}[0m
+[0m  350 |                 <View style={styles.handleContainer}>                                                                                                                                                                                                                                                                                                                                                                                                                                                         [2mreact-hooks/refs[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\TaskFeatureCarousel.tsx[24m[0m
+[0m  [2m99:13[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskFeatureCarousel.tsx:99:13[0m
+[0m   97 |             const idx = FEATURE_ORDER.indexOf(initialFeature);[0m
+[0m   98 |             const page = idx >= 0 ? idx : 0;[0m
+[0m>  99 |             setCurrentPage(page);[0m
+[0m      |             ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  100 |             setTimeout(() => {[0m
+[0m  101 |                 scrollViewRef.current?.scrollTo({ x: page * pageWidth, animated: false });[0m
+[0m  102 |             }, 50);  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\TaskMenu.tsx[24m[0m
+[0m  [2m37:18[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskMenu.tsx:37:18[0m
+[0m  35 |[0m
+[0m  36 | export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, enableSubtasks = true }: TaskMenuProps) {[0m
+[0m> 37 |     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;[0m
+[0m     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  38 |[0m
+[0m  39 |     useEffect(() => {[0m
+[0m  40 |         if (visible) {  [2mreact-hooks/refs[22m[0m
+[0m  [2m37:18[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskMenu.tsx:37:18[0m
+[0m  35 |[0m
+[0m  36 | export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, enableSubtasks = true }: TaskMenuProps) {[0m
+[0m> 37 |     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;[0m
+[0m     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  38 |[0m
+[0m  39 |     useEffect(() => {[0m
+[0m  40 |         if (visible) {  [2mreact-hooks/refs[22m[0m
+[0m  [2m37:18[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskMenu.tsx:37:18[0m
+[0m  35 |[0m
+[0m  36 | export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, enableSubtasks = true }: TaskMenuProps) {[0m
+[0m> 37 |     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;[0m
+[0m     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  38 |[0m
+[0m  39 |     useEffect(() => {[0m
+[0m  40 |         if (visible) {  [2mreact-hooks/refs[22m[0m
+[0m  [2m37:18[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskMenu.tsx:37:18[0m
+[0m  35 |[0m
+[0m  36 | export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, enableSubtasks = true }: TaskMenuProps) {[0m
+[0m> 37 |     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;[0m
+[0m     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  38 |[0m
+[0m  39 |     useEffect(() => {[0m
+[0m  40 |         if (visible) {  [2mreact-hooks/refs[22m[0m
+[0m  [2m37:18[22m  [31merror[39m  Error: Cannot access refs during render[0m
+[0m[0m
+[0mReact refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\TaskMenu.tsx:37:18[0m
+[0m  35 |[0m
+[0m  36 | export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, enableSubtasks = true }: TaskMenuProps) {[0m
+[0m> 37 |     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;[0m
+[0m     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render[0m
+[0m  38 |[0m
+[0m  39 |     useEffect(() => {[0m
+[0m  40 |         if (visible) {  [2mreact-hooks/refs[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\components\editor\pages\DeadlinePage.tsx[24m[0m
+[0m  [2m36:25[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\components\editor\pages\DeadlinePage.tsx:36:25[0m
+[0m  34 |                     const d = new Date(deadline);[0m
+[0m  35 |                     if (!isNaN(d.getTime())) {[0m
+[0m> 36 |                         setTempSelectedDate(d);[0m
+[0m     |                         ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  37 |                         setHasTime(true);[0m
+[0m  38 |                         setTempHour(d.getHours());[0m
+[0m  39 |                         setTempMinute(d.getMinutes());  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\features\tasks\hooks\useTaskController.ts[24m[0m
+[0m  [2m16:9[22m  [31merror[39m  Error: Cannot access variable before it is declared[0m
+[0m[0m
+[0m`loadTasks` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.[0m
+[0m[0m
+[0mC:\Calendar App R1\src\features\tasks\hooks\useTaskController.ts:16:9[0m
+[0m  14 |     // Initial Load[0m
+[0m  15 |     useEffect(() => {[0m
+[0m> 16 |         loadTasks();[0m
+[0m     |         ^^^^^^^^^ `loadTasks` accessed before it is declared[0m
+[0m  17 |     }, []);[0m
+[0m  18 |[0m
+[0m  19 |     const isFirstRun = useRef(true);[0m
+[0m[0m
+[0mC:\Calendar App R1\src\features\tasks\hooks\useTaskController.ts:37:5[0m
+[0m  35 |     }, [tasks, loading]);[0m
+[0m  36 |[0m
+[0m> 37 |     const loadTasks = useCallback(async () => {[0m
+[0m     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 38 |         if (isSaving.current) {[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 39 |             console.warn('[useTaskController] Skipping loadTasks - Save in progress');[0m
+[0m     …[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 58 |         setLoading(false);[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 59 |     }, []);[0m
+[0m     | ^^^^^^^^^^^^ `loadTasks` is declared here[0m
+[0m  60 |[0m
+[0m  61 |     /**[0m
+[0m  62 |      * ADD TASK  [2mreact-hooks/immutability[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\features\tasks\hooks\useTasks.ts[24m[0m
+[0m  [2m23:9[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Calendar App R1\src\features\tasks\hooks\useTasks.ts:23:9[0m
+[0m  21 |[0m
+[0m  22 |     useEffect(() => {[0m
+[0m> 23 |         refresh();[0m
+[0m     |         ^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  24 |     }, [refresh]);[0m
+[0m  25 |[0m
+[0m  26 |     // --- PROJECTION ---  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Calendar App R1\src\hooks\useTaskActions.ts[24m[0m
+[0m   [2m18:36[22m  [31merror[39m  Compilation Skipped: Existing memoization could not be preserved[0m
+[0m[0m
+[0mReact Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `findTaskIndex`, but the source dependencies were [tasks, params]. Inferred different dependency than source.[0m
+[0m[0m
+[0mC:\Calendar App R1\src\hooks\useTaskActions.ts:18:36[0m
+[0m  16 |      * - Master: Add/Remove date from completedDates[0m
+[0m  17 |      */[0m
+[0m> 18 |     const toggleTask = useCallback((taskId: string, dateString: string) => {[0m
+[0m     |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 19 |         const index = findTaskIndex(taskId);[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 20 |         if (index === -1) return;[0m
+[0m     …[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 48 |[0m
+[0m     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 49 |     }, [tasks, params]);[0m
+[0m     | ^^^^^^ Could not preserve existing manual memoization[0m
+[0m  50 |[0m
+[0m  51 |[0m
+[0m  52 |     /**                                                                                              [2mreact-hooks/preserve-manual-memoization[22m[0m
+[0m   [2m55:40[22m  [31merror[39m  Compilation Skipped: Existing memoization could not be preserved[0m
+[0m[0m
+[0mReact Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `findTaskIndex`, but the source dependencies were [tasks, params]. Inferred different dependency than source.[0m
+[0m[0m
+[0mC:\Calendar App R1\src\hooks\useTaskActions.ts:55:40[0m
+[0m   53 |      * DELETE: Handle Single vs Series[0m
+[0m   54 |      */[0m
+[0m>  55 |     const deleteInstance = useCallback((taskId: string, dateString: string, deleteSeries: boolean) => {[0m
+[0m      |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m>  56 |         const index = findTaskIndex(taskId);[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m>  57 |         if (index === -1) return;[0m
+[0m      …[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 103 |         params.saveTasks(newTasks);[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 104 |     }, [tasks, params]);[0m
+[0m      | ^^^^^^ Could not preserve existing manual memoization[0m
+[0m  105 |[0m
+[0m  106 |[0m
+[0m  107 |     /**  [2mreact-hooks/preserve-manual-memoization[22m[0m
+[0m  [2m110:38[22m  [31merror[39m  Compilation Skipped: Existing memoization could not be preserved[0m
+[0m[0m
+[0mReact Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `findTaskIndex`, but the source dependencies were [tasks, params]. Inferred different dependency than source.[0m
+[0m[0m
+[0mC:\Calendar App R1\src\hooks\useTaskActions.ts:110:38[0m
+[0m  108 |      * EDIT: Handle Detaching or Series Update[0m
+[0m  109 |      */[0m
+[0m> 110 |     const editInstance = useCallback(([0m
+[0m      |                                      ^[0m
+[0m> 111 |         taskId: string,[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 112 |         dateString: string,[0m
+[0m      …[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 154 |         params.saveTasks(newTasks);[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 155 |     }, [tasks, params]);[0m
+[0m      | ^^^^^^ Could not preserve existing manual memoization[0m
+[0m  156 |[0m
+[0m  157 |     return { toggleTask, deleteInstance, editInstance };[0m
+[0m  158 | };                                                                                                                                                                 [2mreact-hooks/preserve-manual-memoization[22m[0m
+[0m[0m
+[0m[31m[1m✖ 50 problems (50 errors, 0 warnings)[22m[39m[0m
+[0m[31m[1m[22m[39m[0m

@@ -272,18 +272,18 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
         return result;
     }, []);
 
-    useEffect(() => {
+    // State Mirroring for Reset
+    const [prevVisible, setPrevVisible] = useState(visible);
+    const [prevSelectedDate, setPrevSelectedDate] = useState(selectedDate);
+
+    // Initial State Calculation (Render Phase)
+    if (visible !== prevVisible || (visible && selectedDate !== prevSelectedDate)) {
+        setPrevVisible(visible);
+        setPrevSelectedDate(selectedDate);
+
         if (visible) {
             // Reset Page
-            if (initialPage === 1) {
-                setTimeout(() => {
-                    scrollRef.current?.scrollTo({ x: MODAL_WIDTH, animated: false });
-                    setCurrentPage(1);
-                }, 0);
-            } else {
-                scrollRef.current?.scrollTo({ x: 0, animated: false });
-                setCurrentPage(0);
-            }
+            setCurrentPage(initialPage);
 
             // Parse Date
             let initialDate = new Date();
@@ -328,9 +328,25 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                 setTempMinute(now.getMinutes());
                 setHasTime(incomingHasTime);
             }
+        }
+    }
 
+    // Side Effects (Scrolling) - Run after render committed
+    useEffect(() => {
+        if (visible) {
+            // Scroll to correct page
+            if (initialPage === 1) {
+                setTimeout(() => {
+                    scrollRef.current?.scrollTo({ x: MODAL_WIDTH, animated: false });
+                }, 0);
+            } else {
+                scrollRef.current?.scrollTo({ x: 0, animated: false });
+            }
+
+            // Scroll to Month
             setTimeout(() => {
-                const targetCode = `${initialDate.getFullYear()}-${initialDate.getMonth()}`;
+                const targetDate = tempDate || new Date(); // Use tempDate which is now set
+                const targetCode = `${targetDate.getFullYear()}-${targetDate.getMonth()}`;
                 const index = months.findIndex(m =>
                     `${m.date.getFullYear()}-${m.date.getMonth()}` === targetCode
                 );
@@ -339,7 +355,7 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                 }
             }, 100);
         }
-    }, [visible, selectedDate, months, initialPage]);
+    }, [visible, initialPage]); // tempDate dependency implied by visible reset, but strict deps might want it. leaving distinct to avoid loops.
 
     const handleReset = () => {
         if (currentPage === 1 && hasTime) {

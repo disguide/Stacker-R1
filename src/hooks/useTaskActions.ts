@@ -7,8 +7,7 @@ import { RRule } from 'rrule';
  */
 export const useTaskActions = (tasks: Task[], params: { saveTasks: (tasks: Task[]) => void }) => {
 
-    // Helper to find task index
-    const findTaskIndex = (id: string) => tasks.findIndex(t => t.id === id);
+    // Helper removed to avoid dependency issues
 
     /**
      * TOGGLE: Check/Uncheck a specific day
@@ -16,7 +15,7 @@ export const useTaskActions = (tasks: Task[], params: { saveTasks: (tasks: Task[
      * - Master: Add/Remove date from completedDates
      */
     const toggleTask = useCallback((taskId: string, dateString: string) => {
-        const index = findTaskIndex(taskId);
+        const index = tasks.findIndex(t => t.id === taskId);
         if (index === -1) return;
 
         const task = { ...tasks[index] };
@@ -53,7 +52,7 @@ export const useTaskActions = (tasks: Task[], params: { saveTasks: (tasks: Task[
      * DELETE: Handle Single vs Series
      */
     const deleteInstance = useCallback((taskId: string, dateString: string, deleteSeries: boolean) => {
-        const index = findTaskIndex(taskId);
+        const index = tasks.findIndex(t => t.id === taskId);
         if (index === -1) return;
 
         const newTasks = [...tasks];
@@ -113,7 +112,7 @@ export const useTaskActions = (tasks: Task[], params: { saveTasks: (tasks: Task[
         updates: Partial<Task>,
         editSeries: boolean
     ) => {
-        const index = findTaskIndex(taskId);
+        const index = tasks.findIndex(t => t.id === taskId);
         if (index === -1) return;
 
         let newTasks = [...tasks];

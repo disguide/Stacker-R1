@@ -14,7 +14,7 @@ interface CalendarMonthData {
     offset: number;
 }
 
-export default function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
+export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
     width: number;
     deadline: string | null;
     onDeadlineChange: (dl: string | null) => void;
@@ -282,6 +282,8 @@ export default function DeadlinePage({ width, deadline, onDeadlineChange, onClos
         </View>
     );
 }
+
+export default React.memo(DeadlinePage);
 
 const p = StyleSheet.create({
     monthTitle: {

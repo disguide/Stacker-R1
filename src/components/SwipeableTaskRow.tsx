@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated, Platform } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { TagDefinition } from '../services/storage'; // Import type
@@ -145,7 +145,7 @@ export default function SwipeableTaskRow({
     const [containerWidth, setContainerWidth] = useState(0);
 
     // Animation Values
-    const progressAnim = useRef(new Animated.Value(progress)).current;
+    const progressAnim = useMemo(() => new Animated.Value(progress), []);
 
     // Lock updates during completion delay to prevent snap-back
     const isLocalCompleting = useRef(false);
@@ -173,12 +173,19 @@ export default function SwipeableTaskRow({
         widthRef.current = w;
     };
 
-    const panResponder = useRef(
+    const stateRef = useRef({ isSelectionMode, isReorderMode, completed, onSwipeStart, onSwipeEnd, onProgressUpdate, onComplete, id });
+    useEffect(() => {
+        stateRef.current = { isSelectionMode, isReorderMode, completed, onSwipeStart, onSwipeEnd, onProgressUpdate, onComplete, id };
+    }, [isSelectionMode, isReorderMode, completed, onSwipeStart, onSwipeEnd, onProgressUpdate, onComplete, id]);
+
+    const panResponder = useMemo(() =>
         PanResponder.create({
             onStartShouldSetPanResponder: () => false,
             // Only capture if drag is significant (avoids stealing taps on checkbox)
             onMoveShouldSetPanResponder: (_, gestureState) => {
+                const { isSelectionMode, isReorderMode, completed } = stateRef.current;
                 if (isSelectionMode || isReorderMode) return false;
+                // Only if horizontal swipe > vertical move
                 return !completed && Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dx) * 1.2 > Math.abs(gestureState.dy);
             },
             onPanResponderTerminationRequest: () => false,
@@ -187,7 +194,7 @@ export default function SwipeableTaskRow({
                 const w = widthRef.current;
                 if (w <= 0) return;
 
-                if (onSwipeStart) onSwipeStart();
+                if (stateRef.current.onSwipeStart) stateRef.current.onSwipeStart();
 
                 const locationX = evt.nativeEvent.locationX;
 
@@ -218,7 +225,7 @@ export default function SwipeableTaskRow({
                         bounciness: 0
                     }).start();
                     setDisplayProgress(resetVal);
-                    if (onSwipeEnd) onSwipeEnd();
+                    if (stateRef.current.onSwipeEnd) stateRef.current.onSwipeEnd();
                     return;
                 }
 
@@ -234,7 +241,7 @@ export default function SwipeableTaskRow({
                 setDisplayProgress(finalP);
             },
             onPanResponderRelease: (evt, gestureState) => {
-                if (onSwipeEnd) onSwipeEnd();
+                if (stateRef.current.onSwipeEnd) stateRef.current.onSwipeEnd();
 
                 // Checkbox tap handled by TouchableOpacity below, not here
 
@@ -268,11 +275,11 @@ export default function SwipeableTaskRow({
                     }).start(() => {
                         // Add delay before completion
                         setTimeout(() => {
-                            onComplete();
+                            stateRef.current.onComplete();
                         }, 50); // Immediate trigger (delegating delay to parent handler)
                     });
                     setDisplayProgress(100);
-                    onProgressUpdate(id, 100);
+                    stateRef.current.onProgressUpdate(stateRef.current.id, 100);
                 } else {
                     Animated.spring(progressAnim, {
                         toValue: finalP,
@@ -282,11 +289,11 @@ export default function SwipeableTaskRow({
                     }).start();
 
                     setDisplayProgress(finalP);
-                    onProgressUpdate(id, finalP);
+                    stateRef.current.onProgressUpdate(stateRef.current.id, finalP);
                 }
             },
             onPanResponderTerminate: () => {
-                if (onSwipeEnd) onSwipeEnd();
+                if (stateRef.current.onSwipeEnd) stateRef.current.onSwipeEnd();
 
                 const resetVal = originalProgressRef.current;
                 Animated.spring(progressAnim, {
@@ -296,8 +303,8 @@ export default function SwipeableTaskRow({
                 }).start();
                 setDisplayProgress(resetVal);
             }
-        })
-    ).current;
+        }), []
+    );
 
     return (
         <View

@@ -22,7 +22,8 @@ const formatDuration = (minutes: number): string => {
     return `${m}m`;
 };
 
-export default function DurationPage({ width, estimatedTime, onEstimateChange, onClose }: {
+// Export as named for testing, default as memoized
+export function DurationPage({ width, estimatedTime, onEstimateChange, onClose }: {
     width: number;
     estimatedTime: string | null;
     onEstimateChange: (duration: string | null) => void;
@@ -83,6 +84,8 @@ export default function DurationPage({ width, estimatedTime, onEstimateChange, o
         </View>
     );
 }
+
+export default React.memo(DurationPage);
 
 const p = StyleSheet.create({
     durationDisplay: {

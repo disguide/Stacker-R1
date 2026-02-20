@@ -44,8 +44,16 @@
   "private": true,
   "devDependencies": {
     "@babel/plugin-proposal-decorators": "^7.28.6",
+    "@eslint/eslintrc": "^3.3.3",
+    "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.9",
     "babel-preset-expo": "^54.0.10",
+    "eslint": "^9.39.2",
+    "eslint-config-expo": "^10.0.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-native": "^5.0.0",
     "typescript": "^5.9.3"
   }
 }

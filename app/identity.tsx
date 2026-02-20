@@ -20,16 +20,6 @@ export default function IdentityScreen() {
     const [isAddModalVisible, setIsAddModalVisible] = useState(false);
     const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
 
-    useEffect(() => {
-        loadProfile();
-        ensureIdentityTag();
-    }, []);
-
-    const loadProfile = async () => {
-        const data = await StorageService.loadProfile();
-        if (data) setProfile(data);
-    };
-
     const ensureIdentityTag = async () => {
         try {
             const tags = await StorageService.loadTags();
@@ -54,12 +44,28 @@ export default function IdentityScreen() {
         }
     };
 
+
+
     const updateProfile = async (updates: Partial<UserProfile>) => {
         if (!profile) return;
         const newProfile = { ...profile, ...updates };
         setProfile(newProfile);
         await StorageService.saveProfile(newProfile);
     };
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadProfile = async () => {
+            const data = await StorageService.loadProfile();
+            if (mounted && data) setProfile(data);
+        };
+
+        loadProfile();
+        ensureIdentityTag();
+
+        return () => { mounted = false; };
+    }, []);
 
     // Filter Milestones
     const milestones = useMemo(() => {

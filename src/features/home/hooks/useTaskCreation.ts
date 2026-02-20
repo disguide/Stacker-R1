@@ -3,7 +3,8 @@ import { Alert } from 'react-native';
 import { Task, Subtask } from '../../tasks/types';
 import { resolveId } from '../../../utils/taskHelpers';
 import { RRule } from 'rrule';
-import { RecurrenceRule, parseRRuleString, RecurrenceFrequency } from '../../../services/storage';
+import { RecurrenceRule, RecurrenceFrequency } from '../../../services/storage';
+import { parseRRuleString } from '../../../utils/recurrence';
 
 interface UseTaskCreationProps {
     tasks: Task[];

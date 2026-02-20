@@ -46,6 +46,11 @@ export function DeadlineCard({ isActive, onActivate, deadline, onChange }: Deadl
         return { full: `${dayName}, ${month} ${dateNum}`, relative };
     }, [deadline]);
 
+    // --- RENDER ACTIVE (Input) ---
+    // Local state for navigation (independent of selection)
+    // FIX: Moved useState to top level to avoid conditional hook error
+    const [viewDate, setViewDate] = React.useState(deadline ? new Date(deadline) : new Date());
+
     // --- RENDER INACTIVE (Summary) ---
     if (!isActive) {
         return (
@@ -64,10 +69,6 @@ export function DeadlineCard({ isActive, onActivate, deadline, onChange }: Deadl
             </TouchableOpacity>
         );
     }
-
-    // --- RENDER ACTIVE (Input) ---
-    // Local state for navigation (independent of selection)
-    const [viewDate, setViewDate] = React.useState(deadline ? new Date(deadline) : new Date());
 
     // Sync viewDate if deadline changes externally (optional, but good for "reset")
     // useEffect(() => { if(deadline) setViewDate(new Date(deadline)); }, [deadline]); 

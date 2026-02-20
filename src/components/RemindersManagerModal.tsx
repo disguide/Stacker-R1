@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, Switch } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Switch, Alert, SectionList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Task } from '../features/tasks/types';
 import { THEME } from '../constants/theme';
@@ -80,28 +80,69 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
             });
     }, [tasks]);
 
+    // Group tasks into sections
+    const sections = useMemo(() => {
+        const today = toISODateString(new Date());
+
+        const todayTasks: Task[] = [];
+        const upcomingTasks: Task[] = [];
+        const unscheduledTasks: Task[] = []; // No date but has reminder
+
+        activeTasks.forEach(task => {
+            if (!task.date) {
+                unscheduledTasks.push(task);
+            } else if (task.date === today && !task.completed) {
+                todayTasks.push(task);
+            } else if (task.date > today || (task.rrule && !task.completed)) {
+                // Future or Recurring (assuming recurring shows up here if not completed today)
+                // Note: simplistic check for upcoming. 
+                // If it's old/overdue? It goes to upcoming/other for now or we add "Overdue"
+                if (task.date < today) {
+                    // Overdue - put in Today/Overdue
+                    todayTasks.push(task);
+                } else {
+                    upcomingTasks.push(task);
+                }
+            } else {
+                // Completed or old
+                // If it has active reminder config, meaningful to show?
+                // activeTasks filter already excludes completed unless recurring logic allows
+                upcomingTasks.push(task);
+            }
+        });
+
+        const result = [];
+        if (todayTasks.length > 0) result.push({ title: 'Today & Overdue', data: todayTasks });
+        if (upcomingTasks.length > 0) result.push({ title: 'Upcoming', data: upcomingTasks });
+        if (unscheduledTasks.length > 0) result.push({ title: 'Unscheduled', data: unscheduledTasks });
+
+        return result;
+    }, [activeTasks]);
+
+
     const handleEdit = (task: Task) => {
         setSelectedTask(task);
         setIsReminderModalVisible(true);
     };
 
     const handleDelete = (task: Task) => {
-        // Turn off immediately (effectively delete from this list)
-        onToggleReminder(task.id, false);
+        // Ask for confirmation to prevent "Deleting all edits" surprise
+        Alert.alert(
+            "Remove Reminder?",
+            "This will clear the reminder time and settings for this task.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Remove",
+                    style: "destructive",
+                    onPress: () => onToggleReminder(task.id, false) // Clears config
+                }
+            ]
+        );
     };
 
     const handleSaveReminder = (offset: number, time: string) => {
         if (selectedTask) {
-            // Update Logic
-            // If offset is -1? No, we handle removal differently?
-            // Actually, for now, let's assume valid offset + time = update.
-            // Removal should be a separate button/action in this modal?
-            // "Remove" button in ReminderModal calls onClose?
-            // Let's assume onSelectReminder is only for setting valid reminders.
-
-            // To Remove: Use the explicit remove button in the list.
-
-            // Update
             const timeStr = time || selectedTask.reminderTime || "09:00";
             onToggleReminder(selectedTask.id, true, timeStr, undefined, offset);
         }
@@ -120,21 +161,28 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
                         </TouchableOpacity>
                     </View>
 
-                    <FlatList
-                        data={activeTasks}
+                    <SectionList
+                        sections={sections}
                         keyExtractor={item => item.id}
                         renderItem={({ item }) => (
                             <ReminderRow
                                 task={item}
-                                onDelete={() => onToggleReminder(item.id, false)}
+                                onDelete={() => handleDelete(item)}
                                 onEdit={() => handleEdit(item)}
                                 onToggle={(val) => onToggleReminder(item.id, val, item.reminderTime, item.reminderDate, item.reminderOffset)}
                             />
                         )}
-                        contentContainerStyle={{ padding: 16 }}
+                        renderSectionHeader={({ section: { title } }) => (
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionHeaderText}>{title}</Text>
+                            </View>
+                        )}
+                        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+                        stickySectionHeadersEnabled={false}
                         ListEmptyComponent={
-                            <View style={{ alignItems: 'center', marginTop: 40 }}>
-                                <Text style={{ color: THEME.textSecondary }}>No active reminders</Text>
+                            <View style={styles.emptyContainer}>
+                                <Ionicons name="notifications-off-outline" size={48} color={THEME.textSecondary} />
+                                <Text style={styles.emptyText}>No active reminders</Text>
                             </View>
                         }
                     />
@@ -290,5 +338,17 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-    }
+    },
+    sectionHeader: {
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+        marginTop: 8,
+        marginBottom: 8,
+        backgroundColor: THEME.bg,
+    },
+    sectionHeaderText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: THEME.textPrimary,
+    },
 });

@@ -43,6 +43,13 @@ export default function LongTermScreen() {
     const [addingSubtaskToParentId, setAddingSubtaskToParentId] = useState<string | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [isListScrollEnabled, setIsListScrollEnabled] = useState(true);
+    const [userColors, setUserColors] = useState<any[]>([]);
+
+    useEffect(() => {
+        // Load colors for the horizon view as well
+        const { StorageService } = require('../src/services/storage');
+        StorageService.loadUserColors().then((colors: any) => setUserColors(colors));
+    }, []);
 
     // Modal Visibility State
     const [isDurationPickerVisible, setIsDurationPickerVisible] = useState(false);
@@ -534,6 +541,7 @@ export default function LongTermScreen() {
                 onRequestDuration={() => setIsDurationPickerVisible(true)}
                 onRequestTime={() => setIsTimePickerVisible(true)}
                 initialActiveFeature={drawerInitialFeature}
+                userColors={userColors}
             />
 
             <CalendarModal

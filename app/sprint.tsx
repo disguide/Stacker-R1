@@ -29,13 +29,8 @@ export default function SprintScreen() {
 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
-    const startTimeRef = useRef<number>(Date.now());
-
-    // Initial Load
-    useEffect(() => {
-        startTimeRef.current = Date.now();
-        loadSprintTasks();
-    }, [taskIds]);
+    // FIX: Avoid impure Date.now() in render
+    const startTimeRef = useRef<number>(0);
 
     const loadSprintTasks = async () => {
         try {
@@ -58,6 +53,12 @@ export default function SprintScreen() {
             return [...rest, first];
         });
     };
+
+    // Initial Load
+    useEffect(() => {
+        startTimeRef.current = Date.now();
+        loadSprintTasks();
+    }, [taskIds]);
 
     const handleCompleteTask = async () => {
         if (!tasks[0]) return;

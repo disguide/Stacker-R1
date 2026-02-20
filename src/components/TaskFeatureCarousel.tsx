@@ -24,6 +24,8 @@ import PropertiesPage from './editor/pages/PropertiesPage';
 import RecurrencePage from './editor/pages/RecurrencePage';
 import ReminderPage from './editor/pages/ReminderPage';
 
+export type { FeatureKey };
+
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
 interface TaskFeatureCarouselProps {
@@ -78,7 +80,7 @@ export default function TaskFeatureCarousel({
     onRequestColorSettings,
 }: TaskFeatureCarouselProps) {
     // Debug Log
-    // console.log('[TaskFeatureCarousel] Rendered', { visible, onRequestColorSettings: !!onRequestColorSettings });
+    // console.log('[DEBUG_RENDER] TaskFeatureCarousel', { visible, hasUserColors: !!userColors, colorsCount: userColors?.length });
     const scrollViewRef = useRef<ScrollView>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageWidth, setPageWidth] = useState(SCREEN_WIDTH * 0.92); // default estimate

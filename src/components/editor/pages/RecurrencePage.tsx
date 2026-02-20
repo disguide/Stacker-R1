@@ -22,7 +22,7 @@ const WEEKDAYS: { label: string; value: WeekDay }[] = [
     { label: 'S', value: 'SU' },
 ];
 
-export default function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose }: {
+export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose }: {
     width: number;
     recurrence: RecurrenceRule | null;
     onRecurrenceChange: (rule: RecurrenceRule | null) => void;
@@ -34,20 +34,23 @@ export default function RecurrencePage({ width, recurrence, onRecurrenceChange, 
     const [selectedDays, setSelectedDays] = useState<Set<WeekDay>>(new Set());
     const [localRecurrence, setLocalRecurrence] = useState<RecurrenceRule | null>(recurrence);
 
-    useEffect(() => {
+    const [prevRecurrence, setPrevRecurrence] = useState<RecurrenceRule | null>(recurrence);
+
+    if (recurrence !== prevRecurrence) {
+        setPrevRecurrence(recurrence);
         setLocalRecurrence(recurrence);
         if (recurrence) {
             setViewMode('custom');
             setFrequency(recurrence.frequency);
             setIntervalVal(recurrence.interval.toString());
-            if (recurrence.daysOfWeek) setSelectedDays(new Set(recurrence.daysOfWeek));
+            if (Array.isArray(recurrence.daysOfWeek)) setSelectedDays(new Set(recurrence.daysOfWeek));
         } else {
             setViewMode('presets');
             setFrequency('weekly');
             setIntervalVal('1');
             setSelectedDays(new Set());
         }
-    }, [recurrence]); // Added dependency
+    }
 
     const handlePreset = (type: string) => {
         let rule: RecurrenceRule | null = null;
@@ -60,6 +63,7 @@ export default function RecurrencePage({ width, recurrence, onRecurrenceChange, 
             case 'none': rule = null; break;
         }
         setLocalRecurrence(rule);
+        onRecurrenceChange(rule); // Auto-save
     };
 
     const handleSaveCustom = () => {
@@ -70,6 +74,8 @@ export default function RecurrencePage({ width, recurrence, onRecurrenceChange, 
             daysOfWeek: frequency === 'weekly' && selectedDays.size > 0 ? Array.from(selectedDays) : undefined,
         };
         setLocalRecurrence(rule);
+        onRecurrenceChange(rule); // Auto-save
+        setViewMode('presets'); // Return to main view
     };
 
     const toggleDay = (day: WeekDay) => {
@@ -88,8 +94,13 @@ export default function RecurrencePage({ width, recurrence, onRecurrenceChange, 
         setSelectedDays(new Set());
     };
 
+    // No explicit confirm needed for presets, but keep for custom if they want to 'apply'
+    // Actually, handleSaveCustom acts as the apply.
+    // The Confirm button at the bottom is now redundant for presets, but maybe keeps the UI consistent?
+    // Let's make the bottom bar just "Close" or "Done" effectively.
+
+    // For consistency with other pages that auto-save, we might not need the bottom bar's Confirm to do anything specific other than Close.
     const handleConfirm = () => {
-        onRecurrenceChange(localRecurrence);
         onClose();
     };
 
@@ -197,6 +208,8 @@ export default function RecurrencePage({ width, recurrence, onRecurrenceChange, 
         </View>
     );
 }
+
+export default React.memo(RecurrencePage);
 
 const p = StyleSheet.create({
     presetItem: {

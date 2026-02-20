@@ -11,51 +11,39 @@ export const useTaskController = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Initial Load
-    useEffect(() => {
-        loadTasks();
-    }, []);
-
     const isFirstRun = useRef(true);
     const isSaving = useRef(false);
 
-    useEffect(() => {
-        if (isFirstRun.current) {
-            isFirstRun.current = false;
-            return;
-        }
-        if (!loading) {
-            isSaving.current = true;
-            TaskRepository.saveAll(tasks as any)
-                .catch(e => console.error("Failed to auto-save", e))
-                .finally(() => {
-                    isSaving.current = false;
-                });
-        }
-    }, [tasks, loading]);
-
+    /**
+     * LOAD TASKS
+     */
     const loadTasks = useCallback(async () => {
         if (isSaving.current) {
             console.warn('[useTaskController] Skipping loadTasks - Save in progress');
             return;
         }
-        const data = (await TaskRepository.getAll()) as unknown as Task[];
+        try {
+            const data = (await TaskRepository.getAll()) as unknown as Task[];
 
-        // ROLLOVER SYSTEM INTEGRATION
-        const { updates, creations } = RolloverSystem.getRolloverActions(data);
+            // ROLLOVER SYSTEM INTEGRATION
+            const { updates, creations } = RolloverSystem.getRolloverActions(data);
 
-        let finalTasks = data;
+            let finalTasks = data;
 
-        if (updates.length > 0 || creations.length > 0) {
-            console.log(`[useTaskController] Rollover Active: ${updates.length} updates, ${creations.length} created`);
+            if (updates.length > 0 || creations.length > 0) {
+                console.log(`[useTaskController] Rollover Active: ${updates.length} updates, ${creations.length} created`);
 
-            const taskMap = new Map(data.map(t => [t.id, t]));
-            updates.forEach(u => taskMap.set(u.id, u));
+                const taskMap = new Map(data.map(t => [t.id, t]));
+                updates.forEach(u => taskMap.set(u.id, u));
 
-            finalTasks = [...Array.from(taskMap.values()), ...creations];
+                finalTasks = [...Array.from(taskMap.values()), ...creations];
+            }
+            setTasks(finalTasks);
+        } catch (e) {
+            console.error("Failed to load tasks", e);
+        } finally {
+            setLoading(false);
         }
-        setTasks(finalTasks);
-        setLoading(false);
     }, []);
 
     /**
@@ -167,7 +155,7 @@ export const useTaskController = () => {
     }, []);
 
     /**
-     * DELETE TASK (Single or Series)
+     * SUBTASK LOGIC
      */
     const toggleSubtask = useCallback((taskId: string, subtaskId: string, dateString: string) => {
         setTasks(prev => {
@@ -343,6 +331,27 @@ export const useTaskController = () => {
             return updatedTasks;
         });
     }, []);
+
+    // Initial Load
+    useEffect(() => {
+        loadTasks();
+    }, []);
+
+    // Auto-Save Effect
+    useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            return;
+        }
+        if (!loading) {
+            isSaving.current = true;
+            TaskRepository.saveAll(tasks as any)
+                .catch(e => console.error("Failed to auto-save", e))
+                .finally(() => {
+                    isSaving.current = false;
+                });
+        }
+    }, [tasks, loading]);
 
     return {
         tasks,

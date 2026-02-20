@@ -28,47 +28,7 @@ export default function ProfileScreen() {
 
     const [milestones, setMilestones] = useState<Task[]>([]);
 
-    useEffect(() => {
-        loadData();
-    }, []);
 
-    const loadData = async () => {
-        const history = await StorageService.loadHistory();
-        setHistoryTasks(history);
-
-        const active = await StorageService.loadActiveTasks();
-
-        // Load Milestones (Logic adapted from identity.tsx)
-        const tags = await StorageService.loadTags();
-        const identityTag = tags.find(t => t.label.trim().toLowerCase() === 'identity');
-        const identityTagId = identityTag?.id;
-
-        const milestonTasks = active.filter(t => {
-            const hasTag = identityTagId ? t.tagIds?.includes(identityTagId) : false;
-            const isRef = t.id.startsWith('milestone_');
-            return (hasTag || isRef) && !t.completed;
-        }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-        setMilestones(milestonTasks);
-
-        // Simple Streak Calculation
-        const streak = calculateStreak(history);
-
-        setStats({
-            completed: history.length,
-            active: active.length,
-            streak: streak
-        });
-
-        const savedProfile = await StorageService.loadProfile();
-        if (savedProfile) {
-            // Hotfix: Clear the annoying default if it was autosaved
-            if (savedProfile.handle === '@stacker') savedProfile.handle = '';
-            // if (savedProfile.name === 'User') savedProfile.name = ''; 
-
-            setProfile(savedProfile);
-        }
-    };
 
     const calculateStreak = (history: Task[]) => {
         if (!history.length) return 0;
@@ -116,6 +76,44 @@ export default function ProfileScreen() {
         return streak;
     };
 
+    const loadData = async () => {
+        const history = await StorageService.loadHistory();
+        setHistoryTasks(history);
+
+        const active = await StorageService.loadActiveTasks();
+
+        // Load Milestones (Logic adapted from identity.tsx)
+        const tags = await StorageService.loadTags();
+        const identityTag = tags.find(t => t.label.trim().toLowerCase() === 'identity');
+        const identityTagId = identityTag?.id;
+
+        const milestonTasks = active.filter(t => {
+            const hasTag = identityTagId ? t.tagIds?.includes(identityTagId) : false;
+            const isRef = t.id.startsWith('milestone_');
+            return (hasTag || isRef) && !t.completed;
+        }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        setMilestones(milestonTasks);
+
+        // Simple Streak Calculation
+        const streak = calculateStreak(history);
+
+        setStats({
+            completed: history.length,
+            active: active.length,
+            streak: streak
+        });
+
+        const savedProfile = await StorageService.loadProfile();
+        if (savedProfile) {
+            // Hotfix: Clear the annoying default if it was autosaved
+            if (savedProfile.handle === '@stacker') savedProfile.handle = '';
+            // if (savedProfile.name === 'User') savedProfile.name = ''; 
+
+            setProfile(savedProfile);
+        }
+    };
+
     const updateProfile = async (updates: Partial<UserProfile>) => {
         const newProfile = { ...profile, ...updates };
         setProfile(newProfile);
@@ -144,6 +142,54 @@ export default function ProfileScreen() {
             setHistoryTasks(prev => prev.filter(t => t.id !== taskId));
         }
     };
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadData = async () => {
+            const history = await StorageService.loadHistory();
+            if (!mounted) return;
+            setHistoryTasks(history);
+
+            const active = await StorageService.loadActiveTasks();
+            if (!mounted) return;
+
+            // Load Milestones (Logic adapted from identity.tsx)
+            const tags = await StorageService.loadTags();
+            const identityTag = tags.find(t => t.label.trim().toLowerCase() === 'identity');
+            const identityTagId = identityTag?.id;
+
+            const milestonTasks = active.filter(t => {
+                const hasTag = identityTagId ? t.tagIds?.includes(identityTagId) : false;
+                const isRef = t.id.startsWith('milestone_');
+                return (hasTag || isRef) && !t.completed;
+            }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+            setMilestones(milestonTasks);
+
+            // Simple Streak Calculation
+            const streak = calculateStreak(history);
+
+            setStats({
+                completed: history.length,
+                active: active.length,
+                streak: streak
+            });
+
+            const savedProfile = await StorageService.loadProfile();
+            if (savedProfile && mounted) {
+                // Hotfix: Clear the annoying default if it was autosaved
+                if (savedProfile.handle === '@stacker') savedProfile.handle = '';
+                // if (savedProfile.name === 'User') savedProfile.name = ''; 
+
+                setProfile(savedProfile);
+            }
+        };
+
+        loadData();
+
+        return () => { mounted = false; };
+    }, []);
 
 
 
@@ -236,7 +282,7 @@ export default function ProfileScreen() {
 
                 {/* 2. TABS (Sticky-ish) */}
                 <View style={styles.tabContainer}>
-                    {['Identity', 'Plans', 'Archive'].map((tab, i) => (
+                    {['Archive', 'Identity', 'Plans'].map((tab, i) => (
                         <TouchableOpacity
                             key={tab}
                             style={[styles.tabBtn, activeTab === i && styles.tabBtnActive]}
@@ -251,8 +297,25 @@ export default function ProfileScreen() {
 
                 {/* 3. TAB CONTENT */}
                 <View style={styles.tabContent}>
-                    {/* ID CARD */}
+                    {/* ARCHIVE */}
                     {activeTab === 0 && (
+                        <View>
+                            <TouchableOpacity style={styles.menuItem} onPress={() => setIsHistoryVisible(true)}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                    <Ionicons name="time-outline" size={24} color="#333" />
+                                    <Text style={styles.menuItemText}>Completed History</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+                            </TouchableOpacity>
+
+                            <View style={{ padding: 20, alignItems: 'center', marginTop: 20 }}>
+                                <Text style={{ color: '#94A3B8' }}>Past performance analytics...</Text>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* ID CARD */}
+                    {activeTab === 1 && (
                         <View style={styles.identityTab}>
                             <TouchableOpacity
                                 style={styles.identityCardRow}
@@ -277,7 +340,7 @@ export default function ProfileScreen() {
                     )}
 
                     {/* PLANS (Milestones & Focus) */}
-                    {activeTab === 1 && (
+                    {activeTab === 2 && (
                         <View>
                             {/* MILESTONES SECTION */}
                             <Text style={styles.sectionHeader}>NEXT MILESTONES</Text>
@@ -332,23 +395,6 @@ export default function ProfileScreen() {
                                     <Ionicons name="add" size={16} color="#64748B" />
                                     <Text style={styles.addItemText}>Add Item</Text>
                                 </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
-
-                    {/* ARCHIVE */}
-                    {activeTab === 2 && (
-                        <View>
-                            <TouchableOpacity style={styles.menuItem} onPress={() => setIsHistoryVisible(true)}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                    <Ionicons name="time-outline" size={24} color="#333" />
-                                    <Text style={styles.menuItemText}>Completed History</Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
-                            </TouchableOpacity>
-
-                            <View style={{ padding: 20, alignItems: 'center', marginTop: 20 }}>
-                                <Text style={{ color: '#94A3B8' }}>Past performance analytics...</Text>
                             </View>
                         </View>
                     )}

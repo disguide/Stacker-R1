@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ViewMode } from '../../constants/theme';
+import { ViewMode } from '../../../constants/theme';
 import { useTaskNavigation } from '../../tasks/hooks/useTaskNavigation';
 
 export function useHomeState() {

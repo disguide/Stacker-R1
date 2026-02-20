@@ -1,5 +1,5 @@
 import { RecurrenceRule, WeekDay } from '../services/storage';
-import { RRule, Frequency } from 'rrule';
+import { RRule } from 'rrule';
 
 const WEEKDAYS: WeekDay[] = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 

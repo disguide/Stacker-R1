@@ -94,25 +94,25 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
 
                     <View style={styles.addToolbar}>
                         <TouchableOpacity onPress={onOpenCalendar} style={styles.toolbarIconBtn}>
-                            <Text style={styles.toolbarEmoji}>📅</Text>
+                            <Ionicons name="calendar-outline" size={20} color="#555" />
                         </TouchableOpacity>
 
                         <TouchableOpacity onPress={onOpenDuration} style={styles.toolbarIconBtn}>
-                            <Text style={styles.toolbarEmoji}>⏱</Text>
+                            <MaterialCommunityIcons name="timer-outline" size={20} color="#555" />
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenReminder}>
-                            <Text style={styles.toolbarEmoji}>⏰</Text>
+                            <Ionicons name="notifications-outline" size={20} color="#555" />
                         </TouchableOpacity>
 
                         {!isSubtask && (
                             <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenRecurrence}>
-                                <Text style={styles.toolbarEmoji}>🔁</Text>
+                                <MaterialCommunityIcons name="repeat" size={20} color="#555" />
                             </TouchableOpacity>
                         )}
 
                         <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenProperties}>
-                            <Text style={styles.toolbarEmoji}>🏷️</Text>
+                            <MaterialCommunityIcons name="tag-outline" size={20} color="#555" />
                         </TouchableOpacity>
 
                         {deadline && (

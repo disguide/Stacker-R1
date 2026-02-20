@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View,
     Text,
@@ -19,6 +19,9 @@ import { RecurrenceRule, ColorDefinition } from '../services/storage';
 import TaskFeatureCarousel, { FeatureKey } from './TaskFeatureCarousel';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { Task } from '../features/tasks/types';
+import { Switch } from 'react-native';
+
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 // Theme Constants
@@ -35,10 +38,7 @@ const THEME = {
 const formatDateShort = (dateStr: string) => {
     const d = new Date(dateStr);
     return `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
-};
-
-import { Task } from '../features/tasks/types';
-import { Switch } from 'react-native'; // Import Switch
+}; // Import Switch
 
 
 interface TaskEditDrawerProps {
@@ -81,7 +81,7 @@ function useTaskReminders(task: Task | null) {
     }, [task]);
 
     // 2. Actions
-    const toggleReminder = (enabled: boolean) => {
+    const toggleReminder = useCallback((enabled: boolean) => {
         setReminderEnabled(enabled);
 
         // Intelligent Toggle: If turning ON and no data exists, set defaults.
@@ -89,9 +89,9 @@ function useTaskReminders(task: Task | null) {
             setReminderOffset(0); // Default: Same Day (Always 0 now)
             setReminderTime('09:00'); // Default: 9 AM
         }
-    };
+    }, [reminderOffset]);
 
-    const updateReminder = (offset: number | null, time: string | null) => {
+    const updateReminder = useCallback((offset: number | null, time: string | null) => {
         setReminderOffset(offset);
         setReminderTime(time);
 
@@ -101,13 +101,13 @@ function useTaskReminders(task: Task | null) {
         } else {
             setReminderEnabled(false);
         }
-    };
+    }, []);
 
-    const clearReminder = () => {
+    const clearReminder = useCallback(() => {
         setReminderOffset(null);
         setReminderTime(null);
         setReminderEnabled(false);
-    };
+    }, []);
 
     return {
         reminderOffset,
@@ -286,6 +286,10 @@ export default function TaskEditDrawer({
 
 
 
+    // Fix Stale Closure in PanResponder
+    const handleSaveRef = useRef(handleSave);
+    useEffect(() => { handleSaveRef.current = handleSave; });
+
     const panResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => false, // Allow clicks to pass through
@@ -301,7 +305,8 @@ export default function TaskEditDrawer({
             onPanResponderRelease: (_, gestureState) => {
                 if (gestureState.dy > 100) {
                     // Dragged down far enough - Auto Save & Close
-                    handleSave();
+                    // Use ref to call latest function
+                    handleSaveRef.current();
                 } else {
                     // Snap back up
                     Animated.spring(panY, {
@@ -313,7 +318,10 @@ export default function TaskEditDrawer({
         })
     ).current;
 
-    if (!visible && !task) return null;
+    const handleRequestColorSettings = useCallback(() => {
+        console.log('[TaskEditDrawer] onRequestColorSettings called');
+        if (onRequestColorSettings) onRequestColorSettings();
+    }, [onRequestColorSettings]);
 
     // Render as absolute view instead of Modal to avoid stacking issues
     return (
@@ -322,7 +330,17 @@ export default function TaskEditDrawer({
             style={styles.absoluteContainer}
             pointerEvents={visible ? "auto" : "none"}
         >
-            <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleSave} />
+            <Animated.View
+                style={[styles.backdrop, {
+                    opacity: panY.interpolate({
+                        inputRange: [0, SCREEN_HEIGHT],
+                        outputRange: [1, 0],
+                    })
+                }]}
+                pointerEvents={visible ? 'auto' : 'none'}
+            >
+                <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleSave} />
+            </Animated.View>
 
             <Animated.View
                 style={[styles.drawer, { transform: [{ translateY: panY }] }]}
@@ -480,7 +498,6 @@ export default function TaskEditDrawer({
                         </TouchableOpacity>
 
                         {/* Reminder Card */}
-                        {/* Reminder Card */}
                         <TouchableOpacity
                             style={styles.featureCardGrid}
                             onPress={() => setActiveFeature('reminder')}
@@ -572,10 +589,7 @@ export default function TaskEditDrawer({
                                 reminderEnabled={reminderEnabled}
                                 onClose={() => setActiveFeature(null)}
                                 userColors={userColors}
-                                onRequestColorSettings={() => {
-                                    console.log('[TaskEditDrawer] onRequestColorSettings called');
-                                    if (onRequestColorSettings) onRequestColorSettings();
-                                }}
+                                onRequestColorSettings={handleRequestColorSettings}
                             />
                         </View>
                     </View>

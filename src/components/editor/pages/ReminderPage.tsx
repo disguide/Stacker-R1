@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { ActionBar } from '../common/ActionBar';
 import { TimeWheelPanel } from '../common/TimeWheelPanel';
 
-export default function ReminderPage({ width, reminderOffset, reminderTime, reminderEnabled, onReminderChange, onClose }: {
+export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnabled, onReminderChange, onClose }: {
     width: number;
     reminderOffset: number | null;
     reminderTime: string | null;
@@ -75,3 +75,5 @@ export default function ReminderPage({ width, reminderOffset, reminderTime, remi
         </View>
     );
 }
+
+export default React.memo(ReminderPage);

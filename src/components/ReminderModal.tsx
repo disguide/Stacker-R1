@@ -147,7 +147,10 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
     const [hour, setHour] = useState(9);
     const [minute, setMinute] = useState(0);
 
-    useEffect(() => {
+    const [prevVisible, setPrevVisible] = useState(visible);
+
+    if (visible !== prevVisible) {
+        setPrevVisible(visible);
         if (visible) {
             setOffset(initialOffset || 0);
             if (initialTime) {
@@ -160,7 +163,7 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
                 setMinute(now.getMinutes());
             }
         }
-    }, [visible, initialOffset, initialTime]);
+    }
 
     const handleSave = () => {
         const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
