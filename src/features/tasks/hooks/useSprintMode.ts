@@ -29,11 +29,36 @@ export const useSprintMode = (tasks: Task[]) => {
         if (selectedSprintTaskIds.size === 0) return;
 
         const selectedTasks = tasks.filter(t => selectedSprintTaskIds.has(t.id));
-        await StorageService.saveSprintTasks(selectedTasks);
+
+        // Flatten tasks that have incomplete subtasks
+        const flattenedSprintTasks: Task[] = [];
+
+        selectedTasks.forEach(parentTask => {
+            const incompleteSubtasks = parentTask.subtasks?.filter(st => !st.completed) || [];
+
+            if (incompleteSubtasks.length > 0) {
+                // Generate a temporary sprint task for each subtask
+                incompleteSubtasks.forEach(subtask => {
+                    flattenedSprintTasks.push({
+                        id: `sprint_${parentTask.id}_${subtask.id}`,
+                        title: `${parentTask.title} / ${subtask.title}`,
+                        date: parentTask.date,
+                        estimatedTime: subtask.estimatedTime,
+                        sprintParentId: parentTask.id,
+                        sprintSubtaskId: subtask.id,
+                    } as Task);
+                });
+            } else {
+                // No incomplete subtasks, pass the parent task as-is
+                flattenedSprintTasks.push(parentTask);
+            }
+        });
+
+        await StorageService.saveSprintTasks(flattenedSprintTasks);
 
         router.push({
             pathname: '/sprint',
-            params: { taskIds: JSON.stringify(Array.from(selectedSprintTaskIds)) }
+            params: { taskIds: JSON.stringify(flattenedSprintTasks.map(t => t.id)) }
         });
     }, [selectedSprintTaskIds, tasks, router]);
 

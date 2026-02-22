@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Vibration, BackHandler } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,7 +7,15 @@ import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
 
-import { StorageService, Task } from '../src/services/storage';
+import { StorageService, Task, SprintSettings } from '../src/services/storage';
+
+export interface TimelineEvent {
+    type: 'task' | 'break' | 'pause';
+    title: string;
+    startTime: number;
+    endTime: number;
+    durationSeconds: number;
+}
 
 // Theme - consistent with index.tsx
 const THEME = {
@@ -29,8 +37,24 @@ export default function SprintScreen() {
 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
-    // FIX: Avoid impure Date.now() in render
+
+    // Settings & Timer State
+    const [settings, setSettings] = useState<SprintSettings>({ showTimer: true, allowPause: true });
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [isPaused, setIsPaused] = useState(false);
+    const [breakPhase, setBreakPhase] = useState<'none' | 'claiming' | 'active'>('none');
+    const [intervalsCompleted, setIntervalsCompleted] = useState(0);
+    const [timerVisible, setTimerVisible] = useState(false);
+
+    // Timing Refs
     const startTimeRef = useRef<number>(0);
+    const pauseStartTimeRef = useRef<number>(0);
+    const totalPausedTimeRef = useRef<number>(0);
+    const intervalsCompletedRef = useRef<number>(0);
+
+    // Timeline Tracking
+    const timelineRef = useRef<TimelineEvent[]>([]);
+    const currentSegmentStartTimeRef = useRef<number>(Date.now());
 
     const loadSprintTasks = async () => {
         try {
@@ -45,29 +69,195 @@ export default function SprintScreen() {
         }
     };
 
+    const loadSettings = async () => {
+        const s = await StorageService.loadSprintSettings();
+        setSettings(s);
+    };
+
     const handleSwitchTask = () => {
         setTasks(prevTasks => {
             if (prevTasks.length <= 1) return prevTasks;
-            // Create a copy to avoid mutating the previous state directly (though slice created a copy before, this is explicit)
+
+            // Re-order tasks
             const [first, ...rest] = prevTasks;
-            return [...rest, first];
+            const newTasks = [...rest, first];
+
+            // Record segment
+            const now = Date.now();
+            recordCurrentSegment(now, first.title); // Explicitly use the old title
+            return newTasks;
         });
     };
 
     // Initial Load
     useEffect(() => {
-        startTimeRef.current = Date.now();
+        const now = Date.now();
+        startTimeRef.current = now;
+        currentSegmentStartTimeRef.current = now;
+        loadSettings();
         loadSprintTasks();
     }, [taskIds]);
 
+    // Prevent hardware back button
+    useEffect(() => {
+        const onBackPress = () => {
+            return true; // Stop default back navigation
+        };
+        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () => subscription.remove();
+    }, []);
+
+    // Timer Effect
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (settings.showTimer && !isPaused) {
+            interval = setInterval(() => {
+                const now = Date.now();
+                // Calculate total elapsed excluding paused time
+                const currentElapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
+                setElapsedSeconds(currentElapsed);
+
+                if (settings.autoBreakMode && settings.autoBreakWorkTime) {
+                    const workSeconds = settings.autoBreakWorkTime * 60;
+                    const completed = Math.floor(currentElapsed / workSeconds);
+                    if (completed > intervalsCompletedRef.current && currentElapsed > 0) {
+                        intervalsCompletedRef.current = completed;
+                        setIntervalsCompleted(completed);
+                        triggerAutoBreak();
+                    }
+                }
+            }, 1000); // Check every second, though UI updates less frequently
+        }
+        return () => clearInterval(interval);
+    }, [settings.showTimer, isPaused, settings.autoBreakMode, settings.autoBreakWorkTime]);
+
+    // Pause Timeout Effect
+    const [breakDuration, setBreakDuration] = useState(0); // 0 = indefinite/count up
+    const [pauseElapsed, setPauseElapsed] = useState(0);
+
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (isPaused && breakPhase === 'active') {
+            interval = setInterval(() => {
+                const now = Date.now();
+                const elapsed = Math.floor((now - pauseStartTimeRef.current) / 1000);
+                setPauseElapsed(elapsed);
+
+                if (breakDuration > 0) {
+                    // Count down mode
+                    const remaining = (breakDuration * 60) - elapsed;
+                    if (remaining <= 0) {
+                        handleResume();
+                        Alert.alert("Break Over", "Your break time is up! Back to work.");
+                    }
+                }
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isPaused, breakPhase, breakDuration]);
+
+    const recordCurrentSegment = (endTime: number, explicitTitle?: string) => {
+        const duration = Math.floor((endTime - currentSegmentStartTimeRef.current) / 1000);
+        if (duration > 0) { // Only log meaningful segments
+            let type: 'task' | 'break' | 'pause' = 'task';
+            let title = explicitTitle || (tasks.length > 0 ? tasks[0].title : 'Unknown Task');
+
+            if (isPaused) {
+                type = breakPhase === 'active' ? 'break' : 'pause';
+                title = type === 'break' ? 'Break' : 'Paused';
+            }
+
+            timelineRef.current.push({
+                type,
+                title,
+                startTime: currentSegmentStartTimeRef.current,
+                endTime,
+                durationSeconds: duration
+            });
+        }
+        currentSegmentStartTimeRef.current = endTime; // Start next segment
+    };
+
+    const handlePause = () => {
+        const now = Date.now();
+        recordCurrentSegment(now);
+        setIsPaused(true);
+        setBreakPhase('claiming');
+        pauseStartTimeRef.current = Date.now();
+        setBreakDuration(0); // Default to indefinite
+        setPauseElapsed(0);
+    };
+
+    const handleStartBreak = () => {
+        const now = Date.now();
+        recordCurrentSegment(now); // Close 'claiming/paused' segment
+        setBreakPhase('active');
+        pauseStartTimeRef.current = now; // reset the start time to when they actually start
+        setPauseElapsed(0);
+    };
+
+    const handleResume = () => {
+        const now = Date.now();
+        recordCurrentSegment(now); // Close 'pause' or 'break' segment
+        const pausedDuration = now - pauseStartTimeRef.current;
+        totalPausedTimeRef.current += pausedDuration;
+        setIsPaused(false);
+        setBreakPhase('none');
+    };
+
+    const addBreakTime = (minutes: number) => {
+        setBreakDuration(prev => {
+            const newDuration = prev + minutes;
+            // Check if we already exceeded this new duration?
+            // If we are at 10m elapsed and set 5m limit, we should resume immediately?
+            // The effect will handle it on next tick, or we can check here.
+            // Let's just set state and let effect handle expiry.
+            return newDuration;
+        });
+    };
+
+    const formatMinutesOnly = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        return `${mins}m`;
+    };
+
+    const formatCountdown = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const triggerAutoBreak = () => {
+        const now = Date.now();
+        recordCurrentSegment(now); // Close working segment
+        setIsPaused(true);
+        setBreakPhase('active');
+        pauseStartTimeRef.current = now;
+        setBreakDuration(settings.autoBreakDuration || 5);
+        setPauseElapsed(0);
+        Vibration.vibrate();
+        Alert.alert("Break Time!", "Great job! Time for a short break.");
+    };
+
+    const formatTimerDisplay = () => {
+        if (settings.autoBreakMode && settings.autoBreakWorkTime) {
+            const workSeconds = settings.autoBreakWorkTime * 60;
+            const remaining = Math.max(0, workSeconds - (elapsedSeconds % workSeconds));
+            const actualRemaining = (elapsedSeconds > 0 && elapsedSeconds % workSeconds === 0) ? 0 : remaining;
+            return formatCountdown(actualRemaining);
+        }
+        return formatMinutesOnly(elapsedSeconds);
+    };
+
     const handleCompleteTask = async () => {
         if (!tasks[0]) return;
+        // ... (rest of function unchanged, just context)
 
         const taskToComplete = tasks[0];
         setCompletedTasks(prev => [...prev, taskToComplete]);
 
-        // TODO: Persist completion to storage if needed
-        // await StorageService.completeTask(taskToComplete.id);
+        const now = Date.now();
+        recordCurrentSegment(now); // Close this task segment before slicing
 
         if (tasks.length <= 1) {
             finishSprint([...completedTasks, taskToComplete]);
@@ -78,13 +268,28 @@ export default function SprintScreen() {
     };
 
     const finishSprint = (finalCompletedTasks: Task[] = completedTasks) => {
-        const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
+        // Final duration calculation
+        const now = Date.now();
+        // Record very last segment if we haven't already
+        if (currentSegmentStartTimeRef.current < now) {
+            recordCurrentSegment(now);
+        }
+
+        // If we finish WHILE paused, we should not count the current pause duration?
+        // Actually, if paused, we resume implicitly to finish.
+        if (isPaused) {
+            const pausedDuration = now - pauseStartTimeRef.current;
+            totalPausedTimeRef.current += pausedDuration;
+        }
+
+        const duration = Math.round((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
 
         router.replace({
             pathname: '/sprint-summary',
             params: {
                 duration: duration.toString(),
-                tasks: JSON.stringify(finalCompletedTasks)
+                tasks: JSON.stringify(finalCompletedTasks),
+                timeline: JSON.stringify(timelineRef.current)
             }
         });
     };
@@ -95,11 +300,23 @@ export default function SprintScreen() {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
-                    <Ionicons name="close" size={24} color="#333" />
+                <View style={{ width: 40 }} />
+                <TouchableOpacity onPress={() => setTimerVisible(!timerVisible)} style={styles.headerCenter}>
+                    {timerVisible && settings.showTimer ? (
+                        <Text style={styles.headerTimerText}>{formatTimerDisplay()}</Text>
+                    ) : (
+                        <MaterialCommunityIcons name="clock-outline" size={24} color={THEME.textSecondary} />
+                    )}
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Sprint Mode</Text>
-                <View style={{ width: 24 }} />
+
+                {/* PAUSE BUTTON */}
+                {settings.allowPause ? (
+                    <TouchableOpacity onPress={handlePause} style={styles.pauseButton}>
+                        <Ionicons name="pause" size={20} color="#333" />
+                    </TouchableOpacity>
+                ) : (
+                    <View style={{ width: 24 }} />
+                )}
             </View>
 
             {/* Main Content Area */}
@@ -110,11 +327,7 @@ export default function SprintScreen() {
                     {currentTask ? (
                         <>
                             <View style={styles.taskInfo}>
-                                <Text style={styles.currentLabel}>NOW WORKING ON</Text>
                                 <Text style={styles.taskTitle}>{currentTask.title}</Text>
-                                {currentTask.estimatedTime && (
-                                    <Text style={styles.taskEstimate}>Est: {currentTask.estimatedTime}</Text>
-                                )}
                             </View>
 
                             {/* Split Pill Control */}
@@ -123,6 +336,7 @@ export default function SprintScreen() {
                                     style={styles.pillLeft}
                                     onPress={handleSwitchTask}
                                     activeOpacity={0.7}
+                                    disabled={isPaused}
                                 >
                                     <MaterialCommunityIcons name="swap-horizontal" size={24} color="#64748B" />
                                     <Text style={styles.pillTextLeft}>Switch</Text>
@@ -134,6 +348,7 @@ export default function SprintScreen() {
                                     style={styles.pillRight}
                                     onPress={handleCompleteTask}
                                     activeOpacity={0.7}
+                                    disabled={isPaused}
                                 >
                                     <Ionicons name="checkmark" size={24} color="#FFFFFF" />
                                     <Text style={styles.pillTextRight}>Complete</Text>
@@ -161,6 +376,73 @@ export default function SprintScreen() {
                 </View>
 
             </View>
+
+            {/* PAUSE MODAL OVERLAY */}
+            <Modal visible={isPaused} transparent animationType="fade">
+                <View style={styles.pauseOverlay}>
+                    <View style={styles.pauseCard}>
+                        <View style={styles.pauseIconContainer}>
+                            <Ionicons name="pause" size={32} color={THEME.accent} />
+                        </View>
+                        <Text style={styles.pauseTitle}>Sprint Paused</Text>
+
+                        {breakPhase === 'claiming' ? (
+                            <>
+                                <Text style={styles.pauseSubtitle}>Configure your break time</Text>
+                                <View style={styles.timerPreview}>
+                                    <Text style={styles.timerPreviewText}>
+                                        {formatCountdown(breakDuration * 60)}
+                                    </Text>
+                                </View>
+
+                                {/* Accumulation Buttons */}
+                                <View style={styles.limitButtonsRow}>
+                                    {[1, 5, 15].map(m => (
+                                        <TouchableOpacity
+                                            key={m}
+                                            style={styles.limitBtn}
+                                            onPress={() => addBreakTime(m)}
+                                        >
+                                            <Text style={styles.limitBtnText}>+{m}m</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                <TouchableOpacity onPress={() => setBreakDuration(0)}>
+                                    <Text style={styles.cancelLimitText}>Reset to 0m</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.resumeButton} onPress={handleStartBreak}>
+                                    <Text style={styles.resumeButtonText}>Start Break</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={[styles.resumeButton, { backgroundColor: '#F1F5F9', marginTop: 12 }]} onPress={handleResume}>
+                                    <Text style={[styles.resumeButtonText, { color: '#64748B' }]}>Cancel (Resume Sprint)</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                <Text style={styles.pauseSubtitle}>
+                                    {breakDuration > 0 ? "Time Remaining" : "Time Paused"}
+                                </Text>
+
+                                <View style={styles.timerPreview}>
+                                    <Text style={styles.timerPreviewText}>
+                                        {breakDuration > 0
+                                            ? formatCountdown(Math.max(0, (breakDuration * 60) - pauseElapsed))
+                                            : formatCountdown(pauseElapsed)
+                                        }
+                                    </Text>
+                                </View>
+
+                                <TouchableOpacity style={styles.resumeButton} onPress={handleResume}>
+                                    <Text style={styles.resumeButtonText}>End Break Early</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -182,8 +464,41 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: THEME.textPrimary,
     },
+    headerCenter: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 8,
+    },
+    headerTimerText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: THEME.textPrimary,
+        fontVariant: ['tabular-nums'],
+    },
     closeButton: {
         padding: 8,
+    },
+    pauseButton: {
+        padding: 8,
+        backgroundColor: '#E2E8F0',
+        borderRadius: 20,
+    },
+    timerPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    timerText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: THEME.textPrimary,
+        fontVariant: ['tabular-nums'],
     },
     contentContainer: {
         flex: 1,
@@ -191,16 +506,9 @@ const styles = StyleSheet.create({
     },
     cardContainer: {
         marginHorizontal: 20,
-        backgroundColor: THEME.cardBg,
-        borderRadius: 24,
         padding: 24,
         alignItems: 'center',
         justifyContent: 'space-between',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 8,
         minHeight: 320, // Taller card
         marginBottom: 30,
     },
@@ -234,6 +542,36 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         color: THEME.textSecondary,
         fontSize: 16,
+    },
+
+    // Pomodoro Styles
+    hugeTimer: {
+        fontSize: 48,
+        fontWeight: '900',
+        color: '#EF4444',
+        fontVariant: ['tabular-nums'],
+        marginBottom: -4,
+    },
+    pomodoroPhaseLabel: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#EF4444',
+        letterSpacing: 2,
+        marginBottom: 24,
+    },
+    standardHugeTimer: {
+        fontSize: 48,
+        fontWeight: '900',
+        color: THEME.textPrimary,
+        fontVariant: ['tabular-nums'],
+        marginBottom: -4,
+    },
+    standardPhaseLabel: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: THEME.textSecondary,
+        letterSpacing: 2,
+        marginBottom: 24,
     },
 
     // Split Pill Styles
@@ -311,4 +649,102 @@ const styles = StyleSheet.create({
         color: '#94A3B8',
         marginTop: 10,
     },
+
+    // Pause Modal
+    pauseOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    pauseCard: {
+        width: '100%',
+        maxWidth: 320,
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        padding: 30,
+        alignItems: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    pauseIconContainer: {
+        width: 60, height: 60,
+        borderRadius: 30,
+        backgroundColor: '#EFF6FF',
+        alignItems: 'center', justifyContent: 'center',
+        marginBottom: 20,
+    },
+    pauseTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: '#1E293B',
+        marginBottom: 8,
+    },
+    pauseSubtitle: {
+        fontSize: 14,
+        color: '#64748B',
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    timerPreview: {
+        marginBottom: 30,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 12,
+        backgroundColor: '#F8FAFC',
+    },
+    timerPreviewText: {
+        fontSize: 32,
+        fontWeight: '700',
+        color: THEME.accent,
+        fontVariant: ['tabular-nums'],
+    },
+    resumeButton: {
+        width: '100%',
+        backgroundColor: THEME.accent,
+        paddingVertical: 16,
+        borderRadius: 16,
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    resumeButtonText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#FFF',
+    },
+    limitLabel: {
+        fontSize: 12,
+        color: '#94A3B8',
+        fontWeight: '600',
+        marginBottom: 8,
+        textTransform: 'uppercase'
+    },
+    limitButtonsRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 24,
+    },
+    limitBtn: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        backgroundColor: '#F1F5F9',
+        minWidth: 50,
+        alignItems: 'center'
+    },
+    limitBtnText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#475569'
+    },
+    cancelLimitText: {
+        fontSize: 14,
+        color: THEME.accent,
+        marginBottom: 24,
+        fontWeight: '500'
+    }
 });

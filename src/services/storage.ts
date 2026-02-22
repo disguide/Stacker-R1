@@ -7,8 +7,40 @@ export const STORAGE_KEYS = {
     TAGS: '@stacker_tags_v1',
     COLOR_LABELS: '@stacker_color_labels_v1',
     USER_PROFILE: '@stacker_user_profile_v1',
-    USER_COLORS: '@stacker_user_colors_v1', // New Key
+    USER_COLORS: '@stacker_user_colors_v1',
+    SPRINT_SETTINGS: '@stacker_sprint_settings_v1', // New Key
 };
+
+export interface SprintSettings {
+    showTimer: boolean;
+    allowPause: boolean;
+    defaultDuration?: number; // Minutes, optional
+    autoBreakMode?: boolean;
+    autoBreakWorkTime?: number;
+    autoBreakDuration?: number;
+}
+
+export type GoalCategory = 'traits' | 'habits' | 'environment' | 'outcomes';
+
+export type GoalEventType = 'added' | 'achieved' | 'cancelled' | 'modified';
+
+export interface GoalEvent {
+    id: string;
+    type: GoalEventType;
+    date: string;
+}
+
+export interface GoalItem {
+    id: string;
+    title: string;
+    completed: boolean;
+    cancelled?: boolean;
+    createdAt?: string;
+    completedAt?: string;
+    category?: GoalCategory;
+    color?: string;
+    events?: GoalEvent[];
+}
 
 export interface UserProfile {
     name: string;
@@ -16,7 +48,8 @@ export interface UserProfile {
     avatar?: string; // URL or local path
     banner?: string; // URL or Hex color
     bio?: string;
-    goals?: string[]; // Array of strings
+    goals?: GoalItem[];
+    antigoals?: GoalItem[];
     identity?: {
         anti: {
             head?: string;  // Traits
@@ -71,6 +104,10 @@ export interface Task {
     // Design System (User customizable)
     color?: string; // Hex color for stripe
     type?: 'task' | 'event' | 'work' | 'chore' | 'habit';
+
+    // Sprint Extraction Tracking
+    sprintParentId?: string;
+    sprintSubtaskId?: string;
 }
 
 export interface TagDefinition {
@@ -317,6 +354,32 @@ export const StorageService = {
             await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
         } catch (e) {
             console.error('Failed to save profile', e);
+        }
+    },
+
+    // SPRINT SETTINGS
+    async loadSprintSettings(): Promise<SprintSettings> {
+        try {
+            const data = await AsyncStorage.getItem(STORAGE_KEYS.SPRINT_SETTINGS);
+            if (data) return JSON.parse(data);
+            return {
+                showTimer: true,
+                allowPause: true,
+                autoBreakMode: false,
+                autoBreakWorkTime: 25,
+                autoBreakDuration: 5
+            };
+        } catch (error) {
+            console.error('Error loading sprint settings:', error);
+            return { showTimer: true, allowPause: true };
+        }
+    },
+
+    async saveSprintSettings(settings: SprintSettings) {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_SETTINGS, JSON.stringify(settings));
+        } catch (e) {
+            console.error('Failed to save sprint settings', e);
         }
     }
 };

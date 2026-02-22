@@ -2,7 +2,7 @@ import { useRef, useMemo, useCallback, useState } from 'react';
 import { View, Modal, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Components
 import { TaskListHeader } from '../src/components/TaskListHeader';
@@ -45,7 +45,16 @@ export default function TaskListScreen() {
     const form = useTaskForm();
     const ui = useTaskUI();
     const homeState = useHomeState();
-    const sprintMode = useSprintMode(tasks);
+
+    // 5. Computations (Moved up for dependency)
+    const viewStartDate = homeState.dates.length > 0 ? toISODateString(homeState.dates[0]) : toISODateString(new Date());
+    const calendarItems = useMemo(() => {
+        return RecurrenceEngine.generateCalendarItems(tasks, viewStartDate, VIEW_CONFIG[homeState.viewMode].days);
+    }, [tasks, viewStartDate, homeState.viewMode]);
+
+    // Use calendarItems (which include ghost/recurring instances) for Sprint Mode
+    // This ensures that if a user selects a recurring instance, useSprintMode finds it.
+    const sprintMode = useSprintMode(calendarItems as any[]);
     const [userColors, setUserColors] = useState<any[]>([]); // Add userColors state
     const [userProfile, setUserProfile] = useState<any>(null); // Add userProfile state
 
@@ -79,11 +88,7 @@ export default function TaskListScreen() {
         }, [refresh])
     );
 
-    // 5. Computations
-    const viewStartDate = homeState.dates.length > 0 ? toISODateString(homeState.dates[0]) : toISODateString(new Date());
-    const calendarItems = useMemo(() => {
-        return RecurrenceEngine.generateCalendarItems(tasks, viewStartDate, VIEW_CONFIG[homeState.viewMode].days);
-    }, [tasks, viewStartDate, homeState.viewMode]);
+
 
     // 6. Local Handlers (Bridging)
     const handleOpenAddDrawer = (feature?: any) => {
@@ -390,16 +395,38 @@ export default function TaskListScreen() {
                 }}
             />
 
-            {/* FAB */}
-            <TouchableOpacity
-                style={styles.fab}
-                onPress={() => {
-                    const today = new Date();
-                    form.startAddingTask(toISODateString(today));
-                }}
-            >
-                <Ionicons name="add" size={30} color="#FFF" />
-            </TouchableOpacity>
+            {/* FAB or Sprint Start Button */}
+            {sprintMode.isSprintSelectionMode ? (
+                <View style={styles.startSprintContainer}>
+                    <TouchableOpacity
+                        style={[
+                            styles.startSprintButton,
+                            sprintMode.selectedSprintTaskIds.size === 0 && styles.startSprintButtonDisabled
+                        ]}
+                        onPress={sprintMode.startSprint}
+                        disabled={sprintMode.selectedSprintTaskIds.size === 0}
+                        activeOpacity={0.8}
+                    >
+                        <MaterialCommunityIcons name="lightning-bolt" size={24} color={sprintMode.selectedSprintTaskIds.size === 0 ? "#94A3B8" : "#000"} />
+                        <Text style={[
+                            styles.startSprintText,
+                            sprintMode.selectedSprintTaskIds.size === 0 && { color: "#94A3B8" }
+                        ]}>
+                            START SPRINT ({sprintMode.selectedSprintTaskIds.size})
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <TouchableOpacity
+                    style={styles.fab}
+                    onPress={() => {
+                        const today = new Date();
+                        form.startAddingTask(toISODateString(today));
+                    }}
+                >
+                    <Ionicons name="add" size={30} color="#FFF" />
+                </TouchableOpacity>
+            )}
 
         </SafeAreaView>
     );

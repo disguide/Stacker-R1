@@ -1,28 +1,26 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
-import { StorageService, ColorDefinition } from '../src/services/storage';
+import { StorageService, ColorDefinition, SprintSettings } from '../src/services/storage';
 import ColorSettingsModal from '../src/components/ColorSettingsModal';
 
 export default function SettingsScreen() {
     const router = useRouter();
     const [isColorModalVisible, setIsColorModalVisible] = useState(false);
     const [userColors, setUserColors] = useState<ColorDefinition[]>([]);
-
-
-
-    const loadData = async () => {
-        const colors = await StorageService.loadUserColors();
-        setUserColors(colors);
-    };
+    const [sprintSettings, setSprintSettings] = useState<SprintSettings>({ showTimer: true, allowPause: true });
 
     useEffect(() => {
         let mounted = true;
         const loadData = async () => {
             const colors = await StorageService.loadUserColors();
-            if (mounted) setUserColors(colors);
+            const sprint = await StorageService.loadSprintSettings();
+            if (mounted) {
+                setUserColors(colors);
+                setSprintSettings(sprint);
+            }
         };
         loadData();
         return () => { mounted = false; };
@@ -31,6 +29,18 @@ export default function SettingsScreen() {
     const handleSaveUserColors = async (colors: ColorDefinition[]) => {
         setUserColors(colors);
         await StorageService.saveUserColors(colors);
+    };
+
+    const handleToggleSprintSetting = async (key: keyof SprintSettings) => {
+        const newSettings = { ...sprintSettings, [key]: !sprintSettings[key] };
+        setSprintSettings(newSettings);
+        await StorageService.saveSprintSettings(newSettings);
+    };
+
+    const handleUpdateSprintSetting = async (key: keyof SprintSettings, value: any) => {
+        const newSettings = { ...sprintSettings, [key]: value };
+        setSprintSettings(newSettings);
+        await StorageService.saveSprintSettings(newSettings);
     };
 
     return (
@@ -48,7 +58,78 @@ export default function SettingsScreen() {
             </View>
 
             <ScrollView style={styles.content}>
-                <Text style={styles.sectionHeader}>Configuration</Text>
+
+                <Text style={styles.sectionHeader}>Sprint Configuration</Text>
+
+                <View style={styles.settingRow}>
+                    <View style={styles.settingInfo}>
+                        <Text style={styles.settingLabel}>Show Timer</Text>
+                        <Text style={styles.settingSubLabel}>Display elapsed time during sprint</Text>
+                    </View>
+                    <Switch
+                        value={sprintSettings.showTimer}
+                        onValueChange={() => handleToggleSprintSetting('showTimer')}
+                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
+                    />
+                </View>
+
+                <View style={[styles.settingRow, { borderBottomWidth: 1 }]}>
+                    <View style={styles.settingInfo}>
+                        <Text style={styles.settingLabel}>Allow Pause</Text>
+                        <Text style={styles.settingSubLabel}>Enable pausing sprints mid-session</Text>
+                    </View>
+                    <Switch
+                        value={sprintSettings.allowPause}
+                        onValueChange={() => handleToggleSprintSetting('allowPause')}
+                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
+                    />
+                </View>
+
+                {/* Automatic Break Settings */}
+                <View style={[styles.settingRow, { borderBottomWidth: sprintSettings.autoBreakMode ? 1 : 0 }]}>
+                    <View style={styles.settingInfo}>
+                        <Text style={styles.settingLabel}>Automatic Breaks</Text>
+                        <Text style={styles.settingSubLabel}>Automatically trigger breaks after a set work duration</Text>
+                    </View>
+                    <Switch
+                        value={!!sprintSettings.autoBreakMode}
+                        onValueChange={() => handleToggleSprintSetting('autoBreakMode')}
+                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
+                    />
+                </View>
+
+                {sprintSettings.autoBreakMode && (
+                    <>
+                        <View style={styles.settingRow}>
+                            <View style={styles.settingInfo}>
+                                <Text style={styles.settingLabel}>Work Duration (min)</Text>
+                            </View>
+                            <TextInput
+                                style={styles.timeInput}
+                                keyboardType="number-pad"
+                                value={sprintSettings.autoBreakWorkTime?.toString() || '25'}
+                                onChangeText={(text) => handleUpdateSprintSetting('autoBreakWorkTime', parseInt(text) || 25)}
+                                maxLength={3}
+                            />
+                        </View>
+                        <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
+                            <View style={styles.settingInfo}>
+                                <Text style={styles.settingLabel}>Break Duration (min)</Text>
+                            </View>
+                            <TextInput
+                                style={styles.timeInput}
+                                keyboardType="number-pad"
+                                value={sprintSettings.autoBreakDuration?.toString() || '5'}
+                                onChangeText={(text) => handleUpdateSprintSetting('autoBreakDuration', parseInt(text) || 5)}
+                                maxLength={3}
+                            />
+                        </View>
+                    </>
+                )}
+
+                <View style={styles.divider} />
+
+                <Text style={styles.sectionHeader}>General</Text>
 
                 {/* Manage Color Meanings Button */}
                 <TouchableOpacity style={styles.menuItem} onPress={() => setIsColorModalVisible(true)}>
@@ -115,13 +196,14 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     sectionHeader: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '600',
-        color: '#666',
+        color: '#94A3B8',
         marginTop: 24,
         marginBottom: 8,
         marginLeft: 16,
-        textTransform: 'uppercase'
+        textTransform: 'uppercase',
+        letterSpacing: 1
     },
     menuItem: {
         flexDirection: 'row',
@@ -155,12 +237,46 @@ const styles = StyleSheet.create({
         marginTop: 2
     },
     divider: {
-        height: 30,
+        height: 20,
     },
     versionText: {
         textAlign: 'center',
         color: '#999',
         fontSize: 12,
         marginBottom: 20
+    },
+    settingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: '#FFF',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    settingInfo: {
+        flex: 1,
+        marginRight: 16
+    },
+    settingLabel: {
+        fontSize: 16,
+        color: '#333',
+        marginBottom: 2
+    },
+    settingSubLabel: {
+        fontSize: 12,
+        color: '#94A3B8'
+    },
+    timeInput: {
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        fontSize: 16,
+        color: '#333',
+        width: 60,
+        textAlign: 'center',
     }
 });
