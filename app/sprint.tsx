@@ -48,7 +48,8 @@ export default function SprintScreen() {
 
     // Timing Refs
     const startTimeRef = useRef<number>(0);
-    const pauseStartTimeRef = useRef<number>(0);
+    const claimingStartTimeRef = useRef<number>(0); // When user first hit pause (includes claiming phase)
+    const pauseStartTimeRef = useRef<number>(0); // When active break starts (for break timer display)
     const totalPausedTimeRef = useRef<number>(0);
     const intervalsCompletedRef = useRef<number>(0);
 
@@ -62,10 +63,10 @@ export default function SprintScreen() {
             if (sprintTasks && sprintTasks.length > 0) {
                 setTasks(sprintTasks);
             } else {
-                console.warn("No sprint tasks found in storage");
+                if (__DEV__) console.warn("No sprint tasks found in storage");
             }
         } catch (e) {
-            console.error("Failed to load sprint tasks", e);
+            if (__DEV__) console.error("Failed to load sprint tasks", e);
         }
     };
 
@@ -183,7 +184,8 @@ export default function SprintScreen() {
         recordCurrentSegment(now);
         setIsPaused(true);
         setBreakPhase('claiming');
-        pauseStartTimeRef.current = Date.now();
+        claimingStartTimeRef.current = now; // Track when pause actually started
+        pauseStartTimeRef.current = now;
         setBreakDuration(0); // Default to indefinite
         setPauseElapsed(0);
     };
@@ -192,14 +194,16 @@ export default function SprintScreen() {
         const now = Date.now();
         recordCurrentSegment(now); // Close 'claiming/paused' segment
         setBreakPhase('active');
-        pauseStartTimeRef.current = now; // reset the start time to when they actually start
+        pauseStartTimeRef.current = now; // Reset for break timer display
         setPauseElapsed(0);
+        // Note: claimingStartTimeRef stays as-is — it tracks total pause time
     };
 
     const handleResume = () => {
         const now = Date.now();
         recordCurrentSegment(now); // Close 'pause' or 'break' segment
-        const pausedDuration = now - pauseStartTimeRef.current;
+        // Use claimingStartTimeRef to include claiming phase in total paused time
+        const pausedDuration = now - claimingStartTimeRef.current;
         totalPausedTimeRef.current += pausedDuration;
         setIsPaused(false);
         setBreakPhase('none');
@@ -208,10 +212,15 @@ export default function SprintScreen() {
     const addBreakTime = (minutes: number) => {
         setBreakDuration(prev => {
             const newDuration = prev + minutes;
-            // Check if we already exceeded this new duration?
-            // If we are at 10m elapsed and set 5m limit, we should resume immediately?
-            // The effect will handle it on next tick, or we can check here.
-            // Let's just set state and let effect handle expiry.
+            // Guard: if elapsed already exceeds the new duration, auto-resume
+            const currentElapsed = Math.floor((Date.now() - pauseStartTimeRef.current) / 1000);
+            if (newDuration > 0 && currentElapsed >= newDuration * 60) {
+                // Schedule resume on next tick to avoid setState-in-setState
+                setTimeout(() => {
+                    handleResume();
+                    Alert.alert('Break Over', 'Your break time is up! Back to work.');
+                }, 0);
+            }
             return newDuration;
         });
     };
@@ -280,7 +289,7 @@ export default function SprintScreen() {
         // If we finish WHILE paused, we should not count the current pause duration?
         // Actually, if paused, we resume implicitly to finish.
         if (isPaused) {
-            const pausedDuration = now - pauseStartTimeRef.current;
+            const pausedDuration = now - claimingStartTimeRef.current;
             totalPausedTimeRef.current += pausedDuration;
         }
 

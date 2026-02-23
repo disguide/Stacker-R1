@@ -94,13 +94,20 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
         setSelectedDays(new Set());
     };
 
-    // No explicit confirm needed for presets, but keep for custom if they want to 'apply'
-    // Actually, handleSaveCustom acts as the apply.
-    // The Confirm button at the bottom is now redundant for presets, but maybe keeps the UI consistent?
-    // Let's make the bottom bar just "Close" or "Done" effectively.
-
-    // For consistency with other pages that auto-save, we might not need the bottom bar's Confirm to do anything specific other than Close.
+    // Auto-save custom recurrence when user closes/navigates away
+    // This prevents losing custom config when swiping to another tab
     const handleConfirm = () => {
+        if (viewMode === 'custom') {
+            // Auto-apply custom config before closing
+            const repeatInterval = parseInt(interval, 10) || 1;
+            const rule: RecurrenceRule = {
+                frequency,
+                interval: repeatInterval,
+                daysOfWeek: frequency === 'weekly' && selectedDays.size > 0 ? Array.from(selectedDays) : undefined,
+            };
+            setLocalRecurrence(rule);
+            onRecurrenceChange(rule);
+        }
         onClose();
     };
 
