@@ -251,13 +251,15 @@ export default function SprintScreen() {
 
     const handleCompleteTask = async () => {
         if (!tasks[0]) return;
-        // ... (rest of function unchanged, just context)
 
         const taskToComplete = tasks[0];
         setCompletedTasks(prev => [...prev, taskToComplete]);
 
         const now = Date.now();
         recordCurrentSegment(now); // Close this task segment before slicing
+
+        // NOTE: Persistence happens in sprint-summary's handleFinish()
+        // which handles completions, partial progress, subtasks, and archival.
 
         if (tasks.length <= 1) {
             finishSprint([...completedTasks, taskToComplete]);

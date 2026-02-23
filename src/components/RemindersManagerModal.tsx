@@ -59,11 +59,12 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
         const today = toISODateString(new Date());
         return tasks
             .filter(t => {
-                // Show if it has a reminder set (time or offset), even if disabled
-                // But hide completed ones
-                if (t.completed) return false;
+                // Hide completed tasks — check both legacy boolean AND completedDates array
+                const isCompletedToday = Array.isArray(t.completedDates) && t.completedDates.includes(t.date || today);
+                const isCompletedLegacy = !!(t as any).completed;
+                if (isCompletedToday || isCompletedLegacy) return false;
 
-                // For recurring tasks, check if completed TODAY
+                // For recurring tasks, also check if completed TODAY specifically
                 if (t.rrule && Array.isArray(t.completedDates) && t.completedDates.includes(today)) {
                     return false;
                 }

@@ -238,10 +238,10 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
                                         <Text style={{ fontSize: 20, fontWeight: 'bold', marginHorizontal: 4 }}>:</Text>
                                         <WheelPicker items={minutes} selectedValue={minute} onChange={setMinute} />
                                         <View style={{ marginLeft: 4 }}>
-                                            <TouchableOpacity onPress={() => setHour(h => (h + 12) % 24)} style={{ padding: 4, opacity: !isPm ? 1 : 0.3 }}>
+                                            <TouchableOpacity onPress={() => setHour(h => h >= 12 ? h - 12 : h)} style={{ padding: 4, opacity: !isPm ? 1 : 0.3 }}>
                                                 <Text style={{ fontWeight: 'bold' }}>AM</Text>
                                             </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setHour(h => (h + 12) % 24)} style={{ padding: 4, opacity: isPm ? 1 : 0.3 }}>
+                                            <TouchableOpacity onPress={() => setHour(h => h < 12 ? h + 12 : h)} style={{ padding: 4, opacity: isPm ? 1 : 0.3 }}>
                                                 <Text style={{ fontWeight: 'bold' }}>PM</Text>
                                             </TouchableOpacity>
                                         </View>

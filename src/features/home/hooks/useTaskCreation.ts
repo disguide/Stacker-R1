@@ -159,7 +159,7 @@ export function useTaskCreation({
         }
 
         // ZOMBIE PREVENTION: Handle Rollover Rescheduling
-        if (editingTask.daysRolled > 0 && originalMaster.rrule) {
+        if (editingTask?.daysRolled > 0 && originalMaster.rrule) {
             const oldDate = editingTask.originalDate;
             const exceptions = new Set(originalMaster.exceptionDates || []);
             exceptions.add(oldDate);

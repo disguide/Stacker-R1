@@ -37,6 +37,10 @@ export interface Task {
     daysRolled?: number;
     originalDate?: string;
     importance?: number; // 0=None, 1=Low(!), 2=Medium(!!), 3=High(!!!)
+
+    // Sprint Extraction Tracking
+    sprintParentId?: string;
+    sprintSubtaskId?: string;
 }
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';

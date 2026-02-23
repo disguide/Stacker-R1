@@ -11,6 +11,7 @@ import {
     Dimensions,
     KeyboardAvoidingView,
     Platform,
+    Alert,
     ScrollView,
     Pressable
 } from 'react-native';
@@ -270,8 +271,29 @@ export default function TaskEditDrawer({
 
                 seriesId: finalSeriesId,
             });
+        } else if (task && !title.trim()) {
+            // Warn user if they have other data but empty title
+            const hasOtherData = deadline || estimatedTime || recurrence || color || (importance && importance > 0);
+            if (hasOtherData) {
+                Alert.alert(
+                    'Missing Title',
+                    'Your task needs a title. Go back to add one, or discard all changes.',
+                    [
+                        { text: 'Go Back', style: 'cancel' },
+                        {
+                            text: 'Discard', style: 'destructive', onPress: () => {
+                                Animated.timing(panY, {
+                                    toValue: SCREEN_HEIGHT,
+                                    duration: 250,
+                                    useNativeDriver: true,
+                                }).start(() => onClose());
+                            }
+                        }
+                    ]
+                );
+                return; // Don't animate out yet
+            }
         }
-        // If title empty, we just close without saving (discard)
 
         // 2. Animate Out (ALWAYS)
         Animated.timing(panY, {

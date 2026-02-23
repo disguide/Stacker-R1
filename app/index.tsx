@@ -217,11 +217,11 @@ export default function TaskListScreen() {
                 onOpenReminder={() => handleOpenAddDrawer('reminder')}
                 onOpenProperties={() => handleOpenAddDrawer('properties')}
                 deadline={form.newTaskDeadline}
-                onClearDeadline={() => handleOpenAddDrawer('deadline')} // Or clear logic
+                onClearDeadline={() => form.setNewTaskDeadline(null)}
                 estimatedTime={form.newTaskEstimatedTime}
-                onClearEstimatedTime={() => handleOpenAddDrawer('estimate')}
+                onClearEstimatedTime={() => form.setNewTaskEstimatedTime(null)}
                 recurrence={form.newTaskRecurrence}
-                onClearRecurrence={() => handleOpenAddDrawer('recurrence')}
+                onClearRecurrence={() => form.setNewTaskRecurrence(null)}
             />
 
             {/* Modals & Drawers */}
@@ -281,20 +281,9 @@ export default function TaskListScreen() {
                 isSubtask={!!ui.activeMenuSubtask}
                 onEdit={() => {
                     homeState.setIsMenuVisible(false);
-                    if (ui.activeMenuSubtask && ui.activeMenuTask) {
-                        // Need activeMenuTask context to know parent? 
-                        // ui.activeMenuSubtask stores { parentId, subtaskId }
-                        // But openEditSubtask needs the subtask object. 
-                        // We might need to find it.
-                        // ops.openEditSubtask(...)
-                        // Use creation.openEditDrawer for tasks
-                        // For subtasks, we need to find the subtask object
+                    if (ui.activeMenuSubtask) {
                         const parent = tasks.find(t => t.id === ui.activeMenuSubtask?.parentId);
                         const sub = parent?.subtasks?.find(s => s.id === ui.activeMenuSubtask?.subtaskId);
-                        if (sub) creation.openEditDrawer(sub); // Wait, openEditDrawer is for TASKS?
-                        // useTaskCreation defines openEditDrawer for tasks.
-                        // It doesn't export openEditSubtask logic equivalent suitable for menu click?
-                        // Actually TaskListSection calls `ops.openEditSubtask` which calls `ui.setEditingSubtask`.
                         if (sub) {
                             ui.setEditingSubtask({ parentId: ui.activeMenuSubtask.parentId, subtask: sub });
                             ui.setIsDrawerVisible(true);
@@ -308,12 +297,21 @@ export default function TaskListScreen() {
             <CalendarModal
                 visible={ui.isCalendarVisible}
                 onClose={() => ui.setIsCalendarVisible(false)}
-                onSelectDate={(date: any) => {
-                    // Need to bridge this back to form or editing state
-                    // This logic was in handleSelectDate in index.tsx
-                    // We might need to duplicate it or move it to a helper, 
-                    // or just inline it here as it switches on 'calendarMode'
-                    const dateStr = date ? toISODateString(date) : null;
+                onSelectDate={(date: any, hasTime?: boolean) => {
+                    let dateStr: string | null = null;
+                    if (date) {
+                        const d = date instanceof Date ? date : new Date(date);
+                        const yyyy = d.getFullYear();
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        if (hasTime || (d.getHours() !== 0 || d.getMinutes() !== 0)) {
+                            const hh = String(d.getHours()).padStart(2, '0');
+                            const min = String(d.getMinutes()).padStart(2, '0');
+                            dateStr = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+                        } else {
+                            dateStr = `${yyyy}-${mm}-${dd}`;
+                        }
+                    }
                     if (ui.calendarMode === 'new') {
                         form.setNewTaskDeadline(dateStr);
                     } else if (ui.editingSubtask) {

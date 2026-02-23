@@ -94,6 +94,21 @@ export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isS
                                 style={styles.option}
                                 onPress={() => {
                                     onClose();
+                                    setTimeout(onEdit, 300);
+                                }}
+                            >
+                                <View style={styles.optionIconContainer}>
+                                    <MaterialCommunityIcons name="pencil-outline" size={22} color={THEME.textPrimary} />
+                                </View>
+                                <Text style={styles.optionText}>Edit</Text>
+                            </TouchableOpacity>
+
+                            <View style={styles.separator} />
+
+                            <TouchableOpacity
+                                style={styles.option}
+                                onPress={() => {
+                                    onClose();
                                     setTimeout(onDelete, 300);
                                 }}
                             >

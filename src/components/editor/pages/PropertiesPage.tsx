@@ -113,7 +113,7 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
                         {onRequestColorSettings && (
                             <TouchableOpacity
                                 onPress={() => {
-                                    console.log('[TaskFeatureCarousel] Requesting Color Settings');
+                                    if (__DEV__) console.log('[TaskFeatureCarousel] Requesting Color Settings');
                                     onRequestColorSettings();
                                 }}
                                 style={{

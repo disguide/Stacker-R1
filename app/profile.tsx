@@ -45,10 +45,13 @@ export default function ProfileScreen() {
         return () => { mounted = false; };
     }, []);
 
-    const handleEditToggle = () => {
+    const handleEditToggle = async () => {
         if (isEditing) {
-            // Cancel -> revert drafts
-            if (draftProfile) setProfile(draftProfile);
+            // Cancel -> revert drafts AND storage
+            if (draftProfile) {
+                setProfile(draftProfile);
+                await StorageService.saveProfile(draftProfile);
+            }
             setIsEditing(false);
         } else {
             // Start editing -> snapshot current profile
@@ -66,7 +69,11 @@ export default function ProfileScreen() {
     const updateProfile = async (updates: Partial<UserProfile>) => {
         const updated = { ...profile, ...updates };
         setProfile(updated);
-        await StorageService.saveProfile(updated);
+        // Only persist immediately when NOT editing (e.g. toggling completion)
+        // During edit mode, save happens explicitly via saveChanges()
+        if (!isEditing) {
+            await StorageService.saveProfile(updated);
+        }
     };
 
     const handlePickImage = async (type: 'banner' | 'avatar') => {
@@ -377,10 +384,13 @@ export default function ProfileScreen() {
                                                         onChangeText={(t) => updateGoalItem(item.id, t)}
                                                         placeholder={`Enter ${activeTab === 'goals' ? 'Goal' : 'Anti-Goal'}...`}
                                                         placeholderTextColor="#94A3B8"
+                                                        editable={isEditing}
                                                     />
-                                                    <TouchableOpacity onPress={() => deleteGoalItem(item.id)} style={styles.inlineDeleteBtn}>
-                                                        <Ionicons name="close" size={20} color="#94A3B8" />
-                                                    </TouchableOpacity>
+                                                    {isEditing && (
+                                                        <TouchableOpacity onPress={() => deleteGoalItem(item.id)} style={styles.inlineDeleteBtn}>
+                                                            <Ionicons name="close" size={20} color="#94A3B8" />
+                                                        </TouchableOpacity>
+                                                    )}
                                                 </View>
                                             ))
                                         )}

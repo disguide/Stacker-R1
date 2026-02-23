@@ -117,15 +117,19 @@ export const RecurrenceEngine = {
                     if (isCompleted) return;
 
                     // ROLLOVER CALCULATION
+                    // Use stored daysRolled from RolloverSystem (persisted at load time)
+                    // Only recalculate if the task hasn't been processed by RolloverSystem yet
                     let finalDate = task.date;
                     let daysRolled = task.daysRolled || 0;
 
                     if (task.date < todayStr) {
-                        // It matches lookup filter (incomplete) AND is in past -> ROLL IT
+                        // Past task not yet moved by RolloverSystem — visually project to today
                         finalDate = todayStr;
-                        const taskDateObj = new Date(task.date + 'T00:00:00');
-                        const diffTime = Math.abs(today.getTime() - taskDateObj.getTime());
-                        daysRolled = (task.daysRolled || 0) + Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (!daysRolled) {
+                            const taskDateObj = new Date(task.date + 'T00:00:00');
+                            const diffTime = Math.abs(today.getTime() - taskDateObj.getTime());
+                            daysRolled = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        }
                     }
 
                     // Only add if it falls within the requested VIEW range (after rolling)

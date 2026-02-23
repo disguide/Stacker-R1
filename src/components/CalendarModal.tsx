@@ -594,8 +594,8 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                                                     />
                                                     <View style={{ width: 20 }} />
                                                     <View>
-                                                        <TouchableOpacity onPress={() => { setTempHour(h => (h + 12) % 24); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: !isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>AM</Text></TouchableOpacity>
-                                                        <TouchableOpacity onPress={() => { setTempHour(h => (h + 12) % 24); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>PM</Text></TouchableOpacity>
+                                                        <TouchableOpacity onPress={() => { setTempHour(h => h >= 12 ? h - 12 : h); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: !isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>AM</Text></TouchableOpacity>
+                                                        <TouchableOpacity onPress={() => { setTempHour(h => h < 12 ? h + 12 : h); !hasTime && setHasTime(true); }} style={{ padding: 10, opacity: isPm ? 1 : 0.3 }}><Text style={{ fontSize: 18, fontWeight: '600' }}>PM</Text></TouchableOpacity>
                                                     </View>
                                                 </>
                                             )}

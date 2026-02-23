@@ -78,37 +78,10 @@ export interface ColorDefinition {
 export const TASK_COLORS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
 export const TASK_COLOR_LABELS = ['Urgent', 'High', 'Medium', 'Low', 'Work', 'Personal', 'Health'];
 
-export interface Task {
-    id: string;
-    title: string;
-    completed?: boolean;
-    date: string;
-    originalDate?: string;
-    deadline?: string;
-    estimatedTime?: string;
-    progress?: number; // 0 to 100
-    subtasks?: { id: string; title: string; completed: boolean; }[];
-    recurrence?: RecurrenceRule;
-    originalTaskId?: string;
-    seriesId?: string;
-    rrule?: string;
-    completedDates?: string[];
-    exceptionDates?: string[];
-    tagIds?: string[]; // New: Array of tag IDs
-    reminderEnabled?: boolean;
-    reminderDate?: string;
-    reminderTime?: string;
-    instanceProgress?: Record<string, number>; // Map of date -> progress (0-100) for recurring instances
-    instanceSubtasks?: Record<string, { id: string; title: string; completed: boolean; }[]>; // Map of date -> subtasks
-
-    // Design System (User customizable)
-    color?: string; // Hex color for stripe
-    type?: 'task' | 'event' | 'work' | 'chore' | 'habit';
-
-    // Sprint Extraction Tracking
-    sprintParentId?: string;
-    sprintSubtaskId?: string;
-}
+// Task and Recurrence types — single source of truth is features/tasks/types.ts
+// Re-exported here so existing imports from this file continue to work.
+import { Task, RecurrenceRule, RecurrenceFrequency, WeekDay } from '../features/tasks/types';
+export { Task, RecurrenceRule, RecurrenceFrequency, WeekDay };
 
 export interface TagDefinition {
     id: string;
@@ -117,16 +90,6 @@ export interface TagDefinition {
     symbol: string; // Emoji
 }
 
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
-export type WeekDay = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
-
-export interface RecurrenceRule {
-    frequency: RecurrenceFrequency;
-    interval: number; // e.g., 1 for every week, 2 for every other week
-    daysOfWeek?: WeekDay[]; // for weekly specific days
-    endDate?: string; // ISO date string
-    occurrenceCount?: number; // end after X times
-}
 
 export const StorageService = {
     // ACTIVE TASKS
@@ -158,7 +121,7 @@ export const StorageService = {
 
                 const isGhostId = /_(\d{4}-\d{2}-\d{2})$/.test(t.id);
                 if (isGhostId) {
-                    console.log('Sanitizing storage: Removing ghost task', t.id);
+                    if (__DEV__) console.log('Sanitizing storage: Removing ghost task', t.id);
                     return false;
                 }
                 return true;

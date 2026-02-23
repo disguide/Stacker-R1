@@ -397,7 +397,7 @@ export default function SprintSummaryScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.replace('/')} style={styles.exitButton}>
+                <TouchableOpacity onPress={handleFinish} style={styles.exitButton}>
                     <Ionicons name="close" size={24} color={THEME.textPrimary} />
                 </TouchableOpacity>
             </View>

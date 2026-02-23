@@ -7,6 +7,35 @@ import { RolloverSystem } from '../logic/rolloverSystem';
 import { createRRuleString } from '../../../utils/recurrence';
 import { NotificationService } from '../../../services/notifications';
 
+/**
+ * Robust ID resolver: tries exact match, then strips trailing _YYYY-MM-DD ghost suffix,
+ * then tries progressive segment popping. Returns the index or -1.
+ */
+const resolveTaskIndex = (list: Task[], id: string): number => {
+    // 1. Exact match
+    let idx = list.findIndex(t => t.id === id);
+    if (idx !== -1) return idx;
+
+    // 2. Strip trailing _YYYY-MM-DD ghost date suffix
+    const ghostDateMatch = id.match(/^(.+)_\d{4}-\d{2}-\d{2}$/);
+    if (ghostDateMatch) {
+        idx = list.findIndex(t => t.id === ghostDateMatch[1]);
+        if (idx !== -1) return idx;
+    }
+
+    // 3. Progressive segment popping (handles _restored, _detach_xxx, etc.)
+    if (id.includes('_')) {
+        const parts = id.split('_');
+        for (let i = parts.length - 1; i >= 1; i--) {
+            const candidate = parts.slice(0, i).join('_');
+            idx = list.findIndex(t => t.id === candidate);
+            if (idx !== -1) return idx;
+        }
+    }
+
+    return -1;
+};
+
 export const useTaskController = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
@@ -19,7 +48,7 @@ export const useTaskController = () => {
      */
     const loadTasks = useCallback(async () => {
         if (isSaving.current) {
-            console.warn('[useTaskController] Skipping loadTasks - Save in progress');
+            if (__DEV__) console.warn('[useTaskController] Skipping loadTasks - Save in progress');
             return;
         }
         try {
@@ -31,7 +60,7 @@ export const useTaskController = () => {
             let finalTasks = data;
 
             if (updates.length > 0 || creations.length > 0) {
-                console.log(`[useTaskController] Rollover Active: ${updates.length} updates, ${creations.length} created`);
+                if (__DEV__) console.log(`[useTaskController] Rollover Active: ${updates.length} updates, ${creations.length} created`);
 
                 const taskMap = new Map(data.map(t => [t.id, t]));
                 updates.forEach(u => taskMap.set(u.id, u));
@@ -62,12 +91,9 @@ export const useTaskController = () => {
      */
     const toggleTask = useCallback((taskId: string, dateString: string) => {
         setTasks(prev => {
-            // Handle Ghost IDs (e.g., "task123_2023-10-27")
-            const originalId = taskId.includes('_') ? taskId.split('_')[0] : taskId;
-
-            const index = prev.findIndex(t => t.id === originalId);
+            const index = resolveTaskIndex(prev, taskId);
             if (index === -1) {
-                console.error(`[toggleTask] Task not found: ${taskId} (original: ${originalId})`);
+                if (__DEV__) console.warn(`[toggleTask] Task not found: ${taskId}`);
                 return prev;
             }
 
@@ -103,10 +129,7 @@ export const useTaskController = () => {
      */
     const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
         setTasks(prev => {
-            // Handle Ghost IDs for updates too
-            const originalId = taskId.includes('_') ? taskId.split('_')[0] : taskId;
-
-            const index = prev.findIndex(t => t.id === originalId);
+            const index = resolveTaskIndex(prev, taskId);
             if (index === -1) return prev;
 
             const updatedTasks = [...prev];
@@ -212,8 +235,7 @@ export const useTaskController = () => {
 
     const updateSubtask = useCallback((taskId: string, subtaskId: string, progress: number, dateString: string) => {
         setTasks(prev => {
-            const originalId = taskId.includes('_') ? taskId.split('_')[0] : taskId;
-            const index = prev.findIndex(t => t.id === originalId);
+            const index = resolveTaskIndex(prev, taskId);
             if (index === -1) return prev;
 
             const updatedTasks = [...prev];
@@ -252,7 +274,7 @@ export const useTaskController = () => {
     // ----------------------------------------
     const deleteTask = useCallback((taskId: string, dateString: string, mode: 'single' | 'future' | 'all') => {
         setTasks(prev => {
-            const index = prev.findIndex(t => t.id === taskId);
+            const index = resolveTaskIndex(prev, taskId);
             if (index === -1) return prev;
 
             const updatedTasks = [...prev];

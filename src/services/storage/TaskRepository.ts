@@ -12,10 +12,10 @@ export const TaskRepository = {
      */
     async getAll(): Promise<Task[]> {
         try {
-            console.log('[TaskRepository] Reading from storage...');
+            if (__DEV__) console.log('[TaskRepository] Reading from storage...');
             const json = await AsyncStorage.getItem(KEYS.ACTIVE);
             const data = json ? JSON.parse(json) : [];
-            console.log('[TaskRepository] Read complete. Count:', data.length);
+            if (__DEV__) console.log('[TaskRepository] Read complete. Count:', data.length);
             return data;
         } catch (e) {
             console.error('[TaskRepository] Failed to load active tasks', e);
@@ -28,9 +28,9 @@ export const TaskRepository = {
      */
     async saveAll(tasks: Task[]): Promise<void> {
         try {
-            console.log('[TaskRepository] Saving to storage. Count:', tasks.length);
+            if (__DEV__) console.log('[TaskRepository] Saving to storage. Count:', tasks.length);
             await AsyncStorage.setItem(KEYS.ACTIVE, JSON.stringify(tasks));
-            console.log('[TaskRepository] Save complete.');
+            if (__DEV__) console.log('[TaskRepository] Save complete.');
         } catch (e) {
             console.error('[TaskRepository] Failed to save tasks', e);
         }

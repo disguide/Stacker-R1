@@ -173,7 +173,7 @@ export default function LongTermScreen() {
             try {
                 const r = new RRule({ freq: RRule.YEARLY, dtstart: new Date() });
                 rruleString = r.toString();
-            } catch (e) { }
+            } catch (e) { console.warn('[LongTerm] Failed to generate rrule', e); }
             initialFeature = 'recurrence';
         }
 
@@ -215,8 +215,10 @@ export default function LongTermScreen() {
             const finalTask = { ...updatedTask, id: Date.now().toString() };
             if (finalTask.recurrence) {
                 try {
+                    const freqMap: Record<string, any> = { 'yearly': RRule.YEARLY, 'monthly': RRule.MONTHLY, 'weekly': RRule.WEEKLY, 'daily': RRule.DAILY };
+                    const freq = freqMap[finalTask.recurrence.frequency] || RRule.YEARLY;
                     const options: any = {
-                        freq: RRule.YEARLY,
+                        freq,
                         interval: finalTask.recurrence.interval || 1,
                         dtstart: new Date(finalTask.date + 'T00:00:00')
                     };
@@ -237,7 +239,7 @@ export default function LongTermScreen() {
                         dtstart: new Date(updatedTask.date + 'T00:00:00')
                     });
                     updatedTask.rrule = rule.toString();
-                } catch (e) { }
+                } catch (e) { console.warn('[LongTerm] Failed to generate rrule', e); }
             }
             updateTask(updatedTask.id, updatedTask);
         }

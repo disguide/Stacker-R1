@@ -27,7 +27,7 @@ export function useTaskOperations(
     const handleSwipeEnd = useCallback(() => setIsListScrollEnabled(true), []);
 
     const handleListTaskToggle = useCallback((item: any) => {
-        console.log('[handleListTaskToggle] Toggling:', { id: item.id, originalDate: item.originalDate, projectedDate: item.date });
+        if (__DEV__) console.log('[handleListTaskToggle] Toggling:', { id: item.id, originalDate: item.originalDate, projectedDate: item.date });
         if (item.isCompleted) {
             toggleTask(item.originalTaskId, item.originalDate || item.date);
             return;
@@ -118,7 +118,7 @@ export function useTaskOperations(
         const restoredTask = await StorageService.removeFromHistory(taskId);
         if (restoredTask) {
             const newTask: Task = {
-                id: `${Date.now()}_restored`,
+                id: Date.now().toString(),
                 title: restoredTask.title,
                 date: todayString,
                 completedDates: [],

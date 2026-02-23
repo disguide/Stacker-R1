@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import Svg, { Path } from 'react-native-svg';
 import { StorageService, UserProfile, GoalItem, GoalEventType } from '../src/services/storage';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -33,7 +34,7 @@ export default function TimelineScreen() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
     useFocusEffect(useCallback(() => { load(); }, []));
-    const load = async () => { try { setProfile(await StorageService.loadProfile()); } catch (e) { } };
+    const load = async () => { try { setProfile(await StorageService.loadProfile()); } catch (e) { console.warn('[Timeline] Failed to load profile', e); } };
 
     const undoEvent = async (goalId: string, eventId: string, type: GoalEventType) => {
         if (!profile) return;
@@ -125,129 +126,131 @@ export default function TimelineScreen() {
         return evs.sort((a, b) => b.date.getTime() - a.date.getTime()); // Newest first
     }, [profile]);
 
+    // Group events by day
+    const groupedEvents = useMemo(() => {
+        const groups: { [dateStr: string]: TLEvent[] } = {};
+        events.forEach(ev => {
+            const dateStr = ev.date.toDateString();
+            if (!groups[dateStr]) groups[dateStr] = [];
+            groups[dateStr].push(ev);
+        });
+        return Object.values(groups);
+    }, [events]);
 
-    const renderEvent = (ev: TLEvent, index: number) => {
-        const isExpanded = expandedId === ev.id;
-        const iconName = ev.type === 'added' ? 'add' :
-            ev.type === 'achieved' ? (ev.isGoal ? 'star' : 'checkmark') :
-                ev.type === 'cancelled' ? 'close' : 'pencil';
-
-        const evColor = ev.type === 'added' ? '#3B82F6' :
+    const getEventColor = (ev: TLEvent) => {
+        return ev.type === 'added' ? '#3B82F6' :
             ev.type === 'modified' ? '#F59E0B' :
                 ev.type === 'achieved' ? '#10B981' :
                     ev.type === 'cancelled' ? '#EF4444' : '#94A3B8';
+    };
 
-        const nodeStyle = ev.type === 'cancelled' ? [st.node, { backgroundColor: '#475569', borderColor: '#334155' }] :
-            (ev.type === 'achieved' ? [st.node, { backgroundColor: evColor, borderColor: evColor }] :
-                [st.node, { borderColor: evColor }]);
-
-        const isLast = index === events.length - 1;
-
-        // Same-day = tight cluster (2px), different day = breathing room (20px)
-        let isSameDayAsPrev = false;
-        if (index > 0) {
-            const prevEv = events[index - 1];
-            isSameDayAsPrev = ev.date.toDateString() === prevEv.date.toDateString();
-        }
-        const rowGap = isSameDayAsPrev ? 2 : 20;
-
-        // Show date header only when the day changes
-        const showDateHeader = !isSameDayAsPrev;
-
+    const renderRawText = (ev: TLEvent) => {
+        const isExpanded = expandedId === ev.id;
+        const evColor = getEventColor(ev);
         const actionWord = ev.type === 'added' ? 'Added' :
             ev.type === 'modified' ? 'Modified' :
                 ev.type === 'achieved' ? (ev.isGoal ? 'Achieved' : 'Maintained') :
                     ev.type === 'cancelled' ? 'Cancelled' : 'Updated';
 
-        // Build the compact chip content - single line when collapsed
-        const chipContent = (side: 'left' | 'right') => {
-            const borderSide = side === 'left'
-                ? { borderLeftColor: evColor, borderLeftWidth: 3 }
-                : { borderRightColor: evColor, borderRightWidth: 3 };
-
-            return (
-                <TouchableOpacity
-                    activeOpacity={0.7}
-                    style={[st.chip, borderSide]}
-                    onPress={() => setExpandedId(isExpanded ? null : ev.id)}
-                >
-                    {/* Collapsed: single line with icon + title */}
-                    <View style={st.chipRow}>
-                        <Ionicons name={iconName as any} size={10} color={evColor} style={{ marginRight: 4 }} />
-                        <Text style={[st.chipActionText, { color: evColor }]}>{actionWord}:</Text>
-                        <Text
-                            style={[st.chipTitle, ev.type === 'cancelled' && st.strike]}
-                            numberOfLines={isExpanded ? undefined : 1}
-                        >
-                            {ev.title}
-                        </Text>
-                        <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={10} color="#64748B" style={{ marginLeft: 4 }} />
-                    </View>
-
-                    {/* Expanded: date + full title + actions */}
-                    {isExpanded && (
-                        <View style={st.expandedContent}>
-                            <Text style={st.chipDate}>{fmtD(ev.date)} • {ev.type.toUpperCase()}</Text>
-                            <View style={st.expandedActions}>
-                                <TouchableOpacity style={st.actionBtn} onPress={() => undoEvent(ev.goalId, ev.id, ev.type)}>
-                                    <Ionicons name="arrow-undo" size={14} color="#94A3B8" />
-                                    <Text style={st.actionText}>Undo</Text>
-                                </TouchableOpacity>
-                                {!ev.goalBase.cancelled && ev.type !== 'cancelled' && (
-                                    <TouchableOpacity style={st.actionBtn} onPress={() => markCancelled(ev.goalId, ev.title)}>
-                                        <Ionicons name="trash" size={14} color="#EF4444" />
-                                        <Text style={[st.actionText, { color: '#FCA5A5' }]}>Cancel</Text>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        </View>
-                    )}
-                </TouchableOpacity>
-            );
-        };
-
         return (
-            <View key={ev.id}>
-                {/* Date separator label */}
-                {showDateHeader && (
-                    <View style={[st.dateHeader, { marginTop: index === 0 ? 0 : 16 }]}>
-                        <View style={st.dateLine} />
-                        <Text style={st.dateLabel}>{fmtD(ev.date)}</Text>
-                        <View style={st.dateLine} />
+            <TouchableOpacity
+                activeOpacity={0.6}
+                style={st.rawTextCont}
+                onPress={() => setExpandedId(isExpanded ? null : ev.id)}
+            >
+                <View style={st.rawTextRow}>
+                    <Text style={[st.rawActionText, { color: evColor }]}>{actionWord}:</Text>
+                    <Text style={[st.rawTitleText, ev.type === 'cancelled' && st.strike]} numberOfLines={isExpanded ? undefined : 1}>
+                        {ev.title}
+                    </Text>
+                </View>
+
+                {isExpanded && (
+                    <View style={st.rawExpandedContent}>
+                        <Text style={st.rawDateText}>{ev.type.toUpperCase()}</Text>
+                        <View style={st.rawActionsRow}>
+                            <TouchableOpacity style={st.rawActionBtn} onPress={() => undoEvent(ev.goalId, ev.id, ev.type)}>
+                                <Text style={st.rawActionLabel}>Undo</Text>
+                            </TouchableOpacity>
+                            {!ev.goalBase.cancelled && ev.type !== 'cancelled' && (
+                                <>
+                                    <Text style={st.rawActionDivider}>|</Text>
+                                    <TouchableOpacity style={st.rawActionBtn} onPress={() => markCancelled(ev.goalId, ev.title)}>
+                                        <Text style={[st.rawActionLabel, { color: '#EF4444' }]}>Cancel</Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                        </View>
                     </View>
                 )}
-                <View style={[st.eventRow, { marginTop: rowGap }]}>
-                    {/* Left Side (Goals) */}
+            </TouchableOpacity>
+        );
+    };
+
+    const renderDayCluster = (dayEvents: TLEvent[], groupIndex: number) => {
+        const dateStr = fmtD(dayEvents[0].date);
+        const isLastGroup = groupIndex === groupedEvents.length - 1;
+
+        // Separate goals from anti-goals to render on left vs right sides
+        const leftEvents = dayEvents.filter(e => e.isGoal);
+        const rightEvents = dayEvents.filter(e => !e.isGoal);
+
+        return (
+            <View key={`day-${groupIndex}`} style={st.dayClusterCont}>
+                {groupIndex > 0 && <View style={st.dateHeaderSpace} />}
+
+                <View style={st.dateHeader}>
+                    <Text style={st.dateLabel}>{dateStr}</Text>
+                </View>
+
+                <View style={st.clusterRow}>
+                    {/* Background SVG for drawing diagonal connection curves */}
+                    <DayConnections dayEvents={dayEvents} expandedId={expandedId} />
+
+                    {/* Left Column (Goals Text) */}
                     <View style={st.sideCol}>
-                        {ev.isGoal && (
-                            <View style={st.cardWrapperLeft}>
-                                {chipContent('left')}
-                                <View style={[st.branchLeft, { backgroundColor: evColor + '50' }]} />
+                        {leftEvents.map((ev, i) => (
+                            <View key={`text-${ev.id}`} style={st.textRowWrapperLeft}>
+                                {renderRawText(ev)}
                             </View>
-                        )}
+                        ))}
                     </View>
 
-                    {/* Center Trunk */}
+                    {/* Center Column (Clustered Dots) */}
                     <View style={st.centerCol}>
-                        {!isLast && <View style={[st.trackLine, { backgroundColor: evColor + '30' }]} />}
-                        <View style={nodeStyle}>
-                            <Ionicons name={iconName as any} size={10} color={(ev.type === 'achieved' || ev.type === 'cancelled') ? '#FFF' : evColor} />
+                        {!isLastGroup && <View style={st.thinTrack} />}
+                        <View style={st.dotsContainer}>
+                            {dayEvents.map((ev, i) => {
+                                const evColor = getEventColor(ev);
+                                return (
+                                    <View
+                                        key={`dot-${ev.id}`}
+                                        style={[
+                                            st.microDot,
+                                            { backgroundColor: evColor },
+                                            // Extreme tight negative clustering (-10px overlap)
+                                            i > 0 && { marginTop: -10 }
+                                        ]}
+                                    />
+                                );
+                            })}
                         </View>
                     </View>
 
-                    {/* Right Side (Anti-Goals) */}
+                    {/* Right Column (Anti-Goals Text) */}
                     <View style={[st.sideCol, { alignItems: 'flex-start' }]}>
-                        {!ev.isGoal && (
-                            <View style={st.cardWrapperRight}>
-                                {chipContent('right')}
-                                <View style={[st.branchRight, { backgroundColor: evColor + '50' }]} />
+                        {rightEvents.map((ev, i) => (
+                            <View key={`text-${ev.id}`} style={st.textRowWrapperRight}>
+                                {renderRawText(ev)}
                             </View>
-                        )}
+                        ))}
                     </View>
                 </View>
             </View>
         );
     };
+
+    // (Legacy renderEvent removed in favor of renderDayCluster)
 
     if (!profile) return null;
 
@@ -255,9 +258,9 @@ export default function TimelineScreen() {
         <SafeAreaView style={st.safe} edges={['top']}>
             <View style={st.header}>
                 <TouchableOpacity onPress={() => router.back()} style={st.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color="#F8FAFC" />
+                    <Ionicons name="arrow-back" size={24} color="#0F172A" />
                 </TouchableOpacity>
-                <Text style={st.headerTitle}>Timeline</Text>
+                <Text style={st.headerTitle}>Archive</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -268,69 +271,151 @@ export default function TimelineScreen() {
                 </View>
                 <View style={st.legendDivider} />
                 <View style={[st.legendSide, { alignItems: 'flex-start' }]}>
+                    <View style={[st.legendDot, { backgroundColor: '#EF4444', marginRight: 4 }]} />
                     <Text style={st.legendText}>Anti-Goals</Text>
-                    <View style={[st.legendDot, { backgroundColor: '#EF4444' }]} />
                 </View>
             </View>
 
             <ScrollView contentContainerStyle={st.scroll}>
-                {events.length === 0 ? (
+                {groupedEvents.length === 0 ? (
                     <Text style={st.empty}>No timeline events yet.</Text>
                 ) : (
-                    events.map(renderEvent)
+                    groupedEvents.map((group, i) => renderDayCluster(group, i))
                 )}
             </ScrollView>
         </SafeAreaView>
     );
 }
 
+// Smart SVG overlay that draws smooth bezier diagonal curves linking the 
+// spread-out text items to their physically squished microDots in the center
+const DayConnections = ({ dayEvents, expandedId }: { dayEvents: TLEvent[], expandedId: string | null }) => {
+    // Math constants to estimate node and text position based on stylesheet rules
+    const dotSize = 18;
+    const dotOverlapMargin = -10;
+    const textRowMinHeight = 28;
+    const textPaddingVertical = 6;
+    const expandedExtraHeight = 44; // Estimated extra height drop for expanded actions
+
+    return (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {/* Using SVG to draw precise diagonal lines from dot Y to text Y */}
+            {dayEvents.length > 0 && <Svg style={StyleSheet.absoluteFill}>
+                {dayEvents.map((ev, i) => {
+                    const isGoal = ev.isGoal;
+
+                    // 1. Calculate Dot Y Center
+                    // First dot is at top. Each subsequent squishes -10px up.
+                    const dotY = (i * (dotSize + dotOverlapMargin)) + (dotSize / 2) + 8; // +8 for centerCol paddingTop
+
+                    // 2. Calculate Text Y Center
+                    let textYOffset = 0;
+                    for (let j = 0; j < i; j++) {
+                        if (dayEvents[j].isGoal === isGoal) {
+                            textYOffset += textRowMinHeight + (textPaddingVertical * 2);
+                            if (dayEvents[j].id === expandedId) textYOffset += expandedExtraHeight;
+                        }
+                    }
+
+                    // Point exactly at the middle of the text block's first line
+                    const textY = textYOffset + 14;
+
+                    const evColor = ev.type === 'added' ? '#3B82F6' :
+                        ev.type === 'modified' ? '#F59E0B' :
+                            ev.type === 'achieved' ? '#10B981' :
+                                ev.type === 'cancelled' ? '#EF4444' : '#94A3B8';
+
+                    // X Coordinates
+                    // SVG width is 100% of clusterRow. Center trunk is at 50%.
+                    const centerLeftDotX = '48%';
+                    const centerRightDotX = '52%';
+                    const textEdgeLeftX = '38%';
+                    const textEdgeRightX = '62%';
+
+                    if (isGoal) {
+                        return (
+                            <Path
+                                key={`line-${ev.id}`}
+                                d={`M ${textEdgeLeftX} ${textY} C 44% ${textY}, 44% ${dotY}, ${centerLeftDotX} ${dotY}`}
+                                stroke={evColor}
+                                strokeWidth="1.5"
+                                strokeOpacity="0.4"
+                                fill="none"
+                            />
+                        );
+                    } else {
+                        return (
+                            <Path
+                                key={`line-${ev.id}`}
+                                d={`M ${textEdgeRightX} ${textY} C 56% ${textY}, 56% ${dotY}, ${centerRightDotX} ${dotY}`}
+                                stroke={evColor}
+                                strokeWidth="1.5"
+                                strokeOpacity="0.4"
+                                fill="none"
+                            />
+                        );
+                    }
+                })}
+            </Svg>}
+        </View >
+    );
+};
+
 const st = StyleSheet.create({
-    safe: { flex: 1, backgroundColor: '#0F172A' },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1E293B' },
+    safe: { flex: 1, backgroundColor: '#FFFFFF' },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
     backBtn: { padding: 8 },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#F8FAFC' },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
 
-    legend: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#1E293B', alignItems: 'center', justifyContent: 'center', gap: 12 },
-    legendSide: { flex: 1, alignItems: 'flex-end', gap: 3 },
-    legendDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3B82F6' },
-    legendDivider: { width: 1, height: 20, backgroundColor: '#334155' },
-    legendText: { fontSize: 11, fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 },
+    legend: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 20, backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+    legendSide: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+    legendDot: { width: 6, height: 6, borderRadius: 3, marginLeft: 4 },
+    legendDivider: { width: 1, height: 16, backgroundColor: '#E2E8F0' },
+    legendText: { fontSize: 11, fontWeight: '600', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5 },
 
-    scroll: { paddingTop: 8, paddingBottom: 100 },
-    empty: { textAlign: 'center', color: '#64748B', marginTop: 40, fontStyle: 'italic' },
+    scroll: { paddingTop: 16, paddingBottom: 120 },
+    empty: { textAlign: 'center', color: '#94A3B8', marginTop: 40, fontStyle: 'italic' },
 
-    // Date header
-    dateHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 4 },
-    dateLine: { flex: 1, height: 1, backgroundColor: '#1E293B' },
-    dateLabel: { fontSize: 10, fontWeight: '700', color: '#475569', paddingHorizontal: 8, letterSpacing: 0.5 },
+    dayClusterCont: { marginBottom: 24, width: '100%' },
+    dateHeaderSpace: { height: 20 },
+    dateHeader: { paddingHorizontal: 20, marginBottom: 12, alignItems: 'center' },
+    dateLabel: { fontSize: 11, fontWeight: '700', color: '#94A3B8', letterSpacing: 1 },
 
-    // Event row - tight layout
-    eventRow: { flexDirection: 'row', paddingHorizontal: 12 },
-    trackLine: { position: 'absolute', width: 2, top: 18, bottom: -20, zIndex: 0 },
+    clusterRow: { flexDirection: 'row', paddingHorizontal: 8, position: 'relative' },
 
-    sideCol: { flex: 1, justifyContent: 'center', alignItems: 'flex-end' },
-    centerCol: { width: 30, alignItems: 'center', justifyContent: 'center', paddingVertical: 4, zIndex: 10 },
+    // Thin main line going through the center of the clusters
+    thinTrack: { position: 'absolute', width: 2, top: 12, bottom: -40, left: '50%', backgroundColor: '#E2E8F0', zIndex: 0 },
 
-    // Smaller node
-    node: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, backgroundColor: '#0F172A', alignItems: 'center', justifyContent: 'center' },
+    sideCol: { flex: 1, flexDirection: 'column' },
+    centerCol: { width: 30, alignItems: 'center', paddingTop: 8, zIndex: 10 },
 
-    cardWrapperLeft: { paddingRight: 6, width: '100%', position: 'relative' },
-    cardWrapperRight: { paddingLeft: 6, width: '100%', position: 'relative' },
+    dotsContainer: { alignItems: 'center', width: '100%', zIndex: 12 },
 
-    branchLeft: { position: 'absolute', right: 0, top: 13, width: 6, height: 2 },
-    branchRight: { position: 'absolute', left: 0, top: 13, width: 6, height: 2 },
+    // Bigger dot node to forcefully touch neighbors
+    microDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#FFF' },
 
-    // Compact chip card
-    chip: { backgroundColor: '#1E293B', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 6, width: '100%' },
-    chipRow: { flexDirection: 'row', alignItems: 'center' },
-    chipActionText: { fontSize: 11, fontWeight: '700', marginRight: 4 },
-    chipTitle: { fontSize: 11, color: '#E2E8F0', flex: 1 },
-    chipDate: { fontSize: 9, fontWeight: '700', color: '#64748B', marginTop: 4, marginBottom: 2 },
-    strike: { textDecorationLine: 'line-through', color: '#64748B' },
+    textRowWrapperLeft: { width: '100%', paddingRight: 16 },
+    textRowWrapperRight: { width: '100%', paddingLeft: 16 },
 
-    // Expanded content inside chip
-    expandedContent: { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#334155' },
-    expandedActions: { flexDirection: 'row', gap: 12, marginTop: 4 },
-    actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
-    actionText: { fontSize: 11, fontWeight: '600', color: '#94A3B8' },
+    // Raw Minimalist Text Styling with a bottom dashed line to discern compressed items
+    rawTextCont: {
+        width: '100%',
+        paddingVertical: 6,
+        minHeight: 28, // Forces the row to be tall enough that the 18px dots don't completely swallow each other, leaving just an edge of overlap
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+        borderStyle: 'dashed',
+        justifyContent: 'center'
+    },
+    rawTextRow: { flexDirection: 'row', alignItems: 'flex-start', flexWrap: 'wrap' },
+    rawActionText: { fontSize: 13, fontWeight: '800', marginRight: 4 },
+    rawTitleText: { fontSize: 13, color: '#334155', flex: 1, lineHeight: 18 },
+    strike: { textDecorationLine: 'line-through', color: '#94A3B8' },
+
+    rawExpandedContent: { marginTop: 4, paddingTop: 4, marginLeft: 2 },
+    rawDateText: { fontSize: 9, fontWeight: '700', color: '#64748B' },
+    rawActionsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 },
+    rawActionBtn: { paddingVertical: 2 },
+    rawActionLabel: { fontSize: 10, fontWeight: '800', color: '#64748B', textTransform: 'uppercase' },
+    rawActionDivider: { fontSize: 10, color: '#CBD5E1' }
 });

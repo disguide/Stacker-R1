@@ -129,6 +129,9 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
                                 {localRecurrence && preset.type === localRecurrence.frequency && localRecurrence.interval === 1 && !localRecurrence.daysOfWeek && (
                                     <Ionicons name="checkmark" size={20} color={THEME.green} />
                                 )}
+                                {localRecurrence && preset.type === 'weekdays' && localRecurrence.frequency === 'weekly' && localRecurrence.interval === 1 && localRecurrence.daysOfWeek?.length === 5 && (
+                                    <Ionicons name="checkmark" size={20} color={THEME.green} />
+                                )}
                             </TouchableOpacity>
                         ))}
                         <TouchableOpacity style={p.customBtn} onPress={() => setViewMode('custom')}>
