@@ -34,7 +34,7 @@ export default function TimelineScreen() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
     useFocusEffect(useCallback(() => { load(); }, []));
-    const load = async () => { try { setProfile(await StorageService.loadProfile()); } catch (e) { console.warn('[Timeline] Failed to load profile', e); } };
+    const load = async () => { try { setProfile(await StorageService.loadProfile()); } catch (e) { if (__DEV__) console.warn('[Timeline] Failed to load profile', e); } };
 
     const undoEvent = async (goalId: string, eventId: string, type: GoalEventType) => {
         if (!profile) return;

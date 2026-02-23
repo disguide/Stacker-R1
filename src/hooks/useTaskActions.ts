@@ -83,7 +83,7 @@ export const useTaskActions = (tasks: Task[], params: { saveTasks: (tasks: Task[
                         task.rrule = new RRule(options).toString();
                         newTasks[index] = task;
                     } catch (e) {
-                        console.warn("Failed to clamp recurrence", e);
+                        if (__DEV__) console.warn("Failed to clamp recurrence", e);
                         newTasks.splice(index, 1); // Fallback
                     }
                 }

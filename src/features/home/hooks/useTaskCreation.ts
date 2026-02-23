@@ -64,7 +64,7 @@ export function useTaskCreation({
             const rule = new RRule(options);
             return rule.toString();
         } catch (e) {
-            console.error("RRule Generation Failed", e);
+            if (__DEV__) console.error("RRule Generation Failed", e);
             return undefined;
         }
     };
@@ -242,7 +242,7 @@ export function useTaskCreation({
                 }
 
             } catch (e) {
-                console.error("Failed to process recurrence split", e);
+                if (__DEV__) console.error("Failed to process recurrence split", e);
                 Alert.alert("Error", "Failed to update recurring task. See logs.");
                 return;
             }

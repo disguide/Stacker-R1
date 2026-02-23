@@ -341,7 +341,7 @@ export default function TaskEditDrawer({
     ).current;
 
     const handleRequestColorSettings = useCallback(() => {
-        console.log('[TaskEditDrawer] onRequestColorSettings called');
+        if (__DEV__) console.log('[TaskEditDrawer] onRequestColorSettings called');
         if (onRequestColorSettings) onRequestColorSettings();
     }, [onRequestColorSettings]);
 

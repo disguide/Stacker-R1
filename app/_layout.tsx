@@ -15,6 +15,11 @@ export default function Layout() {
                 <Stack.Screen name="profile" />
                 <Stack.Screen name="mail" />
                 <Stack.Screen name="settings" />
+                <Stack.Screen name="sprint" />
+                <Stack.Screen name="sprint-summary" />
+                <Stack.Screen name="long-term" />
+                <Stack.Screen name="timeline" />
+                <Stack.Screen name="identity" />
             </Stack>
         </GestureHandlerRootView>
     );

@@ -25,7 +25,7 @@ export default function IdentityScreen() {
             const tags = await StorageService.loadTags();
             const existing = tags.find(t => t.label.trim().toLowerCase() === 'identity');
             if (existing) {
-                console.log('Identity tag found:', existing.id);
+                if (__DEV__) console.log('Identity tag found:', existing.id);
                 setIdentityTagId(existing.id);
             } else {
                 // Create specific Identity tag
@@ -35,12 +35,12 @@ export default function IdentityScreen() {
                     color: '#8B5CF6', // Violent/Purple
                     symbol: '🧬'
                 };
-                console.log('Creating new Identity tag:', newTag.id);
+                if (__DEV__) console.log('Creating new Identity tag:', newTag.id);
                 await StorageService.saveTags([...tags, newTag]);
                 setIdentityTagId(newTag.id);
             }
         } catch (e) {
-            console.error('Failed to ensure identity tag:', e);
+            if (__DEV__) console.error('Failed to ensure identity tag:', e);
         }
     };
 
@@ -116,7 +116,7 @@ export default function IdentityScreen() {
             // Optional: Alert.alert('Success', 'Milestone added!'); 
         } catch (e) {
             Alert.alert('Error', 'Failed to add milestone.');
-            console.error(e);
+            if (__DEV__) console.error(e);
         }
     };
 
