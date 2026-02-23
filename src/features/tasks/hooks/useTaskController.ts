@@ -6,6 +6,7 @@ import { RRule } from 'rrule';
 import { RolloverSystem } from '../logic/rolloverSystem';
 import { createRRuleString } from '../../../utils/recurrence';
 import { NotificationService } from '../../../services/notifications';
+import { HistoryRepository } from '../../../services/storage/HistoryRepository';
 
 /**
  * Robust ID resolver: tries exact match, then strips trailing _YYYY-MM-DD ghost suffix,
@@ -80,6 +81,17 @@ export const useTaskController = () => {
      */
     const addTask = useCallback((task: Task) => {
         setTasks(prev => [...prev, task]);
+
+        // Log to history
+        HistoryRepository.addLog({
+            id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            taskId: task.id,
+            taskTitle: task.title,
+            action: 'added',
+            timestamp: new Date().toISOString(),
+            date: task.date
+        });
+
         // Schedule Notification
         if (task.reminderEnabled && task.reminderTime) {
             NotificationService.scheduleTaskNotification(task);
@@ -106,12 +118,32 @@ export const useTaskController = () => {
 
             if (wasCompleted) {
                 completedDates.delete(dateString);
+
+                HistoryRepository.addLog({
+                    id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    taskId: task.id,
+                    taskTitle: task.title,
+                    action: 'uncompleted',
+                    timestamp: new Date().toISOString(),
+                    date: dateString
+                });
+
                 // Un-completing: Reschedule notification if enabled
                 if (task.reminderEnabled && task.reminderTime) {
                     NotificationService.scheduleTaskNotification(task);
                 }
             } else {
                 completedDates.add(dateString);
+
+                HistoryRepository.addLog({
+                    id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    taskId: task.id,
+                    taskTitle: task.title,
+                    action: 'completed',
+                    timestamp: new Date().toISOString(),
+                    date: dateString
+                });
+
                 // Completing: Cancel notification
                 if (task.reminderEnabled) {
                     NotificationService.cancelTaskNotification(task.id);
@@ -163,6 +195,21 @@ export const useTaskController = () => {
                 ...currentTask,
                 ...safeUpdates
             };
+
+            // Calculate simple diff for details
+            const diffKeys = Object.keys(safeUpdates).filter(k => safeUpdates[k as keyof Task] !== currentTask[k as keyof Task]);
+            if (diffKeys.length > 0) {
+                HistoryRepository.addLog({
+                    id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    taskId: currentTask.id,
+                    taskTitle: safeUpdates.title || currentTask.title,
+                    action: 'modified',
+                    timestamp: new Date().toISOString(),
+                    date: currentTask.date,
+                    details: `Updated: ${diffKeys.join(', ')}`
+                });
+            }
+
             // Schedule Notification if changed (includes reminderOffset)
             if (safeUpdates.reminderEnabled !== undefined || safeUpdates.reminderTime !== undefined || safeUpdates.date !== undefined || safeUpdates.reminderOffset !== undefined) {
                 const updatedTask = updatedTasks[index];
@@ -306,6 +353,16 @@ export const useTaskController = () => {
                 task.exceptionDates = Array.from(exceptions);
                 updatedTasks[index] = task;
             }
+
+            HistoryRepository.addLog({
+                id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                taskId: task.id,
+                taskTitle: task.title,
+                action: 'deleted',
+                timestamp: new Date().toISOString(),
+                date: dateString,
+                details: mode === 'single' ? 'Deleted instance' : (mode === 'future' ? 'Deleted future instances' : 'Deleted task')
+            });
 
             return updatedTasks;
         });

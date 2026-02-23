@@ -4,6 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { styles } from '../styles/taskListStyles';
 import { VIEW_CONFIG, ViewMode } from '../constants/theme';
+import { useMail } from '../features/mail/useMail';
 import SettingsButton from './SettingsButton';
 import ProfileButton from './ProfileButton';
 
@@ -33,6 +34,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
     onOrganize
 }) => {
     const router = useRouter();
+    const { unreadCount } = useMail();
 
     return (
         <View>
@@ -51,14 +53,28 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                         style={styles.toolbarButton}
                         onPress={() => router.push('/mail')}
                     >
-                        <Ionicons name="mail-outline" size={24} color="#333" />
+                        <View>
+                            <Ionicons name="mail-outline" size={24} color="#333" />
+                            {unreadCount > 0 && (
+                                <View style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    right: -2,
+                                    width: 10,
+                                    height: 10,
+                                    borderRadius: 5,
+                                    backgroundColor: '#007AFF', // Stacker Blue
+                                    borderWidth: 1.5,
+                                    borderColor: '#FFF'
+                                }} />
+                            )}
+                        </View>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.toolbarButton}
                         onPress={() => router.push('/long-term')}
                     >
                         <Ionicons name="telescope-outline" size={24} color="#333" />
-
                     </TouchableOpacity>
 
 

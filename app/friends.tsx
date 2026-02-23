@@ -1,27 +1,31 @@
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function FriendsScreen() {
     const router = useRouter();
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header with Back Button */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => router.back()}
-                >
-                    <Text style={styles.backButtonText}>‹ Back</Text>
+                <TouchableOpacity onPress={() => router.back()} style={styles.headerBackBtn}>
+                    <Ionicons name="chevron-back" size={28} color="#007AFF" />
+                    <Text style={styles.headerBackText}>Back</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Friends</Text>
-                <View style={styles.placeholder} />
+                <View style={styles.headerRightBtn} />
             </View>
 
-            {/* Empty Content */}
             <View style={styles.content}>
-                <Text style={styles.placeholderText}>This feature will be added later</Text>
+                <View style={styles.iconContainer}>
+                    <MaterialCommunityIcons name="traffic-cone" size={64} color="#F59E0B" />
+                </View>
+                <Text style={styles.title}>Under Construction</Text>
+                <Text style={styles.placeholderText}>
+                    The Friends feature is currently being built. Check back soon!
+                </Text>
             </View>
         </SafeAreaView>
     );
@@ -30,43 +34,62 @@ export default function FriendsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#F8FAFC',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
+        paddingHorizontal: 8,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        borderBottomColor: '#F1F5F9',
+        backgroundColor: '#FFFFFF',
     },
-    backButton: {
-        paddingVertical: 4,
-        paddingRight: 12,
+    headerBackBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        minWidth: 80,
     },
-    backButtonText: {
-        fontSize: 16,
+    headerBackText: {
+        fontSize: 17,
         color: '#007AFF',
-        fontWeight: '500',
+        marginLeft: -4,
     },
     headerTitle: {
         fontSize: 17,
         fontWeight: '600',
-        color: '#000000',
+        color: '#0F172A',
     },
-    placeholder: {
-        width: 60, // Balance back button width roughly
+    headerRightBtn: {
+        minWidth: 80,
     },
     content: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 32,
+        paddingBottom: 60,
+    },
+    iconContainer: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: '#FEF3C7',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 24,
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: '#1E293B',
+        marginBottom: 12,
     },
     placeholderText: {
         fontSize: 16,
-        color: '#999',
+        color: '#64748B',
         textAlign: 'center',
+        lineHeight: 24,
     },
 });

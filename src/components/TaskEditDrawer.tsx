@@ -149,6 +149,7 @@ export default function TaskEditDrawer({
 
     const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
     const [activeFeature, setActiveFeature] = useState<FeatureKey | null>(null);
+    const [isRendered, setIsRendered] = useState(visible);
 
     // Use Custom Hook for Reminders
     const {
@@ -176,6 +177,7 @@ export default function TaskEditDrawer({
 
     useEffect(() => {
         if (visible && task) {
+            setIsRendered(true);
             const prevTask = prevTaskRef.current;
             const isNewTask = !prevTask || prevTask.id !== task.id;
 
@@ -228,11 +230,14 @@ export default function TaskEditDrawer({
                     duration: 250,
                     useNativeDriver: true,
                 }).start(() => {
+                    setIsRendered(false);
                     // Ensure parent knows we're done if needed, 
                     // but typically parent controls 'visible'
                     if (!visible) onClose();
                 });
                 prevTaskRef.current = null;
+            } else if (!visible && !prevTaskRef.current) {
+                setIsRendered(false);
             }
         }
     }, [visible, task]);
@@ -286,7 +291,10 @@ export default function TaskEditDrawer({
                                     toValue: SCREEN_HEIGHT,
                                     duration: 250,
                                     useNativeDriver: true,
-                                }).start(() => onClose());
+                                }).start(() => {
+                                    setIsRendered(false);
+                                    onClose();
+                                });
                             }
                         }
                     ]
@@ -301,6 +309,7 @@ export default function TaskEditDrawer({
             duration: 250,
             useNativeDriver: true,
         }).start(() => {
+            setIsRendered(false);
             // 3. Close Parent State
             onClose();
         });
@@ -346,6 +355,8 @@ export default function TaskEditDrawer({
     }, [onRequestColorSettings]);
 
     // Render as absolute view instead of Modal to avoid stacking issues
+    if (!visible && !isRendered) return null;
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

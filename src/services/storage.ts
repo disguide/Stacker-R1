@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
     USER_PROFILE: '@stacker_user_profile_v1',
     USER_COLORS: '@stacker_user_colors_v1',
     SPRINT_SETTINGS: '@stacker_sprint_settings_v1', // New Key
+    MAIL: '@stacker_mail_v1',
 };
 
 export interface SprintSettings {
@@ -40,6 +41,18 @@ export interface GoalItem {
     category?: GoalCategory;
     color?: string;
     events?: GoalEvent[];
+}
+
+export interface MailMessage {
+    id: string;
+    subject: string;
+    sender: string;
+    date: string; // ISO String
+    preview: string;
+    body: string;
+    read: boolean;
+    trashed?: boolean;
+    trashedAt?: string;
 }
 
 export interface UserProfile {
@@ -343,6 +356,28 @@ export const StorageService = {
             await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_SETTINGS, JSON.stringify(settings));
         } catch (e) {
             console.error('Failed to save sprint settings', e);
+        }
+    },
+
+    // --- Mail Storage --- //
+    async loadMail(): Promise<MailMessage[]> {
+        try {
+            const raw = await AsyncStorage.getItem(STORAGE_KEYS.MAIL);
+            if (!raw) {
+                return [];
+            }
+            return JSON.parse(raw);
+        } catch (e) {
+            console.error('[Storage] Error loading mail', e);
+            return [];
+        }
+    },
+
+    async saveMail(messages: MailMessage[]): Promise<void> {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.MAIL, JSON.stringify(messages));
+        } catch (e) {
+            console.error('[Storage] Error saving mail', e);
         }
     }
 };
