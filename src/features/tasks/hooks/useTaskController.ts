@@ -91,11 +91,6 @@ export const useTaskController = () => {
             timestamp: new Date().toISOString(),
             date: task.date
         });
-
-        // Schedule Notification
-        if (task.reminderEnabled && task.reminderTime) {
-            NotificationService.scheduleTaskNotification(task);
-        }
     }, []);
 
     /**
@@ -127,11 +122,6 @@ export const useTaskController = () => {
                     timestamp: new Date().toISOString(),
                     date: dateString
                 });
-
-                // Un-completing: Reschedule notification if enabled
-                if (task.reminderEnabled && task.reminderTime) {
-                    NotificationService.scheduleTaskNotification(task);
-                }
             } else {
                 completedDates.add(dateString);
 
@@ -143,11 +133,6 @@ export const useTaskController = () => {
                     timestamp: new Date().toISOString(),
                     date: dateString
                 });
-
-                // Completing: Cancel notification
-                if (task.reminderEnabled) {
-                    NotificationService.cancelTaskNotification(task.id);
-                }
             }
             task.completedDates = Array.from(completedDates);
 
@@ -208,16 +193,6 @@ export const useTaskController = () => {
                     date: currentTask.date,
                     details: `Updated: ${diffKeys.join(', ')}`
                 });
-            }
-
-            // Schedule Notification if changed (includes reminderOffset)
-            if (safeUpdates.reminderEnabled !== undefined || safeUpdates.reminderTime !== undefined || safeUpdates.date !== undefined || safeUpdates.reminderOffset !== undefined) {
-                const updatedTask = updatedTasks[index];
-                if (updatedTask.reminderEnabled && updatedTask.reminderTime) {
-                    NotificationService.scheduleTaskNotification(updatedTask);
-                } else {
-                    NotificationService.cancelTaskNotification(updatedTask.id);
-                }
             }
 
             return updatedTasks;
@@ -366,11 +341,6 @@ export const useTaskController = () => {
 
             return updatedTasks;
         });
-
-        // Cancel Notification
-        if (mode === 'all' || mode === 'future') {
-            NotificationService.cancelTaskNotification(taskId);
-        }
     }, []);
 
     /**
@@ -399,13 +369,6 @@ export const useTaskController = () => {
             }
 
             updatedTasks[index] = task;
-
-            // Handle Notification Side Effect
-            if (enabled && task.reminderTime) {
-                NotificationService.scheduleTaskNotification(task);
-            } else {
-                NotificationService.cancelTaskNotification(task.id);
-            }
 
             return updatedTasks;
         });

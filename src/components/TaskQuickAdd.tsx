@@ -170,7 +170,6 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,
         padding: 16,
-        paddingBottom: Platform.OS === 'ios' ? 32 : 16,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.1,

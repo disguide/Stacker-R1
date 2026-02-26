@@ -15,6 +15,10 @@ Notifications.setNotificationHandler({
 });
 
 export const NotificationService = {
+    // Stores the stringified fingerprint of the last scheduled set 
+    // to prevent React from spamming the OS and causing duplicates
+    lastScheduledState: "",
+
     /**
      * Request permissions (call on app start)
      */
@@ -110,6 +114,104 @@ export const NotificationService = {
             if (__DEV__) console.log(`[NotificationService] Cancelled notification for ${taskId}`);
         } catch (e) {
             console.error("[NotificationService] Failed to cancel notification", e);
+        }
+    },
+
+    /**
+     * **NEW: Global UI Sync Engine**
+     * Wipes the slate clean and perfectly matches OS notifications to the currently
+     * visible UI list of tasks for the active day.
+     */
+    async syncTodayNotifications(items: any[]) {
+        if (Platform.OS === 'web') return;
+
+        try {
+            // --- NEW: FINGERPRINT CHECK ---
+            // Calculate a unique signature for the tasks that currently need to ring.
+            const todayStr = new Date().toDateString(); // Force a fresh sync every midnight
+            const currentFingerprint = todayStr + "|" + items
+                .filter(i => !i.isCompleted && i.reminderEnabled && i.reminderTime && i.type !== 'header')
+                // Use originalTaskId so that multiple ghost rollovers collapse into ONE signature
+                .map(i => `${i.originalTaskId || i.id}_${i.reminderTime}`)
+                .sort() // Sort to ensure the order of items doesn't falsely trigger a resync
+                .join('|');
+
+            // If the exact same tasks (and times) are visible as last time, DO NOT SPAM THE OS.
+            if (currentFingerprint === this.lastScheduledState) {
+                if (__DEV__) console.log(`[NotificationService] 🛑 Fingerprint matched. Sync ignored to prevent OS spam.`);
+                return;
+            }
+
+            // If it made it here, there is a legitimate change (task added, deleted, edited, or checked off).
+            // Proceed to wipe and re-schedule.
+            this.lastScheduledState = currentFingerprint;
+            // -------------------------------
+
+            // 1. Surgical Purge: Wipe the slate entirely clean to start fresh
+            // We use a surgical loop because dismissAllNotificationsAsync often silently 
+            // fails to delete old/stale notifications on certain OS builds
+            const presented = await Notifications.getPresentedNotificationsAsync();
+            for (const notification of presented) {
+                if (notification.request?.identifier) {
+                    await Notifications.dismissNotificationAsync(notification.request.identifier);
+                }
+            }
+
+            // Also politely request full wipes as a fallback
+            await Notifications.dismissAllNotificationsAsync();
+            await Notifications.cancelAllScheduledNotificationsAsync();
+
+            if (__DEV__) console.log(`[NotificationService] 🧹 Wiped all delivered and scheduled OS notifications.`);
+
+            let scheduledCount = 0;
+            const now = new Date();
+
+            // 2. Iterate only the tasks visible on this specific day's UI
+            for (const item of items) {
+                // Skip headers, completed items, or items without time/reminders
+                // CalendarItem uses 'isCompleted'
+                if (
+                    item.type === 'header' ||
+                    item.isCompleted ||
+                    !item.reminderEnabled ||
+                    !item.reminderTime
+                ) {
+                    continue;
+                }
+
+                // 3. Time-Only Trigger Logic: 
+                // We only care about the TIME it's supposed to ring Today.
+                const timeParts = item.reminderTime.split(':').map(Number);
+                if (timeParts.length !== 2) continue;
+                const [hours, minutes] = timeParts;
+
+                // Create a target date for TODAY at the specified reminder time
+                let targetDate = new Date();
+                targetDate.setHours(hours, minutes, 0, 0);
+
+                // 4. Fire if the time hasn't happened yet today
+                if (targetDate.getTime() > now.getTime()) {
+                    await Notifications.scheduleNotificationAsync({
+                        identifier: item.id,
+                        content: {
+                            title: "Reminder: " + item.title,
+                            body: `It's time to work on "${item.title}"`,
+                            sound: true,
+                            data: { taskId: item.originalTaskId || item.id },
+                        },
+                        trigger: {
+                            type: Notifications.SchedulableTriggerInputTypes.DATE,
+                            date: targetDate,
+                        },
+                    });
+                    scheduledCount++;
+                    if (__DEV__) console.log(`[NotificationService] 🎯 Synced reminder for "${item.title}" at ${targetDate.toLocaleTimeString()}`);
+                }
+            }
+
+            if (__DEV__) console.log(`[NotificationService] ✅ Sync Complete. ${scheduledCount} active notifications scheduled for today.`);
+        } catch (e) {
+            console.error("[NotificationService] Failed to sync today's notifications", e);
         }
     }
 };

@@ -1,10 +1,10 @@
-import { useRef, useMemo, useCallback, useState } from 'react';
+import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import { View, Modal, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-// Components
+import { NotificationService } from '../src/services/notifications';
 import { TaskListHeader } from '../src/components/TaskListHeader';
 import { TaskListSection } from '../src/features/home/components/TaskListSection';
 import TaskEditDrawer from '../src/components/TaskEditDrawer';
@@ -14,6 +14,7 @@ import DurationPickerModal from '../src/components/DurationPickerModal';
 import RecurrencePickerModal from '../src/components/RecurrencePickerModal';
 import TimePickerModal from '../src/components/TimePickerModal';
 import ColorSettingsModal from '../src/components/ColorSettingsModal';
+import { FeatureKey } from '../src/components/editor/constants';
 import { OrganizeMenu } from '../src/components/OrganizeMenu';
 import RemindersManagerModal from '../src/components/RemindersManagerModal';
 import { TaskQuickAdd } from '../src/components/TaskQuickAdd';
@@ -34,6 +35,11 @@ import { toISODateString } from '../src/utils/dateHelpers';
 import { VIEW_CONFIG } from '../src/constants/theme';
 import { styles } from '../src/styles/taskListStyles';
 
+const formatDateShort = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
+};
+
 export default function TaskListScreen() {
     const flashListRef = useRef<any>(null);
 
@@ -51,6 +57,14 @@ export default function TaskListScreen() {
     const calendarItems = useMemo(() => {
         return RecurrenceEngine.generateCalendarItems(tasks, viewStartDate, VIEW_CONFIG[homeState.viewMode].days);
     }, [tasks, viewStartDate, homeState.viewMode]);
+
+    // 5b. Permanent "Today" Computation for Notifications
+    // We must calculate the real-world "Today" regardless of what day the 
+    // user is currently looking at in the UI, to keep the OS sync accurate.
+    const realWorldToday = toISODateString(new Date());
+    const todayItems = useMemo(() => {
+        return RecurrenceEngine.generateCalendarItems(tasks, realWorldToday, 1);
+    }, [tasks, realWorldToday]);
 
     // Use calendarItems (which include ghost/recurring instances) for Sprint Mode
     // This ensures that if a user selects a recurring instance, useSprintMode finds it.
@@ -79,7 +93,6 @@ export default function TaskListScreen() {
         setEditingSubtask: ui.setEditingSubtask
     });
 
-    // 4. Effects
     useFocusEffect(
         useCallback(() => {
             refresh();
@@ -88,10 +101,19 @@ export default function TaskListScreen() {
         }, [refresh])
     );
 
-
+    // 4b. Global UI Notification Sync
+    // Simply observe the true "Today" array and sync the OS notifications perfectly.
+    useEffect(() => {
+        // Debounce by 500ms so rapid typing/swiping doesn't spam the OS register
+        const timer = setTimeout(() => {
+            const taskOnlyItems = todayItems.filter(item => item.type !== 'header');
+            NotificationService.syncTodayNotifications(taskOnlyItems as any[]);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [todayItems]);
 
     // 6. Local Handlers (Bridging)
-    const handleOpenAddDrawer = (feature?: any) => {
+    const handleOpenAddDrawer = (feature?: FeatureKey) => {
         // Logic to setup temp task and open drawer
         // This was previously in openAddDrawer
         // We can create a temp task here or inside the drawer component?
@@ -109,6 +131,11 @@ export default function TaskListScreen() {
         };
         ui.setEditingTask(tempTask);
         ui.setIsDrawerVisible(true);
+        if (feature) {
+            ui.setInitialActiveFeature(feature);
+        } else {
+            ui.setInitialActiveFeature(null);
+        }
         form.setAddingTaskForDate(null);
         form.setAddingSubtaskToParentId(null);
     };
@@ -216,7 +243,7 @@ export default function TaskListScreen() {
                 onOpenRecurrence={() => handleOpenAddDrawer('recurrence')}
                 onOpenReminder={() => handleOpenAddDrawer('reminder')}
                 onOpenProperties={() => handleOpenAddDrawer('properties')}
-                deadline={form.newTaskDeadline}
+                deadline={form.newTaskDeadline ? formatDateShort(form.newTaskDeadline) : null}
                 onClearDeadline={() => form.setNewTaskDeadline(null)}
                 estimatedTime={form.newTaskEstimatedTime}
                 onClearEstimatedTime={() => form.setNewTaskEstimatedTime(null)}
@@ -227,6 +254,7 @@ export default function TaskListScreen() {
             {/* Modals & Drawers */}
             <TaskEditDrawer
                 visible={ui.isDrawerVisible}
+                initialActiveFeature={ui.initialActiveFeature}
                 task={ui.editingSubtask ? (ui.editingSubtask.subtask as any) : ui.editingTask}
                 onSave={ui.editingSubtask || form.addingSubtaskToParentId
                     ? (data: any) => creation.saveSubtask(data, ui.editingSubtask, form.addingSubtaskToParentId)

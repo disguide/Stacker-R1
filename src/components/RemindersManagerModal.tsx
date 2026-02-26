@@ -57,28 +57,51 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
     // Filter for Active Reminders for TODAY
     const activeTasks = useMemo(() => {
         const today = toISODateString(new Date());
-        return tasks
-            .filter(t => {
-                // Hide completed tasks — check both legacy boolean AND completedDates array
-                const isCompletedToday = Array.isArray(t.completedDates) && t.completedDates.includes(t.date || today);
-                const isCompletedLegacy = !!(t as any).completed;
-                if (isCompletedToday || isCompletedLegacy) return false;
 
-                // For recurring tasks, also check if completed TODAY specifically
-                if (t.rrule && Array.isArray(t.completedDates) && t.completedDates.includes(today)) {
-                    return false;
+        // Step 1: Filter out completed or non-reminder tasks
+        const validTasks = tasks.filter(t => {
+            // Hide completed tasks — check both legacy boolean AND completedDates array
+            const isCompletedToday = Array.isArray(t.completedDates) && t.completedDates.includes(t.date || today);
+            const isCompletedLegacy = !!(t as any).completed;
+            if (isCompletedToday || isCompletedLegacy) return false;
+
+            // For recurring tasks, also check if completed TODAY specifically
+            if (t.rrule && Array.isArray(t.completedDates) && t.completedDates.includes(today)) {
+                return false;
+            }
+
+            const hasReminderConfig = t.reminderTime || (t.reminderOffset !== undefined && t.reminderOffset !== null);
+            return !!hasReminderConfig;
+        });
+
+        // Step 2: Semantic Deduplication (Hide the Database Clones)
+        // If the Rollover System previously created multiple overdue instances of the same task,
+        // we only want to show the ONE most recent version in this list.
+        const semanticMap = new Map<string, Task>();
+
+        validTasks.forEach(task => {
+            const masterId = task.originalTaskId || task.id;
+
+            if (!semanticMap.has(masterId)) {
+                semanticMap.set(masterId, task);
+            } else {
+                const existing = semanticMap.get(masterId)!;
+                // Keep the one with the latest date
+                const existingDate = existing.date || '';
+                const newDate = task.date || '';
+                if (newDate > existingDate) {
+                    semanticMap.set(masterId, task);
                 }
+            }
+        });
 
-                const hasReminderConfig = t.reminderTime || (t.reminderOffset !== undefined && t.reminderOffset !== null);
-                return !!hasReminderConfig;
-            })
-            .sort((a, b) => {
-                // Sort by Date then Time
-                const dateA = a.reminderDate || a.date;
-                const dateB = b.reminderDate || b.date;
-                if (dateA !== dateB) return dateA.localeCompare(dateB);
-                return (a.reminderTime || '').localeCompare(b.reminderTime || '');
-            });
+        // Step 3: Sort Date then Time
+        return Array.from(semanticMap.values()).sort((a, b) => {
+            const dateA = a.reminderDate || a.date;
+            const dateB = b.reminderDate || b.date;
+            if (dateA !== dateB) return dateA.localeCompare(dateB);
+            return (a.reminderTime || '').localeCompare(b.reminderTime || '');
+        });
     }, [tasks]);
 
     // Group tasks into sections

@@ -196,13 +196,19 @@ export default function TaskEditDrawer({
                 // Note: Reminder state is handled by useTaskReminders hook
 
                 setActiveFeature(initialActiveFeature || null);
-                // Slide up
-                panY.setValue(SCREEN_HEIGHT);
-                Animated.spring(panY, {
-                    toValue: 0,
-                    useNativeDriver: true,
-                    bounciness: 0,
-                }).start();
+
+                if (initialActiveFeature) {
+                    // Bypass drawer animation completely when opening straight directly to Carousel
+                    panY.setValue(0);
+                } else {
+                    // Slide up normally for standard Edit mode
+                    panY.setValue(SCREEN_HEIGHT);
+                    Animated.spring(panY, {
+                        toValue: 0,
+                        useNativeDriver: true,
+                        bounciness: 0,
+                    }).start();
+                }
             } else {
                 // Same task updated (e.g. from calendar/timer callback)
                 // Only update fields if they changed externally
@@ -243,65 +249,44 @@ export default function TaskEditDrawer({
     }, [visible, task]);
 
     const handleSave = () => {
-        // 1. Save Data Immediately (if valid)
-        if (task && title.trim()) {
-            // Determine seriesId logic for edits:
-            // - If task already has seriesId, keep it.
-            // - If task gets NEW recurrence (and didn't have seriesId), generate one.
-            // - If recurrence is removed, maybe remove seriesId? (Optional, but keeps data clean)
+        if (!task) return;
 
-            let finalSeriesId = task.seriesId;
-            if (recurrence && !finalSeriesId) {
-                finalSeriesId = `series_${task.id}`;
-            }
-
-            onSave({
-                ...task,
-                title: title.trim(),
-                deadline: deadline || undefined,
-                estimatedTime: estimatedTime || undefined,
-                recurrence: recurrence || undefined,
-                completed: completed,
-
-                subtasks: task.subtasks, // Preserve existing subtasks
-                color: color,
-                type: taskType,
-                importance: importance, // Include importance
-
-
-                // Persist Reminder State
-                reminderOffset: reminderOffset !== null ? reminderOffset : undefined,
-                reminderTime: reminderTime || undefined,
-                reminderEnabled: reminderEnabled,
-
-                seriesId: finalSeriesId,
-            });
-        } else if (task && !title.trim()) {
-            // Warn user if they have other data but empty title
-            const hasOtherData = deadline || estimatedTime || recurrence || color || (importance && importance > 0);
-            if (hasOtherData) {
-                Alert.alert(
-                    'Missing Title',
-                    'Your task needs a title. Go back to add one, or discard all changes.',
-                    [
-                        { text: 'Go Back', style: 'cancel' },
-                        {
-                            text: 'Discard', style: 'destructive', onPress: () => {
-                                Animated.timing(panY, {
-                                    toValue: SCREEN_HEIGHT,
-                                    duration: 250,
-                                    useNativeDriver: true,
-                                }).start(() => {
-                                    setIsRendered(false);
-                                    onClose();
-                                });
-                            }
-                        }
-                    ]
-                );
-                return; // Don't animate out yet
-            }
+        let finalTitle = title.trim();
+        if (!finalTitle) {
+            finalTitle = "Untitled Task"; // Auto-generate default title
         }
+
+        // Determine seriesId logic for edits:
+        // - If task already has seriesId, keep it.
+        // - If task gets NEW recurrence (and didn't have seriesId), generate one.
+        // - If recurrence is removed, maybe remove seriesId? (Optional, but keeps data clean)
+
+        let finalSeriesId = task.seriesId;
+        if (recurrence && !finalSeriesId) {
+            finalSeriesId = `series_${task.id}`;
+        }
+
+        onSave({
+            ...task,
+            title: finalTitle,
+            deadline: deadline || undefined,
+            estimatedTime: estimatedTime || undefined,
+            recurrence: recurrence || undefined,
+            completed: completed,
+
+            subtasks: task.subtasks, // Preserve existing subtasks
+            color: color,
+            type: taskType,
+            importance: importance, // Include importance
+
+
+            // Persist Reminder State
+            reminderOffset: reminderOffset !== null ? reminderOffset : undefined,
+            reminderTime: reminderTime || undefined,
+            reminderEnabled: reminderEnabled,
+
+            seriesId: finalSeriesId,
+        });
 
         // 2. Animate Out (ALWAYS)
         Animated.timing(panY, {
@@ -359,9 +344,10 @@ export default function TaskEditDrawer({
 
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.absoluteContainer}
             pointerEvents={visible ? "auto" : "none"}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? -34 : 0}
         >
             <Animated.View
                 style={[styles.backdrop, {
@@ -376,215 +362,216 @@ export default function TaskEditDrawer({
             </Animated.View>
 
             <Animated.View
-                style={[styles.drawer, { transform: [{ translateY: panY }] }]}
+                style={[styles.drawer, { transform: [{ translateY: panY }] }, activeFeature ? { backgroundColor: 'transparent', borderTopWidth: 0, minHeight: 0 } : {}]}
                 {...panResponder.panHandlers}
             >
-                {/* Handle Bar */}
-                <View style={styles.handleContainer}>
-                    <View style={styles.handle} />
-                </View>
-
-                {/* Content */}
-                <ScrollView
-                    style={styles.content}
-                    contentContainerStyle={{ paddingBottom: 40 }}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                >
-                    <View style={styles.header}>
-                        {/* Complete Toggle */}
-                        <TouchableOpacity
-                            style={[styles.headerCheckbox, completed && styles.headerCheckboxChecked]}
-                            onPress={() => setCompleted(!completed)}
+                {!activeFeature && (
+                    <>
+                        {/* Handle Bar */}
+                        <View style={styles.handleContainer}>
+                            <View style={styles.handle} />
+                        </View>
+                        <ScrollView
+                            style={styles.content}
+                            contentContainerStyle={{ paddingBottom: 40 }}
+                            keyboardShouldPersistTaps="always"
+                            showsVerticalScrollIndicator={false}
                         >
-                            {completed && <View style={styles.headerCheckboxInner} />}
-                        </TouchableOpacity>
-
-                        <Text style={styles.title}>{task?.id.startsWith('new_temp_') ? 'New Task' : 'Edit Task'}</Text>
-
-                        <TouchableOpacity onPress={handleSave}>
-                            <Text style={styles.saveButton}>Done</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    <TextInput
-                        style={styles.input}
-                        value={title}
-                        onChangeText={setTitle}
-                        placeholder="Task Name"
-                        placeholderTextColor={THEME.textSecondary}
-                    />
-
-                    {/* Feature Grid (2x2) */}
-                    <View style={styles.featureGrid}>
-                        {/* Deadline Card */}
-                        <TouchableOpacity
-                            style={styles.featureCardGrid}
-                            onPress={() => setActiveFeature('deadline')}
-                        >
-                            <View style={styles.featureIconContainer}>
-                                <MaterialCommunityIcons name="calendar-clock" size={20} color={deadline ? THEME.textPrimary : THEME.textSecondary} />
-                            </View>
-                            <Text style={styles.featureLabel}>Deadline</Text>
-                            <Text style={[styles.featureValue, deadline && styles.featureValueActive]} numberOfLines={1}>
-                                {deadline
-                                    ? deadline.match(/^\d{2}:\d{2}$/)
-                                        ? formatTime(deadline)
-                                        : formatDateShort(deadline)
-                                    : 'None'}
-                            </Text>
-                            {deadline && (
+                            <View style={styles.header}>
+                                {/* Complete Toggle */}
                                 <TouchableOpacity
-                                    style={styles.featureClearHtml}
-                                    onPress={() => setDeadline(null)}
-                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    style={[styles.headerCheckbox, completed && styles.headerCheckboxChecked]}
+                                    onPress={() => setCompleted(!completed)}
                                 >
-                                    <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
+                                    {completed && <View style={styles.headerCheckboxInner} />}
                                 </TouchableOpacity>
-                            )}
-                        </TouchableOpacity>
 
-                        {/* Estimate Card */}
-                        <TouchableOpacity
-                            style={styles.featureCardGrid}
-                            onPress={() => setActiveFeature('estimate')}
-                        >
-                            <View style={styles.featureIconContainer}>
-                                <MaterialCommunityIcons name="timer-outline" size={20} color={estimatedTime ? THEME.textPrimary : THEME.textSecondary} />
+                                <Text style={styles.title}>{task?.id.startsWith('new_temp_') ? 'New Task' : 'Edit Task'}</Text>
+
+                                <TouchableOpacity onPress={handleSave}>
+                                    <Text style={styles.saveButton}>Done</Text>
+                                </TouchableOpacity>
                             </View>
-                            <Text style={styles.featureLabel}>Estimate</Text>
-                            <Text style={[styles.featureValue, estimatedTime && styles.featureValueActive]} numberOfLines={1}>
-                                {estimatedTime || 'None'}
-                            </Text>
-                            {estimatedTime && (
-                                <TouchableOpacity
-                                    style={styles.featureClearHtml}
-                                    onPress={() => setEstimatedTime(null)}
-                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                >
-                                    <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
-                                </TouchableOpacity>
-                            )}
-                        </TouchableOpacity>
 
-                        {/* Tags / Properties Card */}
-                        <TouchableOpacity
-                            style={[styles.featureCardGrid, color ? { borderColor: color, backgroundColor: color + '10' } : {}]}
-                            onPress={() => setActiveFeature('properties')}
-                        >
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-                                <View style={styles.featureIconContainer}>
-                                    <MaterialCommunityIcons
-                                        name={
-                                            taskType === 'event' ? 'calendar' :
-                                                taskType === 'habit' ? 'refresh' :
-                                                    taskType === 'chore' ? 'broom' :
-                                                        taskType === 'work' ? 'briefcase' :
-                                                            'checkbox-marked-outline'
-                                        }
-                                        size={20}
-                                        color={color || THEME.textPrimary}
-                                    />
-                                </View>
-                                {(importance || 0) > 0 && (
-                                    <View style={{
-                                        backgroundColor: importance === 3 ? '#FECACA' : importance === 2 ? '#FDE68A' : '#E9D5FF',
-                                        paddingHorizontal: 6,
-                                        paddingVertical: 2,
-                                        borderRadius: 4,
-                                        alignSelf: 'flex-start'
-                                    }}>
-                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#333' }}>
-                                            {importance === 1 ? '!' : importance === 2 ? '!!' : '!!!'}
-                                        </Text>
+                            <TextInput
+                                style={styles.input}
+                                value={title}
+                                onChangeText={setTitle}
+                                placeholder="Task Name"
+                                placeholderTextColor={THEME.textSecondary}
+                            />
+
+                            {/* Feature Grid (2x2) */}
+                            <View style={styles.featureGrid}>
+                                {/* Deadline Card */}
+                                <TouchableOpacity
+                                    style={styles.featureCardGrid}
+                                    onPress={() => setActiveFeature('deadline')}
+                                >
+                                    <View style={styles.featureIconContainer}>
+                                        <MaterialCommunityIcons name="calendar-clock" size={20} color={deadline ? THEME.textPrimary : THEME.textSecondary} />
                                     </View>
-                                )}
-                            </View>
-                            <Text style={styles.featureLabel}>Tags</Text>
-                            <Text style={[styles.featureValue, { textTransform: 'capitalize' }]} numberOfLines={1}>
-                                {taskType || 'Task'}
-                            </Text>
-                            {color && <View style={{ position: 'absolute', bottom: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />}
-                        </TouchableOpacity>
-
-                        {/* Recurrence Card */}
-                        <TouchableOpacity
-                            style={styles.featureCardGrid}
-                            onPress={() => setActiveFeature('recurrence')}
-                        >
-                            <View style={styles.featureIconContainer}>
-                                <MaterialCommunityIcons name="repeat" size={20} color={recurrence ? THEME.textPrimary : THEME.textSecondary} />
-                            </View>
-                            <Text style={styles.featureLabel}>Repeat</Text>
-                            <Text style={[styles.featureValue, recurrence && styles.featureValueActive]} numberOfLines={1}>
-                                {recurrence ? (recurrence.frequency.charAt(0).toUpperCase() + recurrence.frequency.slice(1)) : 'Never'}
-                            </Text>
-                            {recurrence && (
-                                <TouchableOpacity
-                                    style={styles.featureClearHtml}
-                                    onPress={() => setRecurrence(null)}
-                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                >
-                                    <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
+                                    <Text style={styles.featureLabel}>Deadline</Text>
+                                    <Text style={[styles.featureValue, deadline && styles.featureValueActive]} numberOfLines={1}>
+                                        {deadline
+                                            ? deadline.match(/^\d{2}:\d{2}$/)
+                                                ? formatTime(deadline)
+                                                : formatDateShort(deadline)
+                                            : 'None'}
+                                    </Text>
+                                    {deadline && (
+                                        <TouchableOpacity
+                                            style={styles.featureClearHtml}
+                                            onPress={() => setDeadline(null)}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                        >
+                                            <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
+                                        </TouchableOpacity>
+                                    )}
                                 </TouchableOpacity>
-                            )}
-                        </TouchableOpacity>
 
-                        {/* Reminder Card */}
-                        <TouchableOpacity
-                            style={styles.featureCardGrid}
-                            onPress={() => setActiveFeature('reminder')}
-                        >
-                            <View style={styles.featureIconContainer}>
-                                <MaterialCommunityIcons name="bell-outline" size={20} color={reminderOffset !== null && reminderEnabled ? THEME.textPrimary : THEME.textSecondary} />
+                                {/* Estimate Card */}
+                                <TouchableOpacity
+                                    style={styles.featureCardGrid}
+                                    onPress={() => setActiveFeature('estimate')}
+                                >
+                                    <View style={styles.featureIconContainer}>
+                                        <MaterialCommunityIcons name="timer-outline" size={20} color={estimatedTime ? THEME.textPrimary : THEME.textSecondary} />
+                                    </View>
+                                    <Text style={styles.featureLabel}>Estimate</Text>
+                                    <Text style={[styles.featureValue, estimatedTime && styles.featureValueActive]} numberOfLines={1}>
+                                        {estimatedTime || 'None'}
+                                    </Text>
+                                    {estimatedTime && (
+                                        <TouchableOpacity
+                                            style={styles.featureClearHtml}
+                                            onPress={() => setEstimatedTime(null)}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                        >
+                                            <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
+                                        </TouchableOpacity>
+                                    )}
+                                </TouchableOpacity>
+
+                                {/* Tags / Properties Card */}
+                                <TouchableOpacity
+                                    style={[styles.featureCardGrid, color ? { borderColor: color, backgroundColor: color + '10' } : {}]}
+                                    onPress={() => setActiveFeature('properties')}
+                                >
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                                        <View style={styles.featureIconContainer}>
+                                            <MaterialCommunityIcons
+                                                name={
+                                                    taskType === 'event' ? 'calendar' :
+                                                        taskType === 'habit' ? 'refresh' :
+                                                            taskType === 'chore' ? 'broom' :
+                                                                taskType === 'work' ? 'briefcase' :
+                                                                    'checkbox-marked-outline'
+                                                }
+                                                size={20}
+                                                color={color || THEME.textPrimary}
+                                            />
+                                        </View>
+                                        {(importance || 0) > 0 && (
+                                            <View style={{
+                                                backgroundColor: importance === 3 ? '#FECACA' : importance === 2 ? '#FDE68A' : '#E9D5FF',
+                                                paddingHorizontal: 6,
+                                                paddingVertical: 2,
+                                                borderRadius: 4,
+                                                alignSelf: 'flex-start'
+                                            }}>
+                                                <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#333' }}>
+                                                    {importance === 1 ? '!' : importance === 2 ? '!!' : '!!!'}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text style={styles.featureLabel}>Tags</Text>
+                                    <Text style={[styles.featureValue, { textTransform: 'capitalize' }]} numberOfLines={1}>
+                                        {taskType || 'Task'}
+                                    </Text>
+                                    {color && <View style={{ position: 'absolute', bottom: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />}
+                                </TouchableOpacity>
+
+                                {/* Recurrence Card */}
+                                <TouchableOpacity
+                                    style={styles.featureCardGrid}
+                                    onPress={() => setActiveFeature('recurrence')}
+                                >
+                                    <View style={styles.featureIconContainer}>
+                                        <MaterialCommunityIcons name="repeat" size={20} color={recurrence ? THEME.textPrimary : THEME.textSecondary} />
+                                    </View>
+                                    <Text style={styles.featureLabel}>Repeat</Text>
+                                    <Text style={[styles.featureValue, recurrence && styles.featureValueActive]} numberOfLines={1}>
+                                        {recurrence ? (recurrence.frequency.charAt(0).toUpperCase() + recurrence.frequency.slice(1)) : 'Never'}
+                                    </Text>
+                                    {recurrence && (
+                                        <TouchableOpacity
+                                            style={styles.featureClearHtml}
+                                            onPress={() => setRecurrence(null)}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                        >
+                                            <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
+                                        </TouchableOpacity>
+                                    )}
+                                </TouchableOpacity>
+
+                                {/* Reminder Card */}
+                                <TouchableOpacity
+                                    style={styles.featureCardGrid}
+                                    onPress={() => setActiveFeature('reminder')}
+                                >
+                                    <View style={styles.featureIconContainer}>
+                                        <MaterialCommunityIcons name="bell-outline" size={20} color={reminderOffset !== null && reminderEnabled ? THEME.textPrimary : THEME.textSecondary} />
+                                    </View>
+                                    <Text style={styles.featureLabel}>Remind</Text>
+                                    <Text style={[
+                                        styles.featureValue,
+                                        reminderOffset !== null && reminderEnabled && styles.featureValueActive,
+                                        !reminderEnabled && { color: THEME.textSecondary, fontWeight: 'normal' }
+                                    ]} numberOfLines={1}>
+                                        {reminderOffset !== null
+                                            ? (
+                                                <>
+                                                    {formatTime(reminderTime || '09:00')}
+                                                </>
+                                            )
+                                            : 'None'}
+                                    </Text>
+                                    {reminderOffset !== null && (
+                                        <View style={{ position: 'absolute', top: 8, right: 8, padding: 4 }}>
+                                            <Pressable
+                                                onPress={(e) => {
+                                                    e.stopPropagation();
+                                                    clearReminder();
+                                                }}
+                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            >
+                                                <Ionicons name="close" size={16} color={THEME.textSecondary} />
+                                            </Pressable>
+                                        </View>
+                                    )}
+
+                                    <View style={{ position: 'absolute', bottom: 10, right: 10 }}>
+                                        <Switch
+                                            value={reminderEnabled}
+                                            onValueChange={toggleReminder}
+                                            trackColor={{ false: "#E2E8F0", true: "#BFDBFE" }}
+                                            thumbColor={reminderEnabled ? "#2563EB" : "#F1F5F9"}
+                                            style={{ transform: [{ scale: 0.7 }] }}
+                                        />
+                                    </View>
+                                </TouchableOpacity>
                             </View>
-                            <Text style={styles.featureLabel}>Remind</Text>
-                            <Text style={[
-                                styles.featureValue,
-                                reminderOffset !== null && reminderEnabled && styles.featureValueActive,
-                                !reminderEnabled && { color: THEME.textSecondary, fontWeight: 'normal' }
-                            ]} numberOfLines={1}>
-                                {reminderOffset !== null
-                                    ? (
-                                        <>
-                                            {formatTime(reminderTime || '09:00')}
-                                        </>
-                                    )
-                                    : 'None'}
-                            </Text>
-                            {reminderOffset !== null && (
-                                <View style={{ position: 'absolute', top: 8, right: 8, padding: 4 }}>
-                                    <Pressable
-                                        onPress={(e) => {
-                                            e.stopPropagation();
-                                            clearReminder();
-                                        }}
-                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                    >
-                                        <Ionicons name="close" size={16} color={THEME.textSecondary} />
-                                    </Pressable>
-                                </View>
-                            )}
-
-                            <View style={{ position: 'absolute', bottom: 10, right: 10 }}>
-                                <Switch
-                                    value={reminderEnabled}
-                                    onValueChange={toggleReminder}
-                                    trackColor={{ false: "#E2E8F0", true: "#BFDBFE" }}
-                                    thumbColor={reminderEnabled ? "#2563EB" : "#F1F5F9"}
-                                    style={{ transform: [{ scale: 0.7 }] }}
-                                />
-                            </View>
-                        </TouchableOpacity>
-                    </View>
 
 
 
 
 
 
-
-                </ScrollView>
+                        </ScrollView>
+                    </>
+                )}
             </Animated.View>
 
             {/* Feature Carousel (replaces individual modals) */}

@@ -22,6 +22,7 @@ export const useTaskUI = () => {
 
     // Task Edit Drawer
     const [isDrawerVisible, setIsDrawerVisible] = useState(false);
+    const [initialActiveFeature, setInitialActiveFeature] = useState<any>(null); // Type should match FeatureKey
     const [editingTask, setEditingTask] = useState<any>(null); // Using any temporarily to match existing usage (extended task)
     const [editingSubtask, setEditingSubtask] = useState<{ parentId: string, subtask: Subtask } | null>(null);
 
@@ -52,6 +53,7 @@ export const useTaskUI = () => {
 
         // Drawer
         isDrawerVisible, setIsDrawerVisible,
+        initialActiveFeature, setInitialActiveFeature,
         editingTask, setEditingTask,
         editingSubtask, setEditingSubtask,
 

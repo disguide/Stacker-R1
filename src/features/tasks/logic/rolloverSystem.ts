@@ -71,6 +71,9 @@ export const RolloverSystem = {
 
                     const newExceptions: string[] = [];
                     let hasChanges = false;
+                    let totalDaysRolled = 0;
+                    let latestMissedDateObj: Date | null = null;
+                    let latestDateString: string | null = null;
 
                     instances.forEach(dateObj => {
                         const dateString = toISODateString(dateObj);
@@ -89,10 +92,21 @@ export const RolloverSystem = {
                         hasChanges = true;
                         newExceptions.push(dateString);
 
-                        const diffTime = Math.abs(now.getTime() - dateObj.getTime());
-                        const daysAdded = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        // Accumulate the days rolled for this specific missed occurrence. 
+                        // For example, if you missed Monday (rolled 1 day to Tuesday) and missed Tuesday (0 days rolled), 
+                        // we generally want to represent the total "weight" of the missed streak.
+                        // However, simply accumulating `diffTime` for every instance creates massive numbers (e.g. 4+3+2+1).
+                        // Instead, we just want to know how many *instances* were missed to represent the streak.
+                        totalDaysRolled += 1;
 
-                        // Clone Subtasks (Reset completion)
+                        // Keep track of the most recent missed occurrence to inherit its specific subtasks
+                        latestMissedDateObj = dateObj;
+                        latestDateString = dateString;
+                    });
+
+                    // CREATE EXACTLY ONE CONSOLIDATED TASK FOR ALL MISSED INSTANCES
+                    if (hasChanges && latestDateString && latestMissedDateObj) {
+                        // Clone Subtasks (Reset completion) from the most recent missed instance
                         const freshSubtasks: Subtask[] = task.subtasks?.map(s => ({
                             ...s,
                             id: uuid(),
@@ -100,33 +114,32 @@ export const RolloverSystem = {
                             progress: 0
                         })) || [];
 
-                        // Check for instance specific data
+                        // Check for instance specific data on the most recent missed instance
                         let specificSubtasks: Subtask[] = freshSubtasks;
-                        if (task.instanceSubtasks && task.instanceSubtasks[dateString]) {
+                        if (task.instanceSubtasks && task.instanceSubtasks[latestDateString]) {
                             // Use slice/map to clone
-                            specificSubtasks = task.instanceSubtasks[dateString].map(s => ({ ...s }));
+                            specificSubtasks = task.instanceSubtasks[latestDateString].map(s => ({ ...s, completed: false, progress: 0 }));
                         }
 
-                        // Create the new Task
+                        // Create the SINGLE new compiled Task
                         const newTask: Task = {
                             ...task,
                             id: uuid(), // NEW ID
                             originalTaskId: task.id, // Link back
                             date: todayStr, // Force to Today
-                            rrule: undefined, // REMOVE Recurrence
+                            rrule: undefined, // REMOVE Recurrence, this is now a static single task
                             recurrence: undefined,
                             completedDates: [],
                             exceptionDates: [],
                             instanceProgress: undefined,
                             instanceSubtasks: undefined,
-                            daysRolled: daysAdded,
+                            daysRolled: totalDaysRolled, // Weight of the streak
                             subtasks: specificSubtasks,
                         };
 
                         creations.push(newTask);
-                    });
 
-                    if (hasChanges) {
+                        // Update the master task to record that we processed these exceptions
                         const existingExceptions = task.exceptionDates || [];
                         updates.push({
                             ...task,
