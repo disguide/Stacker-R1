@@ -23,7 +23,7 @@ export interface SprintSettings {
 
 export type GoalCategory = 'traits' | 'habits' | 'environment' | 'outcomes';
 
-export type GoalEventType = 'added' | 'achieved' | 'cancelled' | 'modified';
+export type GoalEventType = 'added' | 'achieved' | 'modified';
 
 export interface GoalEvent {
     id: string;
@@ -35,7 +35,6 @@ export interface GoalItem {
     id: string;
     title: string;
     completed: boolean;
-    cancelled?: boolean;
     createdAt?: string;
     completedAt?: string;
     category?: GoalCategory;

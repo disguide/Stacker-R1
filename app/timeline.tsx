@@ -1,11 +1,9 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { StorageService, UserProfile, GoalItem, GoalEventType } from '../src/services/storage';
-import TaskEditDrawer from '../src/components/TaskEditDrawer';
-import { Task } from '../src/features/tasks/types';
 
 const CATEGORY_COLORS: Record<string, string> = {
     traits: '#8B5CF6',
@@ -15,30 +13,30 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 const FALLBACK_COLOR = '#94A3B8';
 
+// Constants for Proportional Scaling
+const PIXELS_PER_DAY = 50;
+const MIN_GAP = 0;
+const MAX_GAP = 500;
+
 type TLEvent = {
     id: string;
     goalId: string;
     title: string;
     isGoal: boolean;
-    type: GoalEventType | 'present' | 'start';
+    type: GoalEventType | 'present' | 'start' | 'time-jump';
     date: Date;
     color: string;
     goalBase: GoalItem;
+    computedMarginTop?: number;
+    jumpLabel?: string;
 };
 
 export default function TimelineScreen() {
     const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
-    const [editingTask, setEditingTask] = useState<Task | null>(null);
-    const [userColors, setUserColors] = useState<any[]>([]);
+    const [timelineEditTask, setTimelineEditTask] = useState<{ id: string, title: string, category: string, color: string } | null>(null);
 
-    // Load colors for the editor
-    React.useEffect(() => {
-        StorageService.loadUserColors().then((colors: any) => setUserColors(colors));
-    }, []);
-
-    // Load profile
     useFocusEffect(
         useCallback(() => {
             const load = async () => {
@@ -58,11 +56,9 @@ export default function TimelineScreen() {
             ev.type === 'start' ? '#64748B' :
                 ev.type === 'added' ? '#3B82F6' :
                     ev.type === 'modified' ? '#F59E0B' :
-                        ev.type === 'achieved' ? '#10B981' :
-                            ev.type === 'cancelled' ? '#EF4444' : '#94A3B8';
+                        ev.type === 'achieved' ? '#10B981' : '#64748B';
     };
 
-    // Extract all events
     const events = useMemo(() => {
         if (!profile) return [];
         const allGoals = [
@@ -90,24 +86,16 @@ export default function TimelineScreen() {
                 }
             }
 
-            // Always add implicit achieved/cancelled if not found in explicit events
             const hasExplicitAchieved = g.events?.some(e => e.type === 'achieved');
             if (g.completed && g.completedAt && !hasExplicitAchieved) {
                 evs.push({ id: `ach-${g.id}`, goalId: g.id, title: g.title, isGoal: g.isGoal, type: 'achieved', date: new Date(g.completedAt), color, goalBase: g });
             }
-
-            const hasExplicitCancelled = g.events?.some(e => e.type === 'cancelled');
-            if (g.cancelled && !hasExplicitCancelled) {
-                evs.push({ id: `can-${g.id}`, goalId: g.id, title: g.title, isGoal: g.isGoal, type: 'cancelled', date: new Date(), color, goalBase: g });
-            }
         }
 
-        // Sort completely ascending for chronological list (oldest first)
         evs.sort((a, b) => a.date.getTime() - b.date.getTime());
 
         const earliestDate = evs.length > 0 ? evs[0].date : new Date();
 
-        // Add Start Event at TOP (index 0)
         const startDate = new Date(earliestDate);
         startDate.setMinutes(startDate.getMinutes() - 1);
         evs.unshift({
@@ -121,7 +109,6 @@ export default function TimelineScreen() {
             goalBase: {} as any
         });
 
-        // Add Present Event at BOTTOM (last index)
         evs.push({
             id: 'timeline-present',
             goalId: 'none',
@@ -133,86 +120,127 @@ export default function TimelineScreen() {
             goalBase: {} as any
         });
 
-        return evs;
+        const finalEvs: TLEvent[] = [];
+        for (let i = 0; i < evs.length; i++) {
+            const currentEv = evs[i];
+            currentEv.computedMarginTop = MIN_GAP;
+
+            if (i > 0) {
+                const prevEv = evs[i - 1];
+                const msDiff = currentEv.date.getTime() - prevEv.date.getTime();
+                const daysDiff = msDiff / (1000 * 60 * 60 * 24);
+
+                const isSameCalendarDay = currentEv.date.getFullYear() === prevEv.date.getFullYear() &&
+                    currentEv.date.getMonth() === prevEv.date.getMonth() &&
+                    currentEv.date.getDate() === prevEv.date.getDate();
+
+                if (isSameCalendarDay) {
+                    currentEv.computedMarginTop = MIN_GAP;
+                } else if (daysDiff > 0.001) {
+                    const rawGap = Math.floor(daysDiff * PIXELS_PER_DAY);
+                    let finalGap = Math.max(MIN_GAP, rawGap);
+
+                    if (finalGap > MAX_GAP) {
+                        finalGap = MAX_GAP;
+                        const jumpLabel = daysDiff >= 30
+                            ? `${Math.floor(daysDiff / 30)} Month${Math.floor(daysDiff / 30) > 1 ? 's' : ''} Later`
+                            : `${Math.floor(daysDiff)} Day${Math.floor(daysDiff) > 1 ? 's' : ''} Later`;
+
+                        finalEvs.push({
+                            id: `jump-${currentEv.id}`,
+                            goalId: 'none',
+                            title: 'Time Jump',
+                            isGoal: false,
+                            type: 'time-jump',
+                            date: new Date(prevEv.date.getTime() + (msDiff / 2)),
+                            color: '#CBD5E1',
+                            goalBase: {} as any,
+                            computedMarginTop: MAX_GAP / 2,
+                            jumpLabel
+                        });
+
+                        currentEv.computedMarginTop = MAX_GAP / 2;
+                    } else {
+                        currentEv.computedMarginTop = finalGap;
+                    }
+                }
+            }
+            finalEvs.push(currentEv);
+        }
+
+        return finalEvs;
     }, [profile]);
 
-    // UI actions
     const deleteEvent = async (goalId: string, eventId: string, type: GoalEventType) => {
         if (!profile) return;
-
         if (eventId.startsWith('add-')) {
             Alert.alert('Cannot Delete', 'To delete the creation event, you must delete the entire goal from the main list.');
             return;
         }
 
-        const np = { ...profile };
-        const updater = (g: GoalItem) => {
-            if (g.id !== goalId) return g;
-            const newEvents = (g.events || []).filter(e => e.id !== eventId);
-            let updates: any = { events: newEvents };
-            if (type === 'achieved') {
-                updates.completed = false;
-                updates.completedAt = undefined;
-            } else if (type === 'cancelled') {
-                updates.cancelled = false;
-            }
-            return { ...g, ...updates };
-        };
+        Alert.alert(
+            'Delete Event?',
+            'Are you sure you want to remove this event from the timeline? This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const np = { ...profile };
+                        const updater = (g: GoalItem) => {
+                            if (g.id !== goalId) return g;
+                            const newEvents = (g.events || []).filter(e => e.id !== eventId);
+                            let updates: any = { events: newEvents };
+                            if (type === 'achieved') {
+                                updates.completed = false;
+                                updates.completedAt = undefined;
+                            }
+                            return { ...g, ...updates };
+                        };
 
-        np.goals = (np.goals || []).map(updater);
-        np.antigoals = (np.antigoals || []).map(updater);
-        setProfile(np);
-        setExpandedId(null);
-        await StorageService.saveProfile(np);
+                        np.goals = (np.goals || []).map(updater);
+                        np.antigoals = (np.antigoals || []).map(updater);
+                        setProfile(np);
+                        setExpandedId(null);
+                        await StorageService.saveProfile(np);
+                    }
+                }
+            ]
+        );
     };
 
-    const handleSaveTask = async (updatedTask: Task) => {
-        if (!profile) return;
+    const handleTimelineSaveTask = async () => {
+        if (!profile || !timelineEditTask) return;
+
+        if (!timelineEditTask.title.trim()) {
+            Alert.alert('Required', 'Please enter a goal title.');
+            return;
+        }
+
         const np = { ...profile };
         const now = new Date().toISOString();
 
         const updater = (g: GoalItem) => {
-            if (g.id !== updatedTask.id) return g;
+            if (g.id !== timelineEditTask.id) return g;
+
+            // Only push a modified event if there were actual changes
+            const hasChanges = g.title !== timelineEditTask.title || g.category !== timelineEditTask.category;
+
             return {
                 ...g,
-                title: updatedTask.title,
-                category: (updatedTask as any).category || g.category,
-                color: updatedTask.color || g.color,
-                events: [...(g.events || []), { id: Date.now().toString(), type: 'modified' as GoalEventType, date: now }]
+                title: timelineEditTask.title,
+                category: timelineEditTask.category as any,
+                color: timelineEditTask.color,
+                events: hasChanges ? [...(g.events || []), { id: Date.now().toString(), type: 'modified' as GoalEventType, date: now }] : g.events
             };
         };
 
         np.goals = (np.goals || []).map(updater);
         np.antigoals = (np.antigoals || []).map(updater);
         setProfile(np);
-        setEditingTask(null);
+        setTimelineEditTask(null);
         await StorageService.saveProfile(np);
-    };
-
-    const markCancelled = (goalId: string, title: string) => {
-        Alert.alert('Cancel Goal', `Mark "${title}" as cancelled?`, [
-            { text: 'Keep It', style: 'cancel' },
-            {
-                text: 'Cancel It', style: 'destructive', onPress: async () => {
-                    if (!profile) return;
-                    const np = { ...profile };
-                    const now = new Date().toISOString();
-                    const updater = (g: GoalItem) => {
-                        if (g.id !== goalId) return g;
-                        return {
-                            ...g,
-                            cancelled: true,
-                            events: [...(g.events || []), { id: Date.now().toString(), type: 'cancelled' as GoalEventType, date: now }]
-                        };
-                    };
-                    np.goals = (np.goals || []).map(updater);
-                    np.antigoals = (np.antigoals || []).map(updater);
-                    setProfile(np);
-                    setExpandedId(null);
-                    await StorageService.saveProfile(np);
-                }
-            },
-        ]);
     };
 
     const renderItem = ({ item, index }: { item: TLEvent; index: number }) => {
@@ -222,96 +250,104 @@ export default function TimelineScreen() {
             item.type === 'start' ? 'Timeline' :
                 item.type === 'added' ? 'Added' :
                     item.type === 'modified' ? 'Reconsidered' :
-                        item.type === 'achieved' ? 'Completed' :
-                            item.type === 'cancelled' ? 'Cancelled' : 'Updated';
+                        item.type === 'achieved' ? 'Completed' : 'Updated';
 
         const isSystemNode = item.type === 'present' || item.type === 'start';
+        const isTimeJump = item.type === 'time-jump';
 
-        const dateStr = item.date.toLocaleDateString([], { month: 'short', day: 'numeric', year: item.date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
-        const timeStr = item.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const fullDateStr = `${dateStr} @ ${timeStr}`;
+        // Unconditional Year Formatting: "23 February 2026"
+        const dateOpts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+        const strippedDateStr = item.date.toLocaleDateString(undefined, dateOpts);
+
+        const dynamicMargin = item.computedMarginTop || 0;
+
+        if (isTimeJump) {
+            return (
+                <View style={[styles.rowContainer, { paddingTop: dynamicMargin }]}>
+                    <View style={styles.trackCol}>
+                        <View style={[styles.mainTrackLine, { borderStyle: 'dashed', backgroundColor: 'transparent', borderColor: '#CBD5E1', borderWidth: 1, top: -dynamicMargin }]} />
+                        <View style={styles.timeJumpPill}>
+                            <Ionicons name="time-outline" size={12} color="#94A3B8" />
+                            <Text style={styles.jumpText}>{item.jumpLabel}</Text>
+                        </View>
+                    </View>
+                    <View style={styles.rightCol} />
+                </View>
+            );
+        }
 
         if (isSystemNode) {
             return (
-                <View style={styles.systemNodeContainer}>
-                    {/* Maintain the vertical connecting track on the left */}
-                    {item.type === 'start' && <View style={[styles.trackLine, { top: 0, height: 28, left: 20 }]} />}
-                    {item.type === 'present' && <View style={[styles.trackLine, { top: 28, bottom: 0, left: 20 }]} />}
-
-                    <View style={styles.systemSeparatorLine} />
-                    <View style={styles.systemDateBubble}>
-                        <Text style={styles.systemDateText}>
-                            {item.title} • {dateStr}
-                        </Text>
+                <View style={[styles.rowContainer, { paddingTop: dynamicMargin }]}>
+                    <View style={styles.trackCol}>
+                        {item.type === 'start' && <View style={[styles.mainTrackLine, { top: 29 }]} />}
+                        {item.type === 'present' && <View style={[styles.mainTrackLine, { top: -dynamicMargin, bottom: undefined, height: dynamicMargin + 29 }]} />}
+                        <View style={[styles.auraNode, { backgroundColor: evColor + '20' }]}>
+                            <View style={[styles.solidDot, { backgroundColor: evColor }]} />
+                        </View>
                     </View>
-                    <View style={styles.systemSeparatorLine} />
+                    <View style={styles.rightCol}>
+                        <Text style={styles.systemTitleText}>{item.title}</Text>
+                    </View>
                 </View>
             );
         }
 
         return (
             <TouchableOpacity
-                activeOpacity={0.6}
-                style={styles.row}
+                activeOpacity={0.8}
+                style={[styles.rowContainer, { paddingTop: dynamicMargin }]}
                 onPress={() => setExpandedId(isExpanded ? null : item.id)}
             >
-                {/* Timeline Track (Left Side) */}
-                <View style={styles.trackContent}>
-                    {/* The continuous line */}
-                    <View style={styles.trackLine} />
-
-                    {/* The node placed at the top of the row to align with the first line of text */}
-                    {isSystemNode ? (
-                        <View style={[styles.trackCapNode, { backgroundColor: evColor }]} />
-                    ) : (
-                        <View style={[styles.trackHollowNode, { borderColor: evColor }]} />
-                    )}
+                <View style={styles.trackCol}>
+                    <View style={[styles.mainTrackLine, { top: -dynamicMargin }]} />
+                    <View style={[styles.auraNode, { backgroundColor: evColor + '25', top: 18 }]}>
+                        <View style={[styles.solidDot, { backgroundColor: evColor }]} />
+                    </View>
                 </View>
 
-                {/* Text Content (Right Side) */}
-                <View style={[styles.textContent, isExpanded && styles.textContentExpanded]}>
-                    <View style={styles.textLine}>
-                        <Text style={[styles.actionWord, { color: evColor }]}>{actionWord} • {fullDateStr}:</Text>
-                        <Text style={[styles.titleText, item.type === 'cancelled' && styles.strike]} numberOfLines={isExpanded ? undefined : 1}>
+                <View style={styles.rightCol}>
+                    <View style={[styles.eventCard, isExpanded && styles.eventCardExpanded]}>
+                        <View style={styles.cardHeader}>
+                            <View style={styles.cardHeaderLeft}>
+                                <Text style={[styles.cardActionWord, { color: evColor }]}>{actionWord}</Text>
+                                <View style={[styles.typeTag, { backgroundColor: item.isGoal ? '#DBEAFE' : '#FEE2E2' }]}>
+                                    <Text style={[styles.typeTagText, { color: item.isGoal ? '#2563EB' : '#EF4444' }]}>
+                                        {item.isGoal ? 'GOAL' : 'ANTI-GOAL'}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Text style={styles.dateText}>{strippedDateStr}</Text>
+                        </View>
+
+                        <Text style={styles.cardGoalTitle} numberOfLines={isExpanded ? undefined : 2}>
                             {item.title}
                         </Text>
-                    </View>
 
-                    {/* Expanded Details beneath the single line */}
-                    {isExpanded && (
-                        <View style={styles.expandedContent}>
-                            <View style={styles.actionsRow}>
-                                {!isSystemNode && (
-                                    <>
-                                        <TouchableOpacity style={styles.actionBtn} onPress={() => deleteEvent(item.goalId, item.id, item.type as GoalEventType)}>
-                                            <MaterialCommunityIcons name="delete-outline" size={14} color="#64748B" />
-                                            <Text style={styles.actionLabel}>Remove</Text>
-                                        </TouchableOpacity>
+                        {isExpanded && (
+                            <View style={styles.cardActionsFooter}>
+                                <TouchableOpacity style={styles.cardActionBtn} onPress={() => deleteEvent(item.goalId, item.id, item.type as GoalEventType)}>
+                                    <MaterialCommunityIcons name="delete-outline" size={14} color="#64748B" />
+                                    <Text style={styles.cardActionText}>Delete</Text>
+                                </TouchableOpacity>
 
-                                        <Text style={styles.actionDivider}>|</Text>
+                                <Text style={styles.cardActionDivider}>•</Text>
 
-                                        <TouchableOpacity style={styles.actionBtn} onPress={() => {
-                                            const t: Task = {
-                                                id: item.goalBase.id,
-                                                title: item.goalBase.title,
-                                                completed: item.goalBase.completed || false,
-                                                color: item.goalBase.color,
-                                                date: new Date().toISOString(),
-                                                // @ts-ignore mapping temporary fields backwards to drawer UI
-                                                category: item.goalBase.category
-                                            };
-                                            setEditingTask(t);
-                                        }}>
-                                            <MaterialCommunityIcons name="pencil-outline" size={14} color="#64748B" />
-                                            <Text style={styles.actionLabel}>Edit</Text>
-                                        </TouchableOpacity>
-                                    </>
-                                )}
+                                <TouchableOpacity style={styles.cardActionBtn} onPress={() => {
+                                    setTimelineEditTask({
+                                        id: item.goalBase.id,
+                                        title: item.goalBase.title,
+                                        category: item.goalBase.category || 'habits',
+                                        color: item.goalBase.color || CATEGORY_COLORS['habits']
+                                    });
+                                }}>
+                                    <MaterialCommunityIcons name="pencil-outline" size={14} color="#64748B" />
+                                    <Text style={styles.cardActionText}>Edit Goal</Text>
+                                </TouchableOpacity>
                             </View>
-                        </View>
-                    )}
+                        )}
+                    </View>
                 </View>
-
             </TouchableOpacity>
         );
     };
@@ -323,7 +359,7 @@ export default function TimelineScreen() {
                     title: 'Timeline Archive',
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 16 }}>
-                            <Ionicons name="arrow-back" size={24} color="#333" />
+                            <Ionicons name="arrow-back" size={24} color="#1E293B" />
                         </TouchableOpacity>
                     ),
                     headerRight: () => null
@@ -338,157 +374,318 @@ export default function TimelineScreen() {
                 showsVerticalScrollIndicator={false}
             />
 
-            <TaskEditDrawer
-                visible={!!editingTask}
-                task={editingTask}
-                onClose={() => setEditingTask(null)}
-                onSave={handleSaveTask}
-                onRequestCalendar={() => { Alert.alert('Not Available', 'Calendar selection is limited inside Timeline archive mode.'); }}
-                onRequestDuration={() => { Alert.alert('Not Available', 'Duration selection is limited inside Timeline archive mode.'); }}
-                onRequestTime={() => { Alert.alert('Not Available', 'Time selection is limited inside Timeline archive mode.'); }}
-                userColors={userColors}
-            />
+            {/* Restricted Inline Edit Modal */}
+            <Modal visible={!!timelineEditTask} transparent animationType="fade">
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                    <View style={styles.modalOverlay}>
+                        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalContent}>
+                            <Text style={styles.modalHeader}>Edit Goal</Text>
+
+                            <Text style={styles.modalLabel}>Action Statement</Text>
+                            <TextInput
+                                style={styles.modalInput}
+                                value={timelineEditTask?.title}
+                                onChangeText={(text) => setTimelineEditTask(prev => prev ? { ...prev, title: text } : null)}
+                                placeholder="I will read 20 pages..."
+                                multiline
+                            />
+
+                            <Text style={styles.modalLabel}>Goal Alignment</Text>
+                            <View style={styles.categoryRow}>
+                                {Object.entries(CATEGORY_COLORS).map(([cat, color]) => (
+                                    <TouchableOpacity
+                                        key={cat}
+                                        style={[
+                                            styles.categoryPill,
+                                            timelineEditTask?.category === cat && { borderColor: color, backgroundColor: color + '15' }
+                                        ]}
+                                        onPress={() => setTimelineEditTask(prev => prev ? { ...prev, category: cat, color } : null)}
+                                    >
+                                        <View style={[styles.categoryDot, { backgroundColor: color }]} />
+                                        <Text style={[styles.categoryText, timelineEditTask?.category === cat && { color, fontWeight: '700' }]}>
+                                            {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setTimelineEditTask(null)}>
+                                    <Text style={styles.modalCancelText}>Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.modalBtnSave} onPress={handleTimelineSaveTask}>
+                                    <Text style={styles.modalSaveText}>Save</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </KeyboardAvoidingView>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#FFFFFF' },
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
     listContent: {
         paddingVertical: 16,
-        paddingBottom: 100
+        paddingBottom: 150
     },
 
-    // Row Layout
-    row: {
+    // 2-Column Base
+    rowContainer: {
         flexDirection: 'row',
-        minHeight: 60,
+        position: 'relative',
+        minHeight: 64, // Defines safe padding since tracks bridge the gaps naturally
+        width: '100%',
+        paddingBottom: 8, // Native fixed gap instead of proportional spacing
     },
 
-    // Right Text Content
-    textContent: {
-        flex: 1,
-        paddingRight: 16,
+    // TRACK
+    trackCol: {
+        width: 56,
+        alignItems: 'center',
+        position: 'relative',
+    },
+    mainTrackLine: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        width: 2,
+        backgroundColor: '#E2E8F0',
+    },
+    auraNode: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        alignItems: 'center',
         justifyContent: 'center',
+        position: 'absolute',
+        top: 14,
+        zIndex: 2,
     },
-    textContentExpanded: {
-        justifyContent: 'flex-start',
-        paddingTop: 16, // Align top line of text with the track Node
-        paddingBottom: 16
-    },
-    textLine: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-    },
-    actionWord: {
-        fontSize: 14,
-        fontWeight: '800',
-        marginRight: 6,
-    },
-    titleText: {
-        fontSize: 14,
-        color: '#334155',
-        flex: 1,
-        lineHeight: 20,
-    },
-    strike: {
-        textDecorationLine: 'line-through',
-        color: '#94A3B8'
+    solidDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
     },
 
-    // Expanded State
-    expandedContent: {
-        marginTop: 8,
-    },
-    dateText: {
-        fontSize: 11,
-        fontWeight: '700',
-        color: '#64748B',
-    },
-    actionsRow: {
+    // Time Jumps
+    timeJumpPill: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 8,
-        gap: 8,
-    },
-    actionBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 6,
-        paddingHorizontal: 12,
         backgroundColor: '#F1F5F9',
-        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        top: 18,
+        position: 'absolute',
+        zIndex: 3,
         gap: 4,
     },
-    actionLabel: {
-        fontSize: 12,
-        fontWeight: '800',
-        color: '#64748B',
+    jumpText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: '#94A3B8',
         textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
-    actionDivider: {
-        fontSize: 14,
+
+    // CONTENT
+    rightCol: {
+        flex: 1,
+        paddingLeft: 4,
+        paddingRight: 16,
+    },
+    systemTitleText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#475569',
+        marginTop: 15,
+        letterSpacing: -0.2,
+    },
+    eventCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 1,
+    },
+    eventCardExpanded: {
+        borderColor: '#E2E8F0',
+        shadowOpacity: 0.08,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    cardHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    typeTag: {
+        paddingHorizontal: 4,
+        paddingVertical: 1,
+        borderRadius: 4,
+    },
+    typeTagText: {
+        fontSize: 8,
+        fontWeight: '800',
+        letterSpacing: 0.5,
+    },
+    cardActionWord: {
+        fontSize: 11,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.8,
+    },
+    dateText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#94A3B8',
+        letterSpacing: 0.3,
+    },
+    cardGoalTitle: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: '#1E293B',
+        lineHeight: 22,
+    },
+    cardActionsFooter: {
+        marginTop: 16,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    cardActionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 4,
+        paddingRight: 4,
+    },
+    cardActionText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#64748B',
+    },
+    cardActionDivider: {
+        fontSize: 12,
         color: '#CBD5E1',
         marginHorizontal: 4,
     },
 
-    // Left Timeline Track
-    trackContent: {
-        width: 48,
-        alignItems: 'center',
-    },
-    trackLine: {
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        width: 8, // Thickness of the continuous background track
-        backgroundColor: '#E2E8F0', // Slightly darker generic line color
-    },
-    trackHollowNode: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        borderWidth: 4, // Ring thickness
-        backgroundColor: '#FFFFFF', // Hollow center
-        position: 'absolute',
-        top: 22, // Positions the node next to the first line of text (adjusted for centering)
-        zIndex: 2,
-    },
-    trackCapNode: {
-        width: 24, // Wide line separator for start/end
-        height: 8, // Thick slab
-        borderRadius: 4,
-        position: 'absolute',
-        top: 25,
-        zIndex: 2,
-    },
-
-    // System Node Separators
-    systemNodeContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-        paddingHorizontal: 20,
-        position: 'relative',
-        minHeight: 56,
-    },
-    systemSeparatorLine: {
+    // MODAL STYLES
+    modalOverlay: {
         flex: 1,
-        height: 2,
-        backgroundColor: '#E2E8F0',
+        backgroundColor: 'rgba(15, 23, 42, 0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
     },
-    systemDateBubble: {
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        backgroundColor: '#F8FAFC',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        marginHorizontal: 12,
+    modalContent: {
+        width: '100%',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 24,
+        paddingBottom: 32,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 24,
+        elevation: 10,
     },
-    systemDateText: {
+    modalHeader: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#1E293B',
+        marginBottom: 20,
+    },
+    modalLabel: {
         fontSize: 12,
         fontWeight: '700',
         color: '#64748B',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 8,
+    },
+    modalInput: {
+        backgroundColor: '#F8FAFC',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        padding: 16,
+        fontSize: 16,
+        color: '#1E293B',
+        marginBottom: 20,
+        minHeight: 52,
+    },
+    categoryRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 28,
+    },
+    categoryPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 100,
+        backgroundColor: '#F8FAFC',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        gap: 8,
+    },
+    categoryDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    categoryText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#64748B',
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
+        marginTop: 16,
+    },
+    modalBtnCancel: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        backgroundColor: '#F1F5F9',
+    },
+    modalCancelText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#64748B',
+    },
+    modalBtnSave: {
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 12,
+        backgroundColor: '#0F172A',
+    },
+    modalSaveText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#FFFFFF',
     }
 });

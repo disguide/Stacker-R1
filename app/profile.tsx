@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StorageService, UserProfile, GoalCategory } from '../src/services/storage';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -93,8 +93,8 @@ export default function ProfileScreen() {
 
     // --- GOAL MANAGEMENT ---
     const activeList = activeTab === 'goals'
-        ? (profile.goals || []).filter(g => !g.cancelled)
-        : (profile.antigoals || []).filter(g => !g.cancelled);
+        ? (profile.goals || [])
+        : (profile.antigoals || []);
 
     const addGoalItem = (title?: string) => {
         const goalTitle = title?.trim() || '';
@@ -193,15 +193,12 @@ export default function ProfileScreen() {
     };
 
     const deleteGoalItem = (id: string) => {
-        const updater = (g: any) => g.id === id
-            ? { ...g, cancelled: true, events: [...(g.events || []), { id: Date.now().toString(), type: 'cancelled' as const, date: new Date().toISOString() }] }
-            : g;
-
+        // Hard-delete the Goal
         if (activeTab === 'goals') {
-            const updated = (profile.goals || []).map(updater);
+            const updated = (profile.goals || []).filter(g => g.id !== id);
             updateProfile({ goals: updated });
         } else {
-            const updated = (profile.antigoals || []).map(updater);
+            const updated = (profile.antigoals || []).filter(g => g.id !== id);
             updateProfile({ antigoals: updated });
         }
     };
