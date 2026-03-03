@@ -63,6 +63,27 @@ export default function LongTermScreen() {
     // Soft Completion State
     const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
     const completionTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+    const pendingItems = useRef<{ [key: string]: Task }>({});
+
+    const flushCompletions = useCallback(() => {
+        const itemIds = Object.keys(completionTimeouts.current);
+        itemIds.forEach(itemId => {
+            clearTimeout(completionTimeouts.current[itemId]);
+            const item = pendingItems.current[itemId];
+            if (item) {
+                toggleTask(item.id, item.date);
+            }
+        });
+        completionTimeouts.current = {};
+        pendingItems.current = {};
+        setCompletingTaskIds(new Set());
+    }, [toggleTask]);
+
+    useEffect(() => {
+        return () => {
+            flushCompletions();
+        };
+    }, [flushCompletions]);
 
     // --- HORIZON GROUPING LOGIC ---
     const horizonData = useMemo(() => {
@@ -328,6 +349,7 @@ export default function LongTermScreen() {
             if (completionTimeouts.current[itemId]) {
                 clearTimeout(completionTimeouts.current[itemId]);
                 delete completionTimeouts.current[itemId];
+                delete pendingItems.current[itemId];
             }
             setCompletingTaskIds(prev => {
                 const next = new Set(prev);
@@ -341,9 +363,15 @@ export default function LongTermScreen() {
                 return next;
             });
 
+            pendingItems.current[itemId] = item;
+
             completionTimeouts.current[itemId] = setTimeout(() => {
-                toggleTask(item.id, item.date);
+                const pendingItem = pendingItems.current[itemId];
+                if (pendingItem) toggleTask(pendingItem.id, pendingItem.date);
+
                 delete completionTimeouts.current[itemId];
+                delete pendingItems.current[itemId];
+
                 setCompletingTaskIds(prev => {
                     const next = new Set(prev);
                     next.delete(itemId);

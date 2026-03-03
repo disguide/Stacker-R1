@@ -22,6 +22,11 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter }: OrganizeMenuP
                 <View style={styles.menuContainer}>
                     <Text style={styles.menuTitle}>Organize By</Text>
 
+                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('auto_organise')}>
+                        <MaterialCommunityIcons name="auto-fix" size={20} color="#3B82F6" />
+                        <Text style={[styles.menuText, { color: '#3B82F6', fontWeight: 'bold' }]}>Auto Organise</Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('importance')}>
                         <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#333" />
                         <Text style={styles.menuText}>Importance</Text>
@@ -40,11 +45,6 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter }: OrganizeMenuP
                     <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('color')}>
                         <Ionicons name="color-palette-outline" size={20} color="#333" />
                         <Text style={styles.menuText}>Color</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('reorder')}>
-                        <MaterialCommunityIcons name="drag-vertical" size={20} color="#333" />
-                        <Text style={styles.menuText}>Reorder Tasks</Text>
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>

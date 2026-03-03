@@ -90,7 +90,8 @@ export default function TaskListScreen() {
         setEditingTask: ui.setEditingTask,
         setIsDrawerVisible: ui.setIsDrawerVisible,
         setAddingSubtaskToParentId: form.setAddingSubtaskToParentId,
-        setEditingSubtask: ui.setEditingSubtask
+        setEditingSubtask: ui.setEditingSubtask,
+        setInitialActiveFeature: ui.setInitialActiveFeature
     });
 
     useFocusEffect(
@@ -255,6 +256,7 @@ export default function TaskListScreen() {
             <TaskEditDrawer
                 visible={ui.isDrawerVisible}
                 initialActiveFeature={ui.initialActiveFeature}
+                isSubtask={!!ui.editingSubtask}
                 task={ui.editingSubtask ? (ui.editingSubtask.subtask as any) : ui.editingTask}
                 onSave={ui.editingSubtask || form.addingSubtaskToParentId
                     ? (data: any) => creation.saveSubtask(data, ui.editingSubtask, form.addingSubtaskToParentId)
@@ -325,6 +327,8 @@ export default function TaskListScreen() {
             <CalendarModal
                 visible={ui.isCalendarVisible}
                 onClose={() => ui.setIsCalendarVisible(false)}
+                showTimePicker={ui.calendarMode !== 'pre-add'}
+                autoConfirm={ui.calendarMode === 'pre-add'}
                 onSelectDate={(date: any, hasTime?: boolean) => {
                     let dateStr: string | null = null;
                     if (date) {
@@ -342,6 +346,8 @@ export default function TaskListScreen() {
                     }
                     if (ui.calendarMode === 'new') {
                         form.setNewTaskDeadline(dateStr);
+                    } else if (ui.calendarMode === 'pre-add') {
+                        form.startAddingTask(dateStr);
                     } else if (ui.editingSubtask) {
                         // ... complex update logic to editingSubtask state
                         // ui.setEditingSubtask({...})
@@ -362,12 +368,11 @@ export default function TaskListScreen() {
                 visible={homeState.isOrganizeMenuVisible}
                 onClose={() => homeState.setIsOrganizeMenuVisible(false)}
                 onSelectFilter={(filter) => {
-                    if (filter === 'reorder') {
-                        homeState.setIsReorderMode(!homeState.isReorderMode);
-                        homeState.setIsOrganizeMenuVisible(false);
-                        return;
+                    if (filter === 'auto_organise') {
+                        homeState.setSortOption('auto_organise');
+                    } else {
+                        homeState.setSortOption(filter === homeState.sortOption ? null : filter);
                     }
-                    homeState.setSortOption(filter === homeState.sortOption ? null : filter);
                     homeState.setIsOrganizeMenuVisible(false);
                 }}
             />
@@ -446,8 +451,10 @@ export default function TaskListScreen() {
                 <TouchableOpacity
                     style={styles.fab}
                     onPress={() => {
-                        const today = new Date();
-                        form.startAddingTask(toISODateString(today));
+                        ui.setCalendarInitialPage(0);
+                        ui.setCalendarMode('pre-add');
+                        ui.setCalendarTempDate(toISODateString(new Date()));
+                        ui.setIsCalendarVisible(true);
                     }}
                 >
                     <Ionicons name="add" size={30} color="#FFF" />

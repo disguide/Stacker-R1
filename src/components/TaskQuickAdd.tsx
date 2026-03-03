@@ -101,9 +101,11 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                             <MaterialCommunityIcons name="timer-outline" size={20} color="#555" />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenReminder}>
-                            <Ionicons name="notifications-outline" size={20} color="#555" />
-                        </TouchableOpacity>
+                        {!isSubtask && (
+                            <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenReminder}>
+                                <Ionicons name="notifications-outline" size={20} color="#555" />
+                            </TouchableOpacity>
+                        )}
 
                         {!isSubtask && (
                             <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenRecurrence}>

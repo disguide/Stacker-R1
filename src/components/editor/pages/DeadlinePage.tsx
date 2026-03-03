@@ -124,19 +124,6 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
         onClose();
     };
 
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"];
-
-    const isToday = (d: Date) => {
-        const today = new Date();
-        return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
-    };
-
-    const isSameDay = (d1: Date, d2: Date | null) => {
-        if (!d2) return false;
-        return d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
-    };
-
     const formatTimeStr = () => {
         const h12 = tempHour % 12 || 12;
         const period = tempHour >= 12 ? 'PM' : 'AM';
@@ -144,46 +131,13 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
     };
 
     const renderMonth = useCallback(({ item }: { item: CalendarMonthData }) => {
-        const monthDate = item.date;
-        const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-        const firstDay = (new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).getDay() + 6) % 7;
-        const days: (Date | null)[] = [];
-        for (let i = 0; i < firstDay; i++) days.push(null);
-        for (let i = 1; i <= daysInMonth; i++) days.push(new Date(monthDate.getFullYear(), monthDate.getMonth(), i));
-
         return (
-            <View style={{ paddingHorizontal: 12, paddingBottom: 10 }}>
-                <Text style={p.monthTitle}>
-                    {monthNames[monthDate.getMonth()]} {monthDate.getFullYear()}
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                    {days.map((date, index) => {
-                        if (!date) return <View key={index} style={{ width: colWidth, height: ROW_HEIGHT }} />;
-                        const selected = isSameDay(date, tempSelectedDate);
-                        const today = isToday(date);
-                        return (
-                            <View key={index} style={{ width: colWidth, height: ROW_HEIGHT, justifyContent: 'center', alignItems: 'center' }}>
-                                <TouchableOpacity
-                                    style={[
-                                        { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
-                                        selected && { backgroundColor: THEME.green },
-                                        !selected && today && { backgroundColor: '#333' },
-                                    ]}
-                                    onPress={() => handleDateSelect(date)}
-                                >
-                                    <Text style={[
-                                        { fontSize: 14, fontWeight: '500', color: THEME.textPrimary },
-                                        selected && { color: '#FFF', fontWeight: 'bold' },
-                                        !selected && today && { color: '#FFF', fontWeight: '700' },
-                                    ]}>
-                                        {date.getDate()}
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        );
-                    })}
-                </View>
-            </View>
+            <MemoizedMonth
+                item={item}
+                colWidth={colWidth}
+                tempSelectedDate={tempSelectedDate}
+                onDateSelect={handleDateSelect}
+            />
         );
     }, [tempSelectedDate, colWidth]);
 
@@ -234,6 +188,7 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
                 })}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
+                keyboardShouldPersistTaps="always"
                 bounces={false}
                 style={{ flex: 1, paddingHorizontal: 12 }}
             />
@@ -284,6 +239,92 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
 }
 
 export default React.memo(DeadlinePage);
+
+// --- Extracted Memoized Month Component ---
+const monthNames = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+
+const isToday = (d: Date) => {
+    const today = new Date();
+    return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+};
+
+const isSameDay = (d1: Date, d2: Date | null) => {
+    if (!d2) return false;
+    return d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+};
+
+const MemoizedMonth = React.memo(({ item, colWidth, tempSelectedDate, onDateSelect }: {
+    item: CalendarMonthData;
+    colWidth: number;
+    tempSelectedDate: Date | null;
+    onDateSelect: (d: Date) => void;
+}) => {
+    const monthDate = item.date;
+
+    const days = useMemo(() => {
+        const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+        const firstDay = (new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).getDay() + 6) % 7;
+        const arr: (Date | null)[] = [];
+        for (let i = 0; i < firstDay; i++) arr.push(null);
+        for (let i = 1; i <= daysInMonth; i++) arr.push(new Date(monthDate.getFullYear(), monthDate.getMonth(), i));
+        return arr;
+    }, [monthDate]);
+
+    // Fast check: Is the selected date even in this month?
+    // If not, we don't need to re-render the days when the selection changes,
+    // EXCEPT if it WAS in this month and moved out. React.memo handles this if props strictly match,
+    // but the object reference `tempSelectedDate` changes on every select. 
+    // We pass it down anyway and let the fast map handle it.
+
+    return (
+        <View style={{ paddingHorizontal: 12, paddingBottom: 10 }}>
+            <Text style={p.monthTitle}>
+                {monthNames[monthDate.getMonth()]} {monthDate.getFullYear()}
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                {days.map((date, index) => {
+                    if (!date) return <View key={index} style={{ width: colWidth, height: ROW_HEIGHT }} />;
+                    const selected = isSameDay(date, tempSelectedDate);
+                    const today = isToday(date);
+                    return (
+                        <View key={index} style={{ width: colWidth, height: ROW_HEIGHT, justifyContent: 'center', alignItems: 'center' }}>
+                            <TouchableOpacity
+                                style={[
+                                    { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
+                                    selected && { backgroundColor: THEME.green },
+                                    !selected && today && { backgroundColor: '#333' },
+                                ]}
+                                onPress={() => onDateSelect(date)}
+                            >
+                                <Text style={[
+                                    { fontSize: 14, fontWeight: '500', color: THEME.textPrimary },
+                                    selected && { color: '#FFF', fontWeight: 'bold' },
+                                    !selected && today && { color: '#FFF', fontWeight: '700' },
+                                ]}>
+                                    {date.getDate()}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    );
+                })}
+            </View>
+        </View>
+    );
+}, (prevProps, nextProps) => {
+    // Custom exact equality check for memoization speed
+    // If the selected date hasn't changed relative to this specific month, we don't re-render.
+    const wasSelected = prevProps.tempSelectedDate && prevProps.tempSelectedDate.getMonth() === prevProps.item.date.getMonth() && prevProps.tempSelectedDate.getFullYear() === prevProps.item.date.getFullYear();
+    const isSelected = nextProps.tempSelectedDate && nextProps.tempSelectedDate.getMonth() === nextProps.item.date.getMonth() && nextProps.tempSelectedDate.getFullYear() === nextProps.item.date.getFullYear();
+
+    // If neither was selected, safely skip
+    if (!wasSelected && !isSelected) return true;
+
+    // If it moved completely out of this month, re-render it once to clear it.
+    // If it was selected inside this month and moved somewhere else in this month, re-render.
+    // Safe fallback: standard prop equality if any selection happens in this month
+    return prevProps.tempSelectedDate?.getTime() === nextProps.tempSelectedDate?.getTime();
+});
 
 const p = StyleSheet.create({
     monthTitle: {

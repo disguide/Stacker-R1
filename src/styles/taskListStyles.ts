@@ -664,16 +664,27 @@ export const styles = StyleSheet.create({
         color: THEME.textSecondary,
     },
     taskCard: {
-        backgroundColor: THEME.bg, // Transparent/Matching background
-        borderRadius: 0, // Flatten for stacked look
-        marginBottom: 0, // Remove gap
-        // Ensure content (slider) doesn't bleed
-        overflow: 'hidden',
-        // Remove shadow for flat list
-        shadowColor: "transparent",
+        backgroundColor: '#FFFFFF',
+        marginBottom: -3, // Slight overlap
+        marginHorizontal: 8,
+        marginTop: 6,
+
+        // Soft 3D Geometry - Thickened on TOP and RIGHT
+        borderBottomWidth: 1,
+        borderLeftWidth: 1,
+        borderTopWidth: 6, // Thick shading/depth top
+        borderRightWidth: 6, // Thick shading right
+
+        // Default Soft Palette (Will be overridden by Task Color physically)
+        borderColor: '#E2E8F0', // Base soft grey for uncolored tasks
+
+        shadowColor: 'transparent',
         elevation: 0,
-        borderBottomWidth: 1, // Add separator
-        borderBottomColor: '#E2E8F0', // Slightly darker separator for contrast
+
+        borderRadius: 12, // Soft rounded corners returns
+
+        overflow: 'visible',
+        position: 'relative',
     },
     subtaskRowWrapper: {
         borderTopWidth: 1,

@@ -166,6 +166,8 @@ export default function SwipeableTaskRow({
 
     const widthRef = useRef(0);
     const touchStartProgress = useRef(0);
+    const viewRef = useRef<View>(null);
+    const containerPageX = useRef<number | null>(null);
 
     const handleLayout = (e: any) => {
         const w = e.nativeEvent.layout.width;
@@ -211,6 +213,19 @@ export default function SwipeableTaskRow({
                     duration: 50, // Slightly faster
                     useNativeDriver: false,
                 }).start();
+
+                // Asynchronously capture true screen coordinates to guarantee perfect tracking
+                if (viewRef.current) {
+                    viewRef.current.measure((x, y, width, height, pageX, pageY) => {
+                        containerPageX.current = pageX;
+                        // Recalculate based on true screen position of finger (x0) and container (pageX)
+                        const realStartP = ((gestureState.x0 - pageX) / widthRef.current) * 100;
+                        const clampedReal = Math.max(0, Math.min(100, realStartP));
+                        touchStartProgress.current = clampedReal;
+                        progressAnim.setValue(clampedReal);
+                        setDisplayProgress(clampedReal);
+                    });
+                }
             },
             onPanResponderMove: (evt, gestureState) => {
                 const w = widthRef.current;
@@ -229,12 +244,17 @@ export default function SwipeableTaskRow({
                     return;
                 }
 
-                const deltaPercent = (gestureState.dx / w) * 100;
-                let finalP = touchStartProgress.current + deltaPercent;
-                finalP = Math.max(0, Math.min(100, finalP));
+                let finalP;
+                if (containerPageX.current !== null) {
+                    // Absolute physically perfect tracking!
+                    finalP = ((gestureState.moveX - containerPageX.current) / w) * 100;
+                } else {
+                    // Fallback to relative tracking
+                    const deltaPercent = (gestureState.dx / w) * 100;
+                    finalP = touchStartProgress.current + deltaPercent;
+                }
 
-                // Sticky at 100%
-                if (finalP > 90) finalP = 100;
+                finalP = Math.max(0, Math.min(100, finalP));
 
                 // Update animation and text immediately
                 progressAnim.setValue(finalP);
@@ -309,200 +329,216 @@ export default function SwipeableTaskRow({
     return (
         <View
             style={[
-                styles.container,
-                (completed || isCompleting) && styles.containerCompleted,
+                { position: 'relative', flex: 1 },
                 isSubtask && { minHeight: 40 }
             ]}
             onLayout={handleLayout} // Measure Full Container
         >
 
-
-            {/* Full Width Background Progress Fill - Hidden in Selection Mode */}
-            {!completed && !isCompleting && !isSelectionMode && (
-                <Animated.View style={[
-                    styles.progressFill,
-                    {
-                        width: progressAnim.interpolate({
-                            inputRange: [0, 100],
-                            outputRange: ['0%', '100%']
-                        }),
-                        backgroundColor: props.color ? hexToRgba(props.color, 0.2) : '#E6FFFA'
-                    }
-                ]} />
+            {/* Dynamic Sweeping Background and Border */}
+            {!isSelectionMode && (
+                <View style={{ position: 'absolute', top: -6, bottom: -1, left: -1, right: -6, borderRadius: 12, overflow: 'hidden' }} pointerEvents="none">
+                    <Animated.View style={[
+                        styles.progressFill,
+                        {
+                            top: 0,
+                            left: 0,
+                            bottom: 0,
+                            borderTopWidth: 6,
+                            borderLeftWidth: 1,
+                            borderBottomWidth: 1,
+                            borderColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : hexToRgba('#38A169', (completed || isCompleting) ? 0.35 : 0.25),
+                            borderTopLeftRadius: 12,
+                            borderBottomLeftRadius: 12,
+                            borderTopRightRadius: 12,
+                            borderBottomRightRadius: 12,
+                            width: progressAnim.interpolate({
+                                inputRange: [0, 100],
+                                outputRange: ['0%', '100%']
+                            }),
+                            backgroundColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : ((completed || isCompleting) ? '#F0FFF4' : '#E6FFFA'),
+                            opacity: progressAnim.interpolate({
+                                inputRange: [0, 5, 100],
+                                outputRange: [0, 1, 1]
+                            })
+                        }
+                    ]} />
+                </View>
             )}
 
-            {/* Slider Zone */}
             <View
-                style={styles.sliderZone}
-                {...(!isSelectionMode && !isReorderMode ? panResponder.panHandlers : {})}
+                ref={viewRef}
+                style={[
+                    styles.container,
+                    isSubtask && { minHeight: 40 }
+                ]}
             >
-                {/* Make entire row tappable in Selection Mode */}
-                <TouchableOpacity
-                    style={[
-                        styles.sliderContent,
-                        isSubtask && { paddingLeft: 44, paddingVertical: 4 }
-                    ]}
-                    onPress={isSelectionMode ? onSelect : undefined}
-                    onLongPress={props.onDrag}
-                    delayLongPress={200}
-                    disabled={isSelectionMode}
-                    activeOpacity={1} // No opacity change for row tap, checking box handles visual
-                >
-                    {/* Color Stripe */}
-                    {props.color && (
-                        <View style={{
-                            position: 'absolute',
-                            left: 0,
-                            top: 6,
-                            bottom: 6,
-                            width: 3,
-                            borderRadius: 1.5,
-                            backgroundColor: props.color
-                        }} />
-                    )}
+                {/* Color Stripe - Always present, defaults to soft gray, rendering on ROOT container edge */}
+                <View style={{
+                    position: 'absolute',
+                    left: -1,
+                    top: -6,
+                    bottom: -1,
+                    width: 4,
+                    borderTopLeftRadius: 12,
+                    borderBottomLeftRadius: 12,
+                    backgroundColor: props.color || '#CBD5E0',
+                    zIndex: 2, // Ensure it sits above the progress fill
+                }} />
 
-                    {/* Checkbox: Now a proper touchable */}
+                {/* Slider Zone */}
+                <View
+                    style={styles.sliderZone}
+                    {...(!isSelectionMode && !isReorderMode ? panResponder.panHandlers : {})}
+                >
+                    {/* Make entire row tappable in Selection Mode */}
                     <TouchableOpacity
                         style={[
-                            styles.taskCheckbox,
-                            isSelectionMode && styles.selectionCheckbox,
-                            isSelectionMode && isSelected && styles.selectionCheckboxSelected,
-                            !isSelectionMode && {
-                                borderColor: props.color || '#444',
-                                borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 12 : 6,
-                                width: isSubtask ? 18 : 24,
-                                height: isSubtask ? 18 : 24,
-                            }
+                            styles.sliderContent,
+                            isSubtask && { paddingLeft: 44, paddingVertical: 4 }
                         ]}
-                        onPress={isSelectionMode ? onSelect : onComplete}
+                        onPress={isSelectionMode ? onSelect : undefined}
                         onLongPress={props.onDrag}
-                        delayLongPress={1500}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        delayLongPress={200}
+                        disabled={isSelectionMode}
+                        activeOpacity={1} // No opacity change for row tap, checking box handles visual
                     >
-                        {isSelectionMode ? (
-                            isSelected && <View style={styles.selectionInner} />
-                        ) : (
-                            (completed || isCompleting) && <View style={[
-                                styles.taskCheckboxInner,
-                                {
-                                    backgroundColor: props.color || '#38A169',
-                                    borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 6 : 2,
-                                    width: isSubtask ? 10 : 14,
-                                    height: isSubtask ? 10 : 14,
+
+
+                        {/* Checkbox: Now a proper touchable */}
+                        <TouchableOpacity
+                            style={[
+                                styles.taskCheckbox,
+                                isSelectionMode && styles.selectionCheckbox,
+                                isSelectionMode && isSelected && styles.selectionCheckboxSelected,
+                                !isSelectionMode && {
+                                    borderColor: props.color || '#444',
+                                    borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 12 : 6,
+                                    width: isSubtask ? 18 : 24,
+                                    height: isSubtask ? 18 : 24,
                                 }
-                            ]} />
-                        )}
-                    </TouchableOpacity>
-
-
-
-                    <View style={{ flex: 1, paddingRight: 8 }} pointerEvents="box-none">
-                        <Text style={[
-                            styles.taskTitle,
-                            (completed || isCompleting) && styles.taskTitleCompleted,
-                            isSubtask && { fontSize: 14 }
-                        ]}>
-                            {title}
-                        </Text>
-
-                        <View style={styles.taskMetaRow}>
-                            {deadline && (
-                                <View style={styles.metaItem}>
-                                    <Ionicons name="calendar-outline" size={14} color={THEME.textSecondary} />
-                                    <Text style={styles.metaText}>
-                                        {(() => {
-                                            try {
-                                                return formatDeadline(deadline);
-                                            } catch {
-                                                return deadline;
-                                            }
-                                        })()}
-                                    </Text>
-                                </View>
-                            )}
-                            {estimatedTime && (
-                                <View style={styles.metaItem}>
-                                    <Feather name="clock" size={12} color={THEME.textSecondary} />
-                                    <Text style={styles.metaText}>{calculateRemainingTime(estimatedTime, displayProgress)}</Text>
-                                </View>
-                            )}
-                            {daysRolled > 0 && (
-                                <View style={styles.rolledOverTag}>
-                                    <MaterialCommunityIcons name="redo-variant" size={14} color="#64748B" style={{ marginRight: 2 }} />
-                                    <Text style={styles.rolledOverText}>Roll x{daysRolled}</Text>
-                                </View>
-                            )}
-                            {/* Recurrence Tag */}
-                            {props.recurrence && (
-                                <View style={styles.rolledOverTag}>
-                                    <MaterialCommunityIcons name="repeat" size={14} color="#64748B" />
-                                </View>
-                            )}
-                            {/* Importance Tag */}
-                            {(props.importance || 0) > 0 && (
-                                <View style={[
-                                    styles.rolledOverTag,
+                            ]}
+                            onPress={isSelectionMode ? onSelect : onComplete}
+                            onLongPress={props.onDrag}
+                            delayLongPress={1500}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            {isSelectionMode ? (
+                                isSelected && <View style={styles.selectionInner} />
+                            ) : (
+                                (completed || isCompleting) && <View style={[
+                                    styles.taskCheckboxInner,
                                     {
-                                        backgroundColor: props.importance === 3 ? '#FECACA' : props.importance === 2 ? '#FDE68A' : '#E9D5FF',
+                                        backgroundColor: props.color || '#38A169',
+                                        borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 6 : 2,
+                                        width: isSubtask ? 10 : 14,
+                                        height: isSubtask ? 10 : 14,
                                     }
-                                ]}>
-                                    <Text style={[
-                                        styles.rolledOverText,
-                                        {
-                                            color: props.importance === 3 ? '#991B1B' : props.importance === 2 ? '#92400E' : '#6B21A8',
-                                            fontSize: 10
-                                        }
-                                    ]}>
-                                        {props.importance === 3 ? '!!!' : props.importance === 2 ? '!!' : '!'}
-                                    </Text>
-                                </View>
+                                ]} />
                             )}
-                            {/* Reminder Tag - Toggleable */}
-                            {props.reminderTime && (
-                                <TouchableOpacity
-                                    onPress={props.onToggleReminder}
-                                    style={[
-                                        styles.rolledOverTag,
-                                        {
-                                            backgroundColor: (props.reminderEnabled ?? true) ? '#FEF3C7' : '#F1F5F9', // Amber vs Gray 100
-                                            marginRight: 4
-                                        }
-                                    ]}
-                                >
-                                    <Text style={[
-                                        styles.rolledOverText,
-                                        {
-                                            color: (props.reminderEnabled ?? true) ? '#B45309' : '#94A3B8', // Orange vs Gray 400
-                                            textDecorationLine: (props.reminderEnabled ?? true) ? 'none' : 'line-through'
-                                        }
-                                    ]}>
-                                        🔔 {props.reminderTime}
-                                        {props.reminderDate && props.reminderDate !== new Date().toISOString().split('T')[0] ? ` (${props.reminderDate.slice(5)})` : ''}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
+                        </TouchableOpacity>
+
+
+
+                        <View style={{ flex: 1, paddingRight: 8 }} pointerEvents="box-none">
+                            <Text style={[
+                                styles.taskTitle,
+                                (completed || isCompleting) && styles.taskTitleCompleted,
+                                isSubtask && { fontSize: 14 }
+                            ]}>
+                                {title}
+                            </Text>
+
+                            <View style={styles.taskMetaRow}>
+                                {deadline && (
+                                    <View style={styles.metaItem}>
+                                        <Ionicons name="calendar-outline" size={14} color={THEME.textSecondary} />
+                                        <Text style={styles.metaText}>
+                                            {(() => {
+                                                try {
+                                                    return formatDeadline(deadline);
+                                                } catch {
+                                                    return deadline;
+                                                }
+                                            })()}
+                                        </Text>
+                                    </View>
+                                )}
+                                {estimatedTime && (
+                                    <View style={styles.metaItem}>
+                                        <Feather name="clock" size={12} color={THEME.textSecondary} />
+                                        <Text style={styles.metaText}>{calculateRemainingTime(estimatedTime, displayProgress)}</Text>
+                                    </View>
+                                )}
+                                {daysRolled > 0 && (
+                                    <View style={styles.rolledOverTag}>
+                                        <MaterialCommunityIcons name="redo-variant" size={14} color="#64748B" style={{ marginRight: 2 }} />
+                                        <Text style={styles.rolledOverText}>Roll x{daysRolled}</Text>
+                                    </View>
+                                )}
+                                {/* Recurrence Tag */}
+                                {props.recurrence && (
+                                    <View style={styles.rolledOverTag}>
+                                        <MaterialCommunityIcons name="repeat" size={14} color="#64748B" />
+                                    </View>
+                                )}
+                                {/* Importance logic moved to top right action zone */}
+                                {/* Reminder Tag - Toggleable */}
+                                {props.reminderTime && (
+                                    <TouchableOpacity
+                                        onPress={props.onToggleReminder}
+                                        style={[
+                                            styles.rolledOverTag,
+                                            {
+                                                backgroundColor: (props.reminderEnabled ?? true) ? '#FEF3C7' : '#F1F5F9', // Amber vs Gray 100
+                                                marginRight: 4
+                                            }
+                                        ]}
+                                    >
+                                        <Text style={[
+                                            styles.rolledOverText,
+                                            {
+                                                color: (props.reminderEnabled ?? true) ? '#B45309' : '#94A3B8', // Orange vs Gray 400
+                                                textDecorationLine: (props.reminderEnabled ?? true) ? 'none' : 'line-through'
+                                            }
+                                        ]}>
+                                            🔔 {props.reminderTime}
+                                            {props.reminderDate && props.reminderDate !== new Date().toISOString().split('T')[0] ? ` (${props.reminderDate.slice(5)})` : ''}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                         </View>
+
+                    </TouchableOpacity>
+                </View>
+
+
+
+                {/* Absolute Top Right Corner Stars */}
+                {props.importance ? (
+                    <View style={{ position: 'absolute', top: 4, right: 8, flexDirection: 'row', zIndex: 10 }}>
+                        {Array.from({ length: props.importance }).map((_, i) => (
+                            <MaterialCommunityIcons key={i} name="star" size={10} color="#F59E0B" style={{ marginHorizontal: -1 }} />
+                        ))}
                     </View>
+                ) : null}
 
-                </TouchableOpacity>
+                {/* Action Zone (Right Side) */}
+                <View style={styles.actionZone}>
+                    <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
+                        <MaterialCommunityIcons name="pencil" size={20} color="#94A3B8" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionButton} onPress={onMenu}>
+                        <MaterialCommunityIcons name={menuIcon} size={20} color={menuColor} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Percentage Indicator - Absolute Bottom Right of ROW */}
+                <Text style={styles.percentageText}>
+                    {Math.round(displayProgress)}%
+                </Text>
             </View>
-
-
-
-            {/* Action Zone (Right Side) - Now Absolute Top Right */}
-            <View style={styles.actionZone}>
-                <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
-                    <MaterialCommunityIcons name="pencil" size={20} color="#94A3B8" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton} onPress={onMenu}>
-                    <MaterialCommunityIcons name={menuIcon} size={20} color={menuColor} />
-                </TouchableOpacity>
-            </View>
-
-            {/* Percentage Indicator - Absolute Bottom Right of ROW */}
-            <Text style={styles.percentageText}>
-                {Math.round(displayProgress)}%
-            </Text>
         </View>
     );
 }
@@ -512,10 +548,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'stretch',
         backgroundColor: 'transparent',
-        borderBottomWidth: 0, // Handled by taskCard now
-        minHeight: 52, // Enforce consistent thickness for 1-line meta
+        borderBottomWidth: 0,
+        minHeight: 52,
         overflow: 'hidden', // Contain progress bar
         position: 'relative',
+        borderRadius: 10, // Fit inside the soft 12px parent
     },
     containerCompleted: {
         backgroundColor: '#F0FFF4',
@@ -612,7 +649,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         flexDirection: 'row',
         alignItems: 'flex-start', // Top align
-        paddingTop: 6, // Align with top content
+        paddingTop: 6, // Set back to 6 to keep buttons from crushing tags below
         paddingHorizontal: 8, // Add padding to separate from edge
         zIndex: 20
     },

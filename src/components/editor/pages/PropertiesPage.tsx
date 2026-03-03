@@ -5,7 +5,7 @@ import { THEME } from '../constants';
 import { ActionBar } from '../common/ActionBar';
 import { ColorDefinition } from '../../../services/storage';
 
-export default function PropertiesPage({ width, color, taskType, importance, onColorChange, onTypeChange, onImportanceChange,
+export const PropertiesPage = React.memo(function PropertiesPage({ width, color, taskType, importance, onColorChange, onTypeChange, onImportanceChange,
     userColors,
     onRequestColorSettings,
     onClose
@@ -44,7 +44,7 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
 
     return (
         <View style={{ width, flex: 1 }}>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
+            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
                 {/* Type Selection */}
                 <Text style={p.sectionLabel}>Type</Text>
                 <View style={p.typeRow}>
@@ -91,12 +91,26 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
                             ]}
                             onPress={() => onImportanceChange(lvl)}
                         >
-                            <Text style={[
-                                p.importanceText,
-                                importance === lvl && p.importanceTextActive,
-                            ]}>
-                                {lvl === 0 ? 'None' : lvl === 1 ? '!' : lvl === 2 ? '!!' : '!!!'}
-                            </Text>
+                            {lvl === 0 ? (
+                                <Text style={[
+                                    p.importanceText,
+                                    importance === lvl && p.importanceTextActive,
+                                ]}>
+                                    None
+                                </Text>
+                            ) : (
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    {Array.from({ length: lvl }).map((_, i) => (
+                                        <MaterialCommunityIcons
+                                            key={i}
+                                            name="star"
+                                            size={16}
+                                            color={importance === lvl ? "#F59E0B" : "#cbd5e1"}
+                                            style={{ marginHorizontal: -2 }}
+                                        />
+                                    ))}
+                                </View>
+                            )}
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -131,7 +145,7 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
                         )}
                     </View>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={p.colorRow} nestedScrollEnabled={true}>
+                <ScrollView keyboardShouldPersistTaps="always" horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={p.colorRow} nestedScrollEnabled={true}>
                     <TouchableOpacity
                         style={[
                             p.colorCircle,
@@ -161,7 +175,9 @@ export default function PropertiesPage({ width, color, taskType, importance, onC
             <ActionBar onReset={handleReset} onConfirm={handleConfirm} hasValue={!!hasValue} />
         </View>
     );
-}
+});
+
+export default PropertiesPage;
 
 const p = StyleSheet.create({
     sectionLabel: {

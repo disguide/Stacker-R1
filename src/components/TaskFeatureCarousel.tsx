@@ -5,7 +5,7 @@ import {
     StyleSheet,
     TouchableOpacity,
     Dimensions,
-    ScrollView,
+    FlatList,
     LayoutChangeEvent,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -62,6 +62,7 @@ interface TaskFeatureCarouselProps {
     // Color system
     userColors?: ColorDefinition[];
     onRequestColorSettings?: () => void;
+    isSubtask?: boolean;
 }
 
 export default function TaskFeatureCarousel({
@@ -86,12 +87,17 @@ export default function TaskFeatureCarousel({
     reminderEnabled,
     userColors,
     onRequestColorSettings,
+    isSubtask,
 }: TaskFeatureCarouselProps) {
     // Debug Log
     // console.log('[DEBUG_RENDER] TaskFeatureCarousel', { visible, hasUserColors: !!userColors, colorsCount: userColors?.length });
-    const scrollViewRef = useRef<ScrollView>(null);
+    const flatListRef = useRef<FlatList>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageWidth, setPageWidth] = useState(SCREEN_WIDTH * 0.92); // default estimate
+
+    const activeFeatures = isSubtask
+        ? FEATURE_ORDER.filter(f => f !== 'recurrence' && f !== 'reminder')
+        : FEATURE_ORDER;
 
     // Measure actual container width
     const handleLayout = useCallback((e: LayoutChangeEvent) => {
@@ -104,7 +110,7 @@ export default function TaskFeatureCarousel({
     // Set initial page state and derived offset without delay
     useEffect(() => {
         if (visible) {
-            const idx = FEATURE_ORDER.indexOf(initialFeature);
+            const idx = activeFeatures.indexOf(initialFeature);
             const page = idx >= 0 ? idx : 0;
             setCurrentPage(page);
             setRenderedPages(new Set([page]));
@@ -119,12 +125,12 @@ export default function TaskFeatureCarousel({
     // ready in the background before the user swipes.
     useEffect(() => {
         if (!visible) return;
-        if (renderedPages.size > 0 && renderedPages.size < FEATURE_ORDER.length) {
+        if (renderedPages.size > 0 && renderedPages.size < activeFeatures.length) {
             const timer = setTimeout(() => {
                 setRenderedPages(prev => {
                     const next = new Set(prev);
                     // Find first unrendered page and add it
-                    for (let i = 0; i < FEATURE_ORDER.length; i++) {
+                    for (let i = 0; i < activeFeatures.length; i++) {
                         if (!next.has(i)) {
                             next.add(i);
                             break;
@@ -140,14 +146,15 @@ export default function TaskFeatureCarousel({
     const handleScroll = (e: any) => {
         const x = e.nativeEvent.contentOffset.x;
         const page = Math.round(x / pageWidth);
-        if (page !== currentPage && page >= 0 && page < FEATURE_ORDER.length) {
+        if (page !== currentPage && page >= 0 && page < activeFeatures.length) {
             setCurrentPage(page);
             setRenderedPages(prev => new Set(prev).add(page));
         }
     };
 
     const scrollToPage = (page: number) => {
-        scrollViewRef.current?.scrollTo({ x: page * pageWidth, animated: true });
+        setRenderedPages(prev => new Set(prev).add(page));
+        flatListRef.current?.scrollToIndex({ index: page, animated: true });
         setCurrentPage(page);
     };
 
@@ -157,7 +164,7 @@ export default function TaskFeatureCarousel({
         <View style={s.container} onLayout={handleLayout}>
             {/* Tab Bar */}
             <View style={s.tabBar}>
-                {FEATURE_ORDER.map((key, i) => {
+                {activeFeatures.map((key, i) => {
                     const isActive = currentPage === i;
                     const icon = FEATURE_ICONS[key];
                     return (
@@ -181,66 +188,79 @@ export default function TaskFeatureCarousel({
             </View>
 
             {/* Pages */}
-            <ScrollView
-                ref={scrollViewRef}
+            <FlatList
+                ref={flatListRef}
+                data={activeFeatures}
+                keyExtractor={(item) => item}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={handleScroll}
+                onScroll={handleScroll}
                 scrollEventThrottle={16}
                 bounces={false}
                 style={{ flex: 1 }}
-                contentOffset={{ x: currentPage * pageWidth, y: 0 }}
-            >
-                <LazyPage isRendered={renderedPages.has(0)} width={pageWidth}>
-                    <DeadlinePage
-                        width={pageWidth}
-                        deadline={deadline}
-                        onDeadlineChange={onDeadlineChange}
-                        onClose={onClose}
-                    />
-                </LazyPage>
-                <LazyPage isRendered={renderedPages.has(1)} width={pageWidth}>
-                    <EstimatePage
-                        width={pageWidth}
-                        estimatedTime={estimatedTime}
-                        onEstimateChange={onEstimateChange}
-                        onClose={onClose}
-                    />
-                </LazyPage>
-                <LazyPage isRendered={renderedPages.has(2)} width={pageWidth}>
-                    <PropertiesPage
-                        width={pageWidth}
-                        color={color}
-                        taskType={taskType}
-                        importance={importance}
-                        onColorChange={onColorChange}
-                        onTypeChange={onTypeChange}
-                        onImportanceChange={onImportanceChange}
-                        userColors={userColors}
-                        onRequestColorSettings={onRequestColorSettings}
-                        onClose={onClose}
-                    />
-                </LazyPage>
-                <LazyPage isRendered={renderedPages.has(3)} width={pageWidth}>
-                    <RecurrencePage
-                        width={pageWidth}
-                        recurrence={recurrence}
-                        onRecurrenceChange={onRecurrenceChange}
-                        onClose={onClose}
-                    />
-                </LazyPage>
-                <LazyPage isRendered={renderedPages.has(4)} width={pageWidth}>
-                    <ReminderPage
-                        width={pageWidth}
-                        reminderOffset={reminderOffset}
-                        reminderTime={reminderTime}
-                        reminderEnabled={reminderEnabled}
-                        onReminderChange={onReminderChange}
-                        onClose={onClose}
-                    />
-                </LazyPage>
-            </ScrollView>
+                initialScrollIndex={activeFeatures.indexOf(initialFeature) >= 0 ? activeFeatures.indexOf(initialFeature) : 0}
+                getItemLayout={(_, index) => ({
+                    length: pageWidth,
+                    offset: pageWidth * index,
+                    index,
+                })}
+                renderItem={({ item, index }) => {
+                    const isRendered = renderedPages.has(index);
+                    return (
+                        <LazyPage isRendered={isRendered} width={pageWidth}>
+                            {item === 'deadline' && (
+                                <DeadlinePage
+                                    width={pageWidth}
+                                    deadline={deadline}
+                                    onDeadlineChange={onDeadlineChange}
+                                    onClose={onClose}
+                                />
+                            )}
+                            {item === 'estimate' && (
+                                <EstimatePage
+                                    width={pageWidth}
+                                    estimatedTime={estimatedTime}
+                                    onEstimateChange={onEstimateChange}
+                                    onClose={onClose}
+                                />
+                            )}
+                            {item === 'properties' && (
+                                <PropertiesPage
+                                    width={pageWidth}
+                                    color={color}
+                                    taskType={taskType}
+                                    importance={importance}
+                                    onColorChange={onColorChange}
+                                    onTypeChange={onTypeChange}
+                                    onImportanceChange={onImportanceChange}
+                                    userColors={userColors}
+                                    onRequestColorSettings={onRequestColorSettings}
+                                    onClose={onClose}
+                                />
+                            )}
+                            {item === 'recurrence' && (
+                                <RecurrencePage
+                                    width={pageWidth}
+                                    recurrence={recurrence}
+                                    onRecurrenceChange={onRecurrenceChange}
+                                    onClose={onClose}
+                                />
+                            )}
+                            {item === 'reminder' && (
+                                <ReminderPage
+                                    width={pageWidth}
+                                    reminderOffset={reminderOffset}
+                                    reminderTime={reminderTime}
+                                    reminderEnabled={reminderEnabled}
+                                    onReminderChange={onReminderChange}
+                                    onClose={onClose}
+                                />
+                            )}
+                        </LazyPage>
+                    );
+                }}
+            />
         </View>
     );
 }

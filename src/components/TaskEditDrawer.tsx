@@ -55,6 +55,7 @@ interface TaskEditDrawerProps {
     userColors?: ColorDefinition[];
     onRequestColorSettings?: () => void;
     initialActiveFeature?: FeatureKey | null;
+    isSubtask?: boolean;
 }
 
 // ─── HOOKS ─────────────────────────────────────────────────────────────────
@@ -133,7 +134,8 @@ export default function TaskEditDrawer({
     onRequestTime,
     userColors,
     onRequestColorSettings,
-    initialActiveFeature
+    initialActiveFeature,
+    isSubtask
 }: TaskEditDrawerProps) {
     // Debug Log
     // console.log('[TaskEditDrawer] Rendered', { visible, onRequestColorSettings: !!onRequestColorSettings });
@@ -310,8 +312,10 @@ export default function TaskEditDrawer({
         PanResponder.create({
             onStartShouldSetPanResponder: () => false, // Allow clicks to pass through
             onMoveShouldSetPanResponder: (_, gestureState) => {
-                // Only capture if vertical drag is significant
-                return Math.abs(gestureState.dy) > 10;
+                // Only capture if dragging noticeably DOWNWARD. 
+                // This prevents tapping (which naturally has slight movement) from being swallowed 
+                // and prevents UPWARD swipes from capturing the responder.
+                return gestureState.dy > 15 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
             },
             onPanResponderMove: (_, gestureState) => {
                 if (gestureState.dy > 0) {
@@ -480,9 +484,17 @@ export default function TaskEditDrawer({
                                                 borderRadius: 4,
                                                 alignSelf: 'flex-start'
                                             }}>
-                                                <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#333' }}>
-                                                    {importance === 1 ? '!' : importance === 2 ? '!!' : '!!!'}
-                                                </Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                    {Array.from({ length: importance }).map((_, i) => (
+                                                        <MaterialCommunityIcons
+                                                            key={i}
+                                                            name="star"
+                                                            size={12}
+                                                            color={importance === 3 ? '#991B1B' : importance === 2 ? '#92400E' : '#6B21A8'}
+                                                            style={{ marginHorizontal: -1 }}
+                                                        />
+                                                    ))}
+                                                </View>
                                             </View>
                                         )}
                                     </View>
@@ -494,74 +506,78 @@ export default function TaskEditDrawer({
                                 </TouchableOpacity>
 
                                 {/* Recurrence Card */}
-                                <TouchableOpacity
-                                    style={styles.featureCardGrid}
-                                    onPress={() => setActiveFeature('recurrence')}
-                                >
-                                    <View style={styles.featureIconContainer}>
-                                        <MaterialCommunityIcons name="repeat" size={20} color={recurrence ? THEME.textPrimary : THEME.textSecondary} />
-                                    </View>
-                                    <Text style={styles.featureLabel}>Repeat</Text>
-                                    <Text style={[styles.featureValue, recurrence && styles.featureValueActive]} numberOfLines={1}>
-                                        {recurrence ? (recurrence.frequency.charAt(0).toUpperCase() + recurrence.frequency.slice(1)) : 'Never'}
-                                    </Text>
-                                    {recurrence && (
-                                        <TouchableOpacity
-                                            style={styles.featureClearHtml}
-                                            onPress={() => setRecurrence(null)}
-                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                        >
-                                            <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
-                                        </TouchableOpacity>
-                                    )}
-                                </TouchableOpacity>
-
-                                {/* Reminder Card */}
-                                <TouchableOpacity
-                                    style={styles.featureCardGrid}
-                                    onPress={() => setActiveFeature('reminder')}
-                                >
-                                    <View style={styles.featureIconContainer}>
-                                        <MaterialCommunityIcons name="bell-outline" size={20} color={reminderOffset !== null && reminderEnabled ? THEME.textPrimary : THEME.textSecondary} />
-                                    </View>
-                                    <Text style={styles.featureLabel}>Remind</Text>
-                                    <Text style={[
-                                        styles.featureValue,
-                                        reminderOffset !== null && reminderEnabled && styles.featureValueActive,
-                                        !reminderEnabled && { color: THEME.textSecondary, fontWeight: 'normal' }
-                                    ]} numberOfLines={1}>
-                                        {reminderOffset !== null
-                                            ? (
-                                                <>
-                                                    {formatTime(reminderTime || '09:00')}
-                                                </>
-                                            )
-                                            : 'None'}
-                                    </Text>
-                                    {reminderOffset !== null && (
-                                        <View style={{ position: 'absolute', top: 8, right: 8, padding: 4 }}>
-                                            <Pressable
-                                                onPress={(e) => {
-                                                    e.stopPropagation();
-                                                    clearReminder();
-                                                }}
+                                {!isSubtask && (
+                                    <TouchableOpacity
+                                        style={styles.featureCardGrid}
+                                        onPress={() => setActiveFeature('recurrence')}
+                                    >
+                                        <View style={styles.featureIconContainer}>
+                                            <MaterialCommunityIcons name="repeat" size={20} color={recurrence ? THEME.textPrimary : THEME.textSecondary} />
+                                        </View>
+                                        <Text style={styles.featureLabel}>Repeat</Text>
+                                        <Text style={[styles.featureValue, recurrence && styles.featureValueActive]} numberOfLines={1}>
+                                            {recurrence ? (recurrence.frequency.charAt(0).toUpperCase() + recurrence.frequency.slice(1)) : 'Never'}
+                                        </Text>
+                                        {recurrence && (
+                                            <TouchableOpacity
+                                                style={styles.featureClearHtml}
+                                                onPress={() => setRecurrence(null)}
                                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                             >
-                                                <Ionicons name="close" size={16} color={THEME.textSecondary} />
-                                            </Pressable>
-                                        </View>
-                                    )}
+                                                <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
+                                            </TouchableOpacity>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
 
-                                    <View style={{ position: 'absolute', bottom: 10, right: 10 }}>
-                                        <Switch
-                                            value={reminderEnabled}
-                                            onValueChange={toggleReminder}
-                                            trackColor={{ false: "#E2E8F0", true: "#BFDBFE" }}
-                                            thumbColor={reminderEnabled ? "#2563EB" : "#F1F5F9"}
-                                            style={{ transform: [{ scale: 0.7 }] }}
-                                        />
-                                    </View>
-                                </TouchableOpacity>
+                                {/* Reminder Card */}
+                                {!isSubtask && (
+                                    <TouchableOpacity
+                                        style={styles.featureCardGrid}
+                                        onPress={() => setActiveFeature('reminder')}
+                                    >
+                                        <View style={styles.featureIconContainer}>
+                                            <MaterialCommunityIcons name="bell-outline" size={20} color={reminderOffset !== null && reminderEnabled ? THEME.textPrimary : THEME.textSecondary} />
+                                        </View>
+                                        <Text style={styles.featureLabel}>Remind</Text>
+                                        <Text style={[
+                                            styles.featureValue,
+                                            reminderOffset !== null && reminderEnabled && styles.featureValueActive,
+                                            !reminderEnabled && { color: THEME.textSecondary, fontWeight: 'normal' }
+                                        ]} numberOfLines={1}>
+                                            {reminderOffset !== null
+                                                ? (
+                                                    <>
+                                                        {formatTime(reminderTime || '09:00')}
+                                                    </>
+                                                )
+                                                : 'None'}
+                                        </Text>
+                                        {reminderOffset !== null && (
+                                            <View style={{ position: 'absolute', top: 8, right: 8, padding: 4 }}>
+                                                <Pressable
+                                                    onPress={(e) => {
+                                                        e.stopPropagation();
+                                                        clearReminder();
+                                                    }}
+                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                >
+                                                    <Ionicons name="close" size={16} color={THEME.textSecondary} />
+                                                </Pressable>
+                                            </View>
+                                        )}
+
+                                        <View style={{ position: 'absolute', bottom: 10, right: 10 }}>
+                                            <Switch
+                                                value={reminderEnabled}
+                                                onValueChange={toggleReminder}
+                                                trackColor={{ false: "#E2E8F0", true: "#BFDBFE" }}
+                                                thumbColor={reminderEnabled ? "#2563EB" : "#F1F5F9"}
+                                                style={{ transform: [{ scale: 0.7 }] }}
+                                            />
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
                             </View>
 
 

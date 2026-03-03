@@ -38,6 +38,7 @@ export function DurationPage({ width, estimatedTime, onEstimateChange, onClose }
     const addMinutes = (amount: number) => {
         const newVal = currentMinutes + amount;
         setCurrentMinutes(newVal);
+        onEstimateChange(formatDuration(newVal) || null);
     };
 
     const handleReset = () => {
@@ -52,7 +53,7 @@ export function DurationPage({ width, estimatedTime, onEstimateChange, onClose }
 
     return (
         <View style={{ width, flex: 1 }}>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, flex: 1 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
+            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, flex: 1 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
                 {/* Display */}
                 <View style={p.durationDisplay}>
                     <Text style={p.durationText}>

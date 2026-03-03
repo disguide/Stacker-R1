@@ -7,6 +7,18 @@ import { styles } from '../../../styles/taskListStyles';
 import { toISODateString, isToday, getDayName, getDaysDifference, parseEstimatedTime, formatMinutesAsTime, formatDeadline } from '../../../utils/dateHelpers';
 import { ErrorBoundary } from '../../../components/ErrorBoundary';
 
+const hexToRgba = (hex: string, opacity: number) => {
+    let c: any;
+    if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+        c = hex.substring(1).split('');
+        if (c.length === 3) {
+            c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+        }
+        c = '0x' + c.join('');
+        return 'rgba(' + [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',') + ',' + opacity + ')';
+    }
+    return hex;
+};
 // Define Props
 interface TaskListSectionProps {
     dates: Date[];
@@ -82,7 +94,12 @@ export function TaskListSection({
         return items;
     }, [dates, calendarItems, sortOption, form.addingTaskForDate, form.newTaskTitle, form.newTaskDeadline, form.newTaskEstimatedTime, form.newTaskReminderTime]);
 
-    const renderItem = ({ item }: { item: any }) => {
+    const renderItem = ({ item, index }: { item: any, index: number }) => {
+        // Critical for Top-Down 3D Shadows
+        // We must force higher elements to render *above* lower elements
+        // Calculate zIndex based on the total number of items and current index
+        const zIndexValue = listData.length - index;
+
         if (item.type === 'header') {
             const date = item.date;
             const dateString = item.dateString;
@@ -113,7 +130,7 @@ export function TaskListSection({
             else if (timePart) summaryString = timePart;
             else summaryString = `${tasksWithoutTimeCount} tasks`;
             return (
-                <View style={[styles.dateHeader, isTodayDate && styles.todayHeader]}>
+                <View style={[styles.dateHeader, isTodayDate && styles.todayHeader, { zIndex: zIndexValue, elevation: zIndexValue }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <Text style={[styles.dayName, isTodayDate && styles.todayDayName]}>
                             {date.getDate()} {date.toLocaleDateString('en-US', { month: 'long' })}
@@ -130,7 +147,10 @@ export function TaskListSection({
         } else if (item.type === 'task') {
             const task = item.data;
             return (
-                <View style={styles.taskCard}>
+                <View style={[
+                    styles.taskCard,
+                    { zIndex: zIndexValue, elevation: zIndexValue }
+                ]}>
                     <SwipeableTaskRow
                         id={task.id}
                         recurrence={task.rrule}
@@ -171,10 +191,10 @@ export function TaskListSection({
                             deadline={subtask.deadline}
                             menuIcon="dots-horizontal"
                             isSubtask={true}
-                            onProgressUpdate={(id, val) => ops.handleSubtaskProgress(task.originalTaskId, subtask.id, val, task.originalDate || task.date)}
-                            onComplete={() => ops.handleSubtaskToggle(task.originalTaskId, subtask.id, task.originalDate || task.date)}
-                            onEdit={() => ops.openEditSubtask(task.originalTaskId, subtask)}
-                            onMenu={() => ops.openSubtaskMenu(task.originalTaskId, subtask.id)}
+                            onProgressUpdate={(id, val) => ops.handleSubtaskProgress(task.originalTaskId || task.id, subtask.id, val, task.originalDate || task.date)}
+                            onComplete={() => ops.handleSubtaskToggle(task.originalTaskId || task.id, subtask.id, task.originalDate || task.date)}
+                            onEdit={() => ops.openEditSubtask(task.originalTaskId || task.id, subtask)}
+                            onMenu={() => ops.openSubtaskMenu(task.originalTaskId || task.id, subtask.id)}
                             formatDeadline={formatDeadline}
                             onSwipeStart={ops.handleSwipeStart}
                             onSwipeEnd={ops.handleSwipeEnd}

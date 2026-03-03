@@ -66,18 +66,22 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
         onRecurrenceChange(rule); // Auto-save
     };
 
-    const handleSaveCustom = () => {
-        const repeatInterval = parseInt(interval, 10) || 1;
-        const rule: RecurrenceRule = {
-            frequency,
-            interval: repeatInterval,
-            daysOfWeek: frequency === 'weekly' && selectedDays.size > 0 ? Array.from(selectedDays) : undefined,
-        };
-        setLocalRecurrence(rule);
-        onRecurrenceChange(rule); // Auto-save
-        setViewMode('presets'); // Return to main view
-    };
-
+    // Auto-save Custom Recurrence on any structural change
+    useEffect(() => {
+        if (viewMode === 'custom') {
+            const repeatInterval = parseInt(interval, 10) || 1;
+            const rule: RecurrenceRule = {
+                frequency,
+                interval: repeatInterval,
+                daysOfWeek: frequency === 'weekly' && selectedDays.size > 0 ? Array.from(selectedDays) : undefined,
+            };
+            // Prevent recursive loop if local isn't completely new
+            if (JSON.stringify(rule) !== JSON.stringify(localRecurrence)) {
+                setLocalRecurrence(rule);
+                onRecurrenceChange(rule);
+            }
+        }
+    }, [frequency, interval, selectedDays, viewMode]);
     const toggleDay = (day: WeekDay) => {
         const newSet = new Set(selectedDays);
         if (newSet.has(day)) newSet.delete(day);
@@ -113,7 +117,7 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
 
     return (
         <View style={{ width, flex: 1 }}>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
+            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
                 {viewMode === 'presets' ? (
                     <View>
                         {[
@@ -200,20 +204,14 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
                             </View>
                         )}
 
-                        {/* Apply custom button */}
                         <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
                             <TouchableOpacity onPress={() => setViewMode('presets')} style={p.backBtn}>
-                                <Text style={{ color: THEME.textSecondary, fontWeight: '600' }}>Back</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity onPress={handleSaveCustom} style={p.applyCustomBtn}>
-                                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Apply</Text>
+                                <Text style={{ color: THEME.textSecondary, fontWeight: '600' }}>Back to Presets</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
                 )}
             </ScrollView>
-
             <ActionBar onReset={handleReset} onConfirm={handleConfirm} hasValue={!!localRecurrence} />
         </View>
     );

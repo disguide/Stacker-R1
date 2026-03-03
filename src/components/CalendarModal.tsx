@@ -40,10 +40,11 @@ interface CalendarModalProps {
     selectedDate?: string | null; // YYYY-MM-DD or ISO
     initialPage?: number;
     showTimePicker?: boolean;
+    autoConfirm?: boolean;
 }
 
-// Simple Day Cell (No Memo)
-const DayCell = ({ date, isSelected, isToday, onSelect }: { date: Date | null, isSelected: boolean, isToday: boolean, onSelect: (d: Date) => void }) => {
+// Optimized Day Cell
+const DayCell = React.memo(({ date, isSelected, isToday, onSelect }: { date: Date | null, isSelected: boolean, isToday: boolean, onSelect: (d: Date) => void }) => {
     if (!date) return <View style={styles.dayCell} />;
 
     return (
@@ -66,10 +67,10 @@ const DayCell = ({ date, isSelected, isToday, onSelect }: { date: Date | null, i
             </TouchableOpacity>
         </View>
     );
-};
+});
 
-// Simple Month Section (No Memo)
-const MonthSection = ({ data, selectedDate, onSelect }: { data: { date: Date }, selectedDate: Date | null, onSelect: (d: Date) => void }) => {
+// Optimized Month Section
+const MonthSection = React.memo(({ data, selectedDate, onSelect }: { data: { date: Date }, selectedDate: Date | null, onSelect: (d: Date) => void }) => {
     const monthDate = data.date;
 
     const days = useMemo(() => {
@@ -118,7 +119,7 @@ const MonthSection = ({ data, selectedDate, onSelect }: { data: { date: Date }, 
             </View>
         </View>
     );
-};
+});
 
 const ITEM_HEIGHT = 50;
 const WHEEL_HEIGHT = ITEM_HEIGHT * 5;
@@ -240,7 +241,7 @@ const WheelPicker = ({ items, selectedValue, onChange, formatLabel, onScrollStar
     );
 };
 
-export default function CalendarModal({ visible, onClose, onSelectDate, selectedDate, initialPage = 0, showTimePicker = true }: CalendarModalProps) {
+export default function CalendarModal({ visible, onClose, onSelectDate, selectedDate, initialPage = 0, showTimePicker = true, autoConfirm = false }: CalendarModalProps) {
     const listRef = useRef<FlatList>(null);
     const scrollRef = useRef<ScrollView>(null);
 
@@ -437,9 +438,15 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
             selectedDate={tempSelectedDate}
             onSelect={(d) => {
                 setTempSelectedDate(d);
+                if (autoConfirm) {
+                    const finalDate = new Date(d);
+                    finalDate.setHours(0, 0, 0, 0);
+                    onSelectDate(finalDate, false);
+                    onClose();
+                }
             }}
         />
-    ), [tempSelectedDate]);
+    ), [tempSelectedDate, autoConfirm, onSelectDate, onClose]);
 
     const handleScroll = (e: any) => {
         const x = e.nativeEvent.contentOffset.x;

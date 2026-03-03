@@ -314,9 +314,11 @@ export default function ProfileScreen() {
                                         multiline
                                     />
                                 ) : (
-                                    <Text style={styles.userBioText}>
-                                        {profile.bio || "No description yet."}
-                                    </Text>
+                                    <View style={styles.bioDisplayBox}>
+                                        <Text style={styles.userBioText}>
+                                            {profile.bio || "No description yet."}
+                                        </Text>
+                                    </View>
                                 )}
                             </View>
 
@@ -607,6 +609,14 @@ const styles = StyleSheet.create({
         color: '#1E293B',
         lineHeight: 22,
         fontWeight: '400',
+    },
+    bioDisplayBox: {
+        backgroundColor: '#F8FAFC',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        minHeight: 80,
     },
     userBioInput: {
         fontSize: 15,

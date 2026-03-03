@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { Task } from '../../tasks/types';
 import { StorageService } from '../../../services/storage';
@@ -20,11 +20,37 @@ export function useTaskOperations(
     // Task Completion Cooldown State
     const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
     const completionTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+    const pendingItems = useRef<{ [key: string]: any }>({});
     const [historyTasks, setHistoryTasks] = useState<Task[]>([]);
     const [isListScrollEnabled, setIsListScrollEnabled] = useState(true);
 
     const handleSwipeStart = useCallback(() => setIsListScrollEnabled(false), []);
     const handleSwipeEnd = useCallback(() => setIsListScrollEnabled(true), []);
+
+    const flushCompletions = useCallback(() => {
+        const itemIds = Object.keys(completionTimeouts.current);
+        itemIds.forEach(itemId => {
+            clearTimeout(completionTimeouts.current[itemId]);
+            const item = pendingItems.current[itemId];
+            if (item) {
+                // Fire and forget history add
+                const taskToSave = { id: item.id, title: item.title, date: item.date, completed: true };
+                StorageService.addToHistory(taskToSave).catch(e => console.error('[useTaskOperations] History add failed:', e));
+
+                toggleTask(item.originalTaskId, item.originalDate || item.date);
+            }
+        });
+
+        completionTimeouts.current = {};
+        pendingItems.current = {};
+        setCompletingTaskIds(new Set());
+    }, [toggleTask]);
+
+    useEffect(() => {
+        return () => {
+            flushCompletions();
+        };
+    }, [flushCompletions]);
 
     const handleListTaskToggle = useCallback((item: any) => {
         if (__DEV__) console.log('[handleListTaskToggle] Toggling:', { id: item.id, originalDate: item.originalDate, projectedDate: item.date });
@@ -39,6 +65,7 @@ export function useTaskOperations(
             if (completionTimeouts.current[itemId]) {
                 clearTimeout(completionTimeouts.current[itemId]);
                 delete completionTimeouts.current[itemId];
+                delete pendingItems.current[itemId];
             }
             setCompletingTaskIds(prev => {
                 const next = new Set(prev);
@@ -52,19 +79,19 @@ export function useTaskOperations(
                 return next;
             });
 
-            completionTimeouts.current[itemId] = setTimeout(async () => {
-                // Add to history before toggling
-                const taskToSave = {
-                    id: item.id,
-                    title: item.title,
-                    date: item.date,
-                    completed: true
-                };
-                await StorageService.addToHistory(taskToSave);
+            pendingItems.current[itemId] = item;
 
-                toggleTask(item.originalTaskId, item.originalDate || item.date);
+            completionTimeouts.current[itemId] = setTimeout(() => {
+                const pendingItem = pendingItems.current[itemId];
+                if (pendingItem) {
+                    const taskToSave = { id: pendingItem.id, title: pendingItem.title, date: pendingItem.date, completed: true };
+                    StorageService.addToHistory(taskToSave).catch(e => console.error('[useTaskOperations] History add failed:', e));
+                    toggleTask(pendingItem.originalTaskId, pendingItem.originalDate || pendingItem.date);
+                }
 
                 delete completionTimeouts.current[itemId];
+                delete pendingItems.current[itemId];
+
                 setCompletingTaskIds(prev => {
                     const next = new Set(prev);
                     next.delete(itemId);
@@ -135,6 +162,47 @@ export function useTaskOperations(
         if (!criteria) return tasksToSort;
         const sorted = [...tasksToSort];
         switch (criteria) {
+            case 'auto_organise':
+                return sorted.sort((a, b) => {
+                    // 1. Due Time (Empty/Invalid to bottom)
+                    const getTime = (d?: string | null) => {
+                        if (!d) return Number.MAX_SAFE_INTEGER;
+                        const t = new Date(d).getTime();
+                        return isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
+                    };
+                    const timeA = getTime(a.deadline);
+                    const timeB = getTime(b.deadline);
+                    if (timeA !== timeB) return timeA - timeB;
+
+                    // 2. Rollovers (Most rolled over first)
+                    const rollA = a.daysRolled || 0;
+                    const rollB = b.daysRolled || 0;
+                    if (rollA !== rollB) return rollB - rollA;
+
+                    // 3. Importance (Descending, empty to bottom)
+                    const impA = a.importance || 0;
+                    const impB = b.importance || 0;
+                    if (impA !== impB) return impB - impA;
+
+                    // 4. Estimated Time (Shortest first, empty to bottom)
+                    const parseTime = (timeStr?: string) => {
+                        if (!timeStr) return Number.MAX_SAFE_INTEGER;
+                        let mins = 0;
+                        const hMatch = timeStr.match(/(\d+)h/);
+                        const mMatch = timeStr.match(/(\d+)m/);
+                        if (hMatch) mins += parseInt(hMatch[1], 10) * 60;
+                        if (mMatch) mins += parseInt(mMatch[1], 10);
+                        return mins > 0 ? mins : Number.MAX_SAFE_INTEGER;
+                    };
+                    const estA = parseTime(a.estimatedTime);
+                    const estB = parseTime(b.estimatedTime);
+                    if (estA !== estB) return estA - estB;
+
+                    // 5. Color (Group colors together, empty to bottom)
+                    const colA = a.color || 'zzz';
+                    const colB = b.color || 'zzz';
+                    return colA.localeCompare(colB);
+                });
             case 'importance':
                 return sorted.sort((a, b) => (b.importance || 0) - (a.importance || 0));
             case 'date':
@@ -192,6 +260,7 @@ export function useTaskOperations(
         setHistoryTasks,
         updateTaskProgress,
         handleSubtaskToggle: toggleSubtask,
-        handleSubtaskProgress
+        handleSubtaskProgress,
+        flushCompletions
     };
 }

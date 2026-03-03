@@ -15,6 +15,7 @@ interface UseTaskCreationProps {
     setIsDrawerVisible: (visible: boolean) => void;
     setAddingSubtaskToParentId: (id: string | null) => void;
     setEditingSubtask: (task: any) => void;
+    setInitialActiveFeature: (feature: any) => void;
 }
 
 export function useTaskCreation({
@@ -25,7 +26,8 @@ export function useTaskCreation({
     setEditingTask,
     setIsDrawerVisible,
     setAddingSubtaskToParentId,
-    setEditingSubtask
+    setEditingSubtask,
+    setInitialActiveFeature
 }: UseTaskCreationProps) {
 
     const {
@@ -91,7 +93,8 @@ export function useTaskCreation({
                 updateTask(targetMasterId, { subtasks: updatedSubtasks });
             }
 
-            cancelAddingTask();
+            // Keep the quick add bar open for continuous subtask entry
+            setNewTaskTitle('');
             return;
         }
 
@@ -318,9 +321,10 @@ export function useTaskCreation({
             }
         }
 
+        setInitialActiveFeature(null);
         setEditingTask(drawerTask);
         setIsDrawerVisible(true);
-    }, [tasks, setEditingTask, setIsDrawerVisible]);
+    }, [tasks, setEditingTask, setIsDrawerVisible, setInitialActiveFeature]);
 
 
     return {
