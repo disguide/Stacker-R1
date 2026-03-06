@@ -340,7 +340,7 @@ export default function SwipeableTaskRow({
 
             {/* Dynamic Sweeping Background and Border */}
             {!isSelectionMode && (
-                <View style={{ position: 'absolute', top: -6, bottom: -1, left: -1, right: -6, borderRadius: 12, overflow: 'hidden' }} pointerEvents="none">
+                <View style={{ position: 'absolute', top: -6, bottom: -1, left: -1, right: -6, borderRadius: 0, overflow: 'hidden' }} pointerEvents="none">
                     <Animated.View style={[
                         styles.progressFill,
                         {
@@ -351,10 +351,10 @@ export default function SwipeableTaskRow({
                             borderLeftWidth: 1,
                             borderBottomWidth: 1,
                             borderColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : hexToRgba('#38A169', (completed || isCompleting) ? 0.35 : 0.25),
-                            borderTopLeftRadius: 12,
-                            borderBottomLeftRadius: 12,
-                            borderTopRightRadius: 12,
-                            borderBottomRightRadius: 12,
+                            borderTopLeftRadius: 0,
+                            borderBottomLeftRadius: 0,
+                            borderTopRightRadius: 0,
+                            borderBottomRightRadius: 0,
                             width: progressAnim.interpolate({
                                 inputRange: [0, 100],
                                 outputRange: ['0%', '100%']
@@ -383,8 +383,8 @@ export default function SwipeableTaskRow({
                     top: -6,
                     bottom: -1,
                     width: 4,
-                    borderTopLeftRadius: 12,
-                    borderBottomLeftRadius: 12,
+                    borderTopLeftRadius: 0,
+                    borderBottomLeftRadius: 0,
                     backgroundColor: props.color || '#CBD5E0',
                     zIndex: 2, // Ensure it sits above the progress fill
                 }} />
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
         minHeight: 52,
         overflow: 'hidden', // Contain progress bar
         position: 'relative',
-        borderRadius: 10, // Fit inside the soft 12px parent
+        borderRadius: 0, // Fit inside the soft 12px parent
     },
     containerCompleted: {
         backgroundColor: '#F0FFF4',

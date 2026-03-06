@@ -681,7 +681,7 @@ export const styles = StyleSheet.create({
         shadowColor: 'transparent',
         elevation: 0,
 
-        borderRadius: 0, // Squared off corners as requested
+        borderRadius: 12, // Soft rounded corners (removed when touching)
 
         overflow: 'visible',
         position: 'relative',
