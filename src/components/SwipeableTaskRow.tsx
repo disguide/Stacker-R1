@@ -54,6 +54,7 @@ interface SwipeableTaskRowProps {
     onComplete: () => void;
     onEdit: () => void;
     onMenu: () => void;
+    onMenuLongPress?: () => void; // Long-press 3-dots → Move to Date
     onToggleReminder?: () => void; // Toggle callback for reminder tag
     // Formatters handling
     formatDeadline: (date: string) => string;
@@ -61,6 +62,9 @@ interface SwipeableTaskRowProps {
     // NEW: Scroll Locking Callbacks
     onSwipeStart?: () => void;
     onSwipeEnd?: () => void;
+
+    // NEW: DraggableFlatList Integration
+    onStartDrag?: () => void;
     // Indentation
     isSubtask?: boolean;
     // Selection Mode
@@ -69,7 +73,6 @@ interface SwipeableTaskRowProps {
     onSelect?: () => void;
     // NEW: Cooldown State
     isCompleting?: boolean;
-    onDrag?: () => void;
     isReorderMode?: boolean;
 }
 
@@ -398,46 +401,55 @@ export default function SwipeableTaskRow({
                             isSubtask && { paddingLeft: 44, paddingVertical: 4 }
                         ]}
                         onPress={isSelectionMode ? onSelect : undefined}
-                        onLongPress={props.onDrag}
-                        delayLongPress={200}
                         disabled={isSelectionMode}
                         activeOpacity={1} // No opacity change for row tap, checking box handles visual
                     >
 
 
-                        {/* Checkbox: Now a proper touchable */}
-                        <TouchableOpacity
-                            style={[
-                                styles.taskCheckbox,
-                                isSelectionMode && styles.selectionCheckbox,
-                                isSelectionMode && isSelected && styles.selectionCheckboxSelected,
-                                !isSelectionMode && {
-                                    borderColor: props.color || '#444',
-                                    borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 12 : 6,
-                                    width: isSubtask ? 18 : 24,
-                                    height: isSubtask ? 18 : 24,
-                                }
-                            ]}
-                            onPress={isSelectionMode ? onSelect : onComplete}
-                            onLongPress={props.onDrag}
-                            delayLongPress={1500}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                            {isSelectionMode ? (
-                                isSelected && <View style={styles.selectionInner} />
-                            ) : (
-                                (completed || isCompleting) && <View style={[
-                                    styles.taskCheckboxInner,
-                                    {
-                                        backgroundColor: props.color || '#38A169',
-                                        borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 6 : 2,
-                                        width: isSubtask ? 10 : 14,
-                                        height: isSubtask ? 10 : 14,
-                                    }
-                                ]} />
-                            )}
-                        </TouchableOpacity>
-
+                        {/* In reorder mode: show drag handle instead of checkbox */}
+                        {isReorderMode ? (
+                            <View
+                                style={[
+                                    styles.taskCheckbox,
+                                    { borderWidth: 0, alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }
+                                ]}
+                            >
+                                <MaterialCommunityIcons name="drag" size={22} color="#94A3B8" />
+                            </View>
+                        ) : (
+                            <>
+                                {/* Checkbox: Now a proper touchable */}
+                                <TouchableOpacity
+                                    style={[
+                                        styles.taskCheckbox,
+                                        isSelectionMode && styles.selectionCheckbox,
+                                        isSelectionMode && isSelected && styles.selectionCheckboxSelected,
+                                        !isSelectionMode && {
+                                            borderColor: props.color || '#444',
+                                            borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 12 : 6,
+                                            width: isSubtask ? 18 : 24,
+                                            height: isSubtask ? 18 : 24,
+                                        }
+                                    ]}
+                                    onPress={isSelectionMode ? onSelect : onComplete}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
+                                    {isSelectionMode ? (
+                                        isSelected && <View style={styles.selectionInner} />
+                                    ) : (
+                                        (completed || isCompleting) && <View style={[
+                                            styles.taskCheckboxInner,
+                                            {
+                                                backgroundColor: props.color || '#38A169',
+                                                borderRadius: props.taskType === 'event' || props.taskType === 'habit' ? 6 : 2,
+                                                width: isSubtask ? 10 : 14,
+                                                height: isSubtask ? 10 : 14,
+                                            }
+                                        ]} />
+                                    )}
+                                </TouchableOpacity>
+                            </>
+                        )}
 
 
                         <View style={{ flex: 1, paddingRight: 8 }} pointerEvents="box-none">
@@ -483,8 +495,8 @@ export default function SwipeableTaskRow({
                                     </View>
                                 )}
                                 {/* Importance logic moved to top right action zone */}
-                                {/* Reminder Tag - Toggleable */}
-                                {props.reminderTime && (
+                                {/* Reminder Tag - Toggleable - Hidden in reorder mode */}
+                                {!isReorderMode && props.reminderTime && (
                                     <TouchableOpacity
                                         onPress={props.onToggleReminder}
                                         style={[
@@ -524,15 +536,17 @@ export default function SwipeableTaskRow({
                     </View>
                 ) : null}
 
-                {/* Action Zone (Right Side) */}
-                <View style={styles.actionZone}>
-                    <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
-                        <MaterialCommunityIcons name="pencil" size={20} color="#94A3B8" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionButton} onPress={onMenu}>
-                        <MaterialCommunityIcons name={menuIcon} size={20} color={menuColor} />
-                    </TouchableOpacity>
-                </View>
+                {/* Action Zone (Right Side) - Hidden in reorder mode */}
+                {!isReorderMode && (
+                    <View style={styles.actionZone}>
+                        <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
+                            <MaterialCommunityIcons name="pencil" size={20} color="#94A3B8" />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionButton} onPress={onMenu} onLongPress={props.onMenuLongPress} delayLongPress={400}>
+                            <MaterialCommunityIcons name={menuIcon} size={20} color={menuColor} />
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                 {/* Percentage Indicator - Absolute Bottom Right of ROW */}
                 <Text style={styles.percentageText}>

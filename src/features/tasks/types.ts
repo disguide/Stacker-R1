@@ -41,6 +41,9 @@ export interface Task {
     // Sprint Extraction Tracking
     sprintParentId?: string;
     sprintSubtaskId?: string;
+
+    // Manual Sort Order (drag-and-drop)
+    sortOrder?: number;
 }
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -92,4 +95,5 @@ export interface CalendarItem {
     reminderEnabled?: boolean;
     reminderDate?: string; // YYYY-MM-DD
     reminderTime?: string;
+    sortOrder?: number;
 }

@@ -46,6 +46,14 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter }: OrganizeMenuP
                         <Ionicons name="color-palette-outline" size={20} color="#333" />
                         <Text style={styles.menuText}>Color</Text>
                     </TouchableOpacity>
+
+                    {/* Divider */}
+                    <View style={{ height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 }} />
+
+                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('manual_reorder')}>
+                        <MaterialCommunityIcons name="drag" size={20} color="#10B981" />
+                        <Text style={[styles.menuText, { color: '#10B981', fontWeight: 'bold' }]}>Manual Reorder</Text>
+                    </TouchableOpacity>
                 </View>
             </TouchableOpacity>
         </Modal>

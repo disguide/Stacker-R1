@@ -12,7 +12,7 @@ export const useTaskUI = () => {
 
     // Calendar / Date Picking
     const [isCalendarVisible, setIsCalendarVisible] = useState(false);
-    const [calendarMode, setCalendarMode] = useState<'new' | 'edit' | 'edit_reminder' | 'pre-add'>('new');
+    const [calendarMode, setCalendarMode] = useState<'new' | 'edit' | 'edit_reminder' | 'pre-add' | 'move'>('new');
     const [calendarInitialPage, setCalendarInitialPage] = useState(0);
     const [calendarTempDate, setCalendarTempDate] = useState<string | null>(null);
 

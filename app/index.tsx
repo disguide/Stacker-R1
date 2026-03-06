@@ -203,6 +203,7 @@ export default function TaskListScreen() {
                 dates={homeState.dates}
                 calendarItems={calendarItems}
                 sortOption={homeState.sortOption}
+                setSortOption={homeState.setSortOption}
                 isReorderMode={homeState.isReorderMode}
                 setIsReorderMode={homeState.setIsReorderMode}
                 form={{
@@ -227,7 +228,16 @@ export default function TaskListScreen() {
                         const newEnabled = !(task.reminderEnabled ?? true);
                         taskController.updateTask(task.id, { reminderEnabled: newEnabled });
                     },
-                    handleListTaskToggle: ops.handleListTaskToggle // Pass explicitly if spread isn't enough
+                    handleListTaskToggle: ops.handleListTaskToggle, // Pass explicitly if spread isn't enough
+                    reorderTasks: taskController.reorderTasks,
+                    moveTaskToDate: taskController.moveTaskToDate,
+                    onStartMoveToDate: (task: any) => {
+                        ui.setActiveMenuTask(task);
+                        ui.setCalendarInitialPage(0);
+                        ui.setCalendarMode('move');
+                        ui.setCalendarTempDate(task.date || toISODateString(new Date()));
+                        ui.setIsCalendarVisible(true);
+                    }
                 }}
             />
 
@@ -322,13 +332,23 @@ export default function TaskListScreen() {
                         creation.openEditDrawer(ui.activeMenuTask);
                     }
                 }}
+                onMoveToDate={() => {
+                    homeState.setIsMenuVisible(false);
+                    if (ui.activeMenuTask) {
+                        // Open calendar in 'move' mode - date-only, auto-confirm
+                        ui.setCalendarInitialPage(0);
+                        ui.setCalendarMode('move');
+                        ui.setCalendarTempDate(ui.activeMenuTask.date || toISODateString(new Date()));
+                        ui.setIsCalendarVisible(true);
+                    }
+                }}
             />
 
             <CalendarModal
                 visible={ui.isCalendarVisible}
                 onClose={() => ui.setIsCalendarVisible(false)}
-                showTimePicker={ui.calendarMode !== 'pre-add'}
-                autoConfirm={ui.calendarMode === 'pre-add'}
+                showTimePicker={ui.calendarMode !== 'pre-add' && ui.calendarMode !== 'move'}
+                autoConfirm={ui.calendarMode === 'pre-add' || ui.calendarMode === 'move'}
                 onSelectDate={(date: any, hasTime?: boolean) => {
                     let dateStr: string | null = null;
                     if (date) {
@@ -348,6 +368,12 @@ export default function TaskListScreen() {
                         form.setNewTaskDeadline(dateStr);
                     } else if (ui.calendarMode === 'pre-add') {
                         form.startAddingTask(dateStr);
+                    } else if (ui.calendarMode === 'move') {
+                        // Phase 4: Move task to new date
+                        if (ui.activeMenuTask && dateStr) {
+                            taskController.moveTaskToDate(ui.activeMenuTask, dateStr);
+                            ui.setActiveMenuTask(null);
+                        }
                     } else if (ui.editingSubtask) {
                         // ... complex update logic to editingSubtask state
                         // ui.setEditingSubtask({...})
@@ -368,7 +394,10 @@ export default function TaskListScreen() {
                 visible={homeState.isOrganizeMenuVisible}
                 onClose={() => homeState.setIsOrganizeMenuVisible(false)}
                 onSelectFilter={(filter) => {
-                    if (filter === 'auto_organise') {
+                    if (filter === 'manual_reorder') {
+                        homeState.setIsReorderMode(true);
+                        homeState.setSortOption(null);
+                    } else if (filter === 'auto_organise') {
                         homeState.setSortOption('auto_organise');
                     } else {
                         homeState.setSortOption(filter === homeState.sortOption ? null : filter);

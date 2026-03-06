@@ -159,8 +159,17 @@ export function useTaskOperations(
     }, [addTask]);
 
     const sortTasks = useCallback((tasksToSort: any[], criteria: string | null) => {
-        if (!criteria) return tasksToSort;
         const sorted = [...tasksToSort];
+
+        // Ensure default/'manual' sorting natively respects our dragged custom order
+        if (!criteria || criteria === 'manual') {
+            return sorted.sort((a, b) => {
+                const orderA = typeof a.sortOrder === 'number' ? a.sortOrder : 9999;
+                const orderB = typeof b.sortOrder === 'number' ? b.sortOrder : 9999;
+                return orderA - orderB;
+            });
+        }
+
         switch (criteria) {
             case 'auto_organise':
                 return sorted.sort((a, b) => {
@@ -225,7 +234,11 @@ export function useTaskOperations(
                     return colorA.localeCompare(colorB);
                 });
             default:
-                return tasksToSort;
+                return sorted.sort((a, b) => {
+                    const orderA = typeof a.sortOrder === 'number' ? a.sortOrder : 9999;
+                    const orderB = typeof b.sortOrder === 'number' ? b.sortOrder : 9999;
+                    return orderA - orderB;
+                });
         }
     }, []);
 

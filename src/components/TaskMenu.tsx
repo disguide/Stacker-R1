@@ -30,10 +30,11 @@ export interface TaskMenuProps {
     onDelete: () => void;
     isSubtask?: boolean;
     onEdit: () => void;
+    onMoveToDate?: () => void;
     enableSubtasks?: boolean;
 }
 
-export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, enableSubtasks = true }: TaskMenuProps) {
+export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, onMoveToDate, enableSubtasks = true }: TaskMenuProps) {
     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     useEffect(() => {
@@ -104,6 +105,26 @@ export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isS
                             </TouchableOpacity>
 
                             <View style={styles.separator} />
+
+                            {/* Move to Date - Only for parent tasks */}
+                            {!isSubtask && onMoveToDate && (
+                                <>
+                                    <TouchableOpacity
+                                        style={styles.option}
+                                        onPress={() => {
+                                            onClose();
+                                            setTimeout(onMoveToDate, 300);
+                                        }}
+                                    >
+                                        <View style={styles.optionIconContainer}>
+                                            <MaterialCommunityIcons name="calendar-arrow-right" size={22} color={THEME.textPrimary} />
+                                        </View>
+                                        <Text style={styles.optionText}>Move to Date</Text>
+                                    </TouchableOpacity>
+
+                                    <View style={styles.separator} />
+                                </>
+                            )}
 
                             <TouchableOpacity
                                 style={styles.option}

@@ -97,7 +97,8 @@ export const RecurrenceEngine = {
                             reminderEnabled: task.reminderEnabled,
                             reminderDate: task.reminderDate,
                             reminderTime: task.reminderTime,
-                            daysRolled: daysRolled
+                            daysRolled: daysRolled,
+                            sortOrder: task.sortOrder
                         });
                     });
                 } catch (e) {
@@ -155,7 +156,8 @@ export const RecurrenceEngine = {
                         reminderEnabled: task.reminderEnabled,
                         reminderDate: task.reminderDate,
                         reminderTime: task.reminderTime,
-                        daysRolled: daysRolled // Upstream or Calculated
+                        daysRolled: daysRolled, // Upstream or Calculated
+                        sortOrder: task.sortOrder
                     });
                 }
             }

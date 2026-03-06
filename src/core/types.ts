@@ -71,6 +71,7 @@ export interface Task {
     updatedAt: number;
     originalTaskId?: string; // Traceability for ghosts/clones
     importance?: number; // 0=None, 1=Low, 2=Medium, 3=High
+    sortOrder?: number; // UI Reorder positioning
 }
 
 // ---------------------------------------------------------------------------
