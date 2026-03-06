@@ -181,48 +181,63 @@ function ReorderableList({
             }).start();
         }
 
-        // Edge-based Auto-scrolling
+        // Dynamic Edge-based Auto-scrolling
         const windowHeight = Dimensions.get('window').height;
-        const topEdge = 150; // top padding zone
-        const bottomEdge = windowHeight - 150; // bottom padding zone
-        const scrollSpeed = 15;
+        const topEdge = 150; // Increased zone to make it more sensitive
+        const bottomEdge = windowHeight - 150; // Increased zone to make it more sensitive
+        const maxScrollSpeed = 40; // Increased maximum speed
 
+        // Clear existing interval to prevent overlapping scrolls
         if (autoScrollTimer.current) {
             clearInterval(autoScrollTimer.current);
             autoScrollTimer.current = null;
         }
 
-        if (pageY < topEdge) {
-            // Scroll UP
+        // Ensure pageY is actually within screen bounds (PanResponder can occasionally give wildly negative values on fast swipes)
+        if (pageY > 0 && pageY < topEdge) {
+            // Scroll UP - Faster as you get closer to 0
+            const distanceIntoZone = topEdge - Math.max(0, pageY);
+            // Proportional speed: ranges from ~2 to maxScrollSpeed
+            const scrollSpeed = Math.min(Math.max(2, (distanceIntoZone / topEdge) * maxScrollSpeed), maxScrollSpeed);
+
             autoScrollTimer.current = setInterval(() => {
                 const nextY = Math.max(0, scrollY.current - scrollSpeed);
-                scrollY.current = nextY;
-                scrollRef.current?.scrollTo({ y: nextY, animated: false });
+                if (scrollY.current !== nextY) { // Only scroll and re-eval if we actually moved
+                    scrollY.current = nextY;
+                    scrollRef.current?.scrollTo({ y: nextY, animated: false });
 
-                // Re-evaluate gap as we scroll
-                const newScrollDelta = nextY - initialScrollY.current;
-                const newFingerY = initialFingerY.current + currentDy.current + newScrollDelta;
-                const newGap = findNearestGap(newFingerY);
-                if (newGap !== targetGapRef.current) {
-                    targetGapRef.current = newGap;
-                    indicatorY.setValue(getBarYForGap(newGap) - 2);
+                    // Re-evaluate gap as we scroll
+                    const newScrollDelta = nextY - initialScrollY.current;
+                    const newFingerY = initialFingerY.current + currentDy.current + newScrollDelta;
+                    const newGap = findNearestGap(newFingerY);
+                    if (newGap !== targetGapRef.current) {
+                        targetGapRef.current = newGap;
+                        indicatorY.setValue(getBarYForGap(newGap) - 2);
+                    }
                 }
             }, 16);
-        } else if (pageY > bottomEdge) {
-            // Scroll DOWN
+        } else if (pageY > bottomEdge && pageY < windowHeight + 50) {
+            // Scroll DOWN - Faster as you get closer to screen bottom
+            const distanceIntoZone = pageY - bottomEdge;
+            const zoneHeight = 150; // Match expanded zone size
+            // Proportional speed formulation
+            const scrollSpeed = Math.min(Math.max(2, (distanceIntoZone / zoneHeight) * maxScrollSpeed), maxScrollSpeed);
+
             autoScrollTimer.current = setInterval(() => {
                 const maxScroll = Math.max(0, containerY.current + (itemLayouts.current.length * 60) - windowHeight);
                 const nextY = Math.min(maxScroll + 300, scrollY.current + scrollSpeed);
-                scrollY.current = nextY;
-                scrollRef.current?.scrollTo({ y: nextY, animated: false });
+                if (scrollY.current !== nextY) { // Only scroll and re-eval if we actually moved
+                    scrollY.current = nextY;
+                    scrollRef.current?.scrollTo({ y: nextY, animated: false });
 
-                // Re-evaluate gap as we scroll
-                const newScrollDelta = nextY - initialScrollY.current;
-                const newFingerY = initialFingerY.current + currentDy.current + newScrollDelta;
-                const newGap = findNearestGap(newFingerY);
-                if (newGap !== targetGapRef.current) {
-                    targetGapRef.current = newGap;
-                    indicatorY.setValue(getBarYForGap(newGap) - 2);
+                    // Re-evaluate gap as we scroll
+                    const newScrollDelta = nextY - initialScrollY.current;
+                    const newFingerY = initialFingerY.current + currentDy.current + newScrollDelta;
+                    const newGap = findNearestGap(newFingerY);
+                    if (newGap !== targetGapRef.current) {
+                        targetGapRef.current = newGap;
+                        indicatorY.setValue(getBarYForGap(newGap) - 2);
+                    }
                 }
             }, 16);
         }
@@ -243,13 +258,16 @@ function ReorderableList({
         console.log(`[handleDrop] activeIdx: ${activeIdx}, tgtGap: ${tgtGap}`);
 
         if (activeIdx >= 0 && tgtGap !== activeIdx && tgtGap !== activeIdx + 1) {
-            setIsCommitting(true);
             const currentItems = [...items];
             const sourceItem = currentItems[activeIdx];
 
-            if (sourceItem && sourceItem.type === 'task') {
+            // Calculate actual effective insert index
+            const insertAt = tgtGap > activeIdx ? tgtGap - 1 : tgtGap;
+
+            // Only proceed if it actually moved to a new slot
+            if (insertAt !== activeIdx && sourceItem && sourceItem.type === 'task') {
+                setIsCommitting(true);
                 currentItems.splice(activeIdx, 1);
-                const insertAt = tgtGap > activeIdx ? tgtGap - 1 : tgtGap;
                 currentItems.splice(insertAt, 0, sourceItem);
 
                 let currentDate = '';
@@ -420,6 +438,7 @@ const DraggableRow = React.memo(function DraggableRow({
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: () => true,
+            onPanResponderTerminationRequest: () => false, // PREVENT SCROLLVIEW FROM STEALING DRAG
             onPanResponderGrant: (e) => {
                 // @ts-ignore: _value exists at runtime for Animated.Value
                 const currentY = pan.y._value || 0;
