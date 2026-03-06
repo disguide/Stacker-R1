@@ -316,6 +316,7 @@ function ReorderableList({
                 const isActive = activeIdx === idx;
 
                 let clumpStyle = {};
+                let clumpPosition: 'first' | 'middle' | 'last' | 'solo' = 'solo';
                 if (isClumped && !isActive) {
                     const prevItem = idx > 0 ? items[idx - 1] : null;
                     const nextItem = idx < items.length - 1 ? items[idx + 1] : null;
@@ -329,12 +330,16 @@ function ReorderableList({
 
                     if (!isPrevValid && !isNextValid) {
                         clumpStyle = {};
+                        clumpPosition = 'solo';
                     } else if (!isPrevValid && isNextValid) {
                         clumpStyle = styles.taskCardClumpedFirst;
+                        clumpPosition = 'first';
                     } else if (isPrevValid && isNextValid) {
                         clumpStyle = styles.taskCardClumpedMiddle;
+                        clumpPosition = 'middle';
                     } else if (isPrevValid && !isNextValid) {
                         clumpStyle = styles.taskCardClumpedLast;
+                        clumpPosition = 'last';
                     }
                 }
 
@@ -347,6 +352,7 @@ function ReorderableList({
                         isActive={isActive}
                         isClumped={isClumped}
                         clumpStyle={clumpStyle}
+                        clumpPosition={clumpPosition}
                         onLayout={e => {
                             itemLayouts.current[idx] = {
                                 y: e.nativeEvent.layout.y,
@@ -383,7 +389,7 @@ function ReorderableList({
 
 // Sub-component wrapper attaching the gesture responder
 const DraggableRow = React.memo(function DraggableRow({
-    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle
+    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, clumpPosition
 }: {
     index: number;
     task: any;
@@ -395,6 +401,7 @@ const DraggableRow = React.memo(function DraggableRow({
     onDragEnd: () => void;
     isClumped?: boolean;
     clumpStyle?: any;
+    clumpPosition?: 'first' | 'middle' | 'last' | 'solo';
 }) {
     const pan = useRef(new Animated.ValueXY()).current;
 
@@ -473,6 +480,7 @@ const DraggableRow = React.memo(function DraggableRow({
                 importance={task.importance} reminderEnabled={task.reminderEnabled}
                 reminderTime={task.reminderTime} reminderDate={task.reminderDate}
                 isReorderMode={true}
+                clumpPosition={clumpPosition}
             />
             {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any) => (
                 <SwipeableTaskRow
@@ -564,6 +572,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
             const task = item.data;
 
             let clumpStyle = {};
+            let clumpPosition: 'first' | 'middle' | 'last' | 'solo' = 'solo';
             if (isClumped) {
                 const prevItem = index > 0 ? listData[index - 1] : null;
                 const nextItem = index < listData.length - 1 ? listData[index + 1] : null;
@@ -573,12 +582,16 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
 
                 if (!isPrevTask && !isNextTask) {
                     clumpStyle = {}; // Solo task, regular styling
+                    clumpPosition = 'solo';
                 } else if (!isPrevTask && isNextTask) {
                     clumpStyle = styles.taskCardClumpedFirst;
+                    clumpPosition = 'first';
                 } else if (isPrevTask && isNextTask) {
                     clumpStyle = styles.taskCardClumpedMiddle;
+                    clumpPosition = 'middle';
                 } else if (isPrevTask && !isNextTask) {
                     clumpStyle = styles.taskCardClumpedLast;
+                    clumpPosition = 'last';
                 }
             }
 
@@ -597,6 +610,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         taskType={task.taskType} importance={task.importance} reminderEnabled={task.reminderEnabled}
                         reminderTime={task.reminderTime} reminderDate={task.reminderDate}
                         onToggleReminder={() => ops.onToggleReminder(task)}
+                        clumpPosition={clumpPosition}
                     />
                     {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any) => (
                         <SwipeableTaskRow

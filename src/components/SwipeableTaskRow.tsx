@@ -74,6 +74,7 @@ interface SwipeableTaskRowProps {
     // NEW: Cooldown State
     isCompleting?: boolean;
     isReorderMode?: boolean;
+    clumpPosition?: 'first' | 'middle' | 'last' | 'solo';
 }
 
 // Helper to calculate remaining time locally
@@ -143,6 +144,7 @@ export default function SwipeableTaskRow({
     onSelect,
     isCompleting = false,
     isReorderMode = false,
+    clumpPosition = 'solo',
     ...props // Catch-all for recurrence to avoid destructuring mess or add it explicitly
 }: SwipeableTaskRowProps) {
     const [containerWidth, setContainerWidth] = useState(0);
@@ -352,10 +354,10 @@ export default function SwipeableTaskRow({
                             borderLeftWidth: 1,
                             borderBottomWidth: 1,
                             borderColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : hexToRgba('#38A169', (completed || isCompleting) ? 0.35 : 0.25),
-                            borderTopLeftRadius: 10,
-                            borderBottomLeftRadius: 10,
-                            borderTopRightRadius: 10, // Let the parent's overflow:hidden handle flattening when clumped!
-                            borderBottomRightRadius: 10,
+                            borderTopLeftRadius: (clumpPosition === 'middle' || clumpPosition === 'last') ? 0 : 10,
+                            borderBottomLeftRadius: (clumpPosition === 'middle' || clumpPosition === 'first') ? 0 : 10,
+                            borderTopRightRadius: (clumpPosition === 'middle' || clumpPosition === 'last') ? 0 : 10,
+                            borderBottomRightRadius: (clumpPosition === 'middle' || clumpPosition === 'first') ? 0 : 10,
                             width: progressAnim.interpolate({
                                 inputRange: [0, 100],
                                 outputRange: ['0%', '100%']
@@ -384,8 +386,8 @@ export default function SwipeableTaskRow({
                     top: 0,
                     bottom: 0,
                     width: 4,
-                    borderTopLeftRadius: 10, // Curve matches the inner radius of the task card
-                    borderBottomLeftRadius: 10,
+                    borderTopLeftRadius: (clumpPosition === 'middle' || clumpPosition === 'last') ? 0 : 10,
+                    borderBottomLeftRadius: (clumpPosition === 'middle' || clumpPosition === 'first') ? 0 : 10,
                     backgroundColor: props.color || '#CBD5E0',
                     zIndex: 2, // Ensure it sits above the progress fill
                 }} />
