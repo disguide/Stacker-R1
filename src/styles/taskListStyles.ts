@@ -672,8 +672,8 @@ export const styles = StyleSheet.create({
 
         borderBottomWidth: 1,
         borderLeftWidth: 1,
-        borderTopWidth: 1,
-        borderRightWidth: 1,
+        borderTopWidth: 6, // Restoring 3D shade
+        borderRightWidth: 6, // Restoring 3D shade
 
         // Default Soft Palette (Will be overridden by Task Color physically)
         borderColor: '#E2E8F0', // Base soft grey for uncolored tasks
