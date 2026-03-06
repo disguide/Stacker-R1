@@ -27,6 +27,8 @@ interface TaskListSectionProps {
     setSortOption: (val: string | null) => void;
     isReorderMode: boolean;
     setIsReorderMode: (val: boolean) => void;
+    isClumped: boolean;
+    setIsClumped: (val: boolean) => void;
     form: {
         addingTaskForDate: string | null;
         newTaskTitle: string;
@@ -73,7 +75,7 @@ type FlatItem = { type: 'header'; date: Date; dateString: string; key: string }
 
 // ============ Draggable List implementation (Pure React Native) ============
 function ReorderableList({
-    flatItems, ops, renderDateHeader, onDragStateChange, scrollY, scrollRef
+    flatItems, ops, renderDateHeader, onDragStateChange, scrollY, scrollRef, isClumped
 }: {
     flatItems: FlatItem[];
     ops: TaskListSectionProps['ops'];
@@ -81,6 +83,7 @@ function ReorderableList({
     onDragStateChange?: (isDragging: boolean) => void;
     scrollY: React.MutableRefObject<number>;
     scrollRef: React.RefObject<ScrollView>;
+    isClumped: boolean;
 }) {
     const [items, setItems] = useState(flatItems);
 
@@ -312,6 +315,29 @@ function ReorderableList({
                 const task = item.data;
                 const isActive = activeIdx === idx;
 
+                let clumpStyle = {};
+                if (isClumped && !isActive) {
+                    const prevItem = idx > 0 ? items[idx - 1] : null;
+                    const nextItem = idx < items.length - 1 ? items[idx + 1] : null;
+
+                    const isPrevTask = prevItem && prevItem.type === 'task';
+                    const isNextTask = nextItem && nextItem.type === 'task';
+
+                    // Note: Check activeIdx out of the calculation, so dragging items don't clump
+                    const isPrevValid = isPrevTask && (idx - 1) !== activeIdx;
+                    const isNextValid = isNextTask && (idx + 1) !== activeIdx;
+
+                    if (!isPrevValid && !isNextValid) {
+                        clumpStyle = {};
+                    } else if (!isPrevValid && isNextValid) {
+                        clumpStyle = styles.taskCardClumpedFirst;
+                    } else if (isPrevValid && isNextValid) {
+                        clumpStyle = styles.taskCardClumpedMiddle;
+                    } else if (isPrevValid && !isNextValid) {
+                        clumpStyle = styles.taskCardClumpedLast;
+                    }
+                }
+
                 return (
                     <DraggableRow
                         key={item.key}
@@ -319,6 +345,8 @@ function ReorderableList({
                         task={task}
                         ops={ops}
                         isActive={isActive}
+                        isClumped={isClumped}
+                        clumpStyle={clumpStyle}
                         onLayout={e => {
                             itemLayouts.current[idx] = {
                                 y: e.nativeEvent.layout.y,
@@ -355,7 +383,7 @@ function ReorderableList({
 
 // Sub-component wrapper attaching the gesture responder
 const DraggableRow = React.memo(function DraggableRow({
-    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd
+    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle
 }: {
     index: number;
     task: any;
@@ -365,6 +393,8 @@ const DraggableRow = React.memo(function DraggableRow({
     onDragStart: (idx: number, pageY: number) => void;
     onDragMove: (dy: number, pageY: number) => void;
     onDragEnd: () => void;
+    isClumped?: boolean;
+    clumpStyle?: any;
 }) {
     const pan = useRef(new Animated.ValueXY()).current;
 
@@ -411,6 +441,8 @@ const DraggableRow = React.memo(function DraggableRow({
             {...panResponder.panHandlers}
             style={[
                 styles.taskCard,
+                isClumped && !isActive && styles.taskCardClumped,
+                !isActive && clumpStyle,
                 isActive && {
                     transform: [{ translateY: pan.y }, { scale: 1.02 }],
                     opacity: 0.9,
@@ -460,7 +492,7 @@ const DraggableRow = React.memo(function DraggableRow({
 });
 
 // ============ Main Component ============
-export function TaskListSection({ dates, calendarItems, sortOption, setSortOption, isReorderMode, setIsReorderMode, form, ops }: TaskListSectionProps) {
+export function TaskListSection({ dates, calendarItems, sortOption, setSortOption, isReorderMode, setIsReorderMode, isClumped, setIsClumped, form, ops }: TaskListSectionProps) {
     const inputRef = useRef<TextInput>(null);
     const mainScrollY = useRef(0);
     const scrollRef = useRef<ScrollView>(null);
@@ -530,8 +562,28 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
             return <View style={{ zIndex: zIdx, elevation: zIdx }}>{renderDateHeader(item.date)}</View>;
         } else if (item.type === 'task') {
             const task = item.data;
+
+            let clumpStyle = {};
+            if (isClumped) {
+                const prevItem = index > 0 ? listData[index - 1] : null;
+                const nextItem = index < listData.length - 1 ? listData[index + 1] : null;
+
+                const isPrevTask = prevItem && prevItem.type === 'task';
+                const isNextTask = nextItem && nextItem.type === 'task';
+
+                if (!isPrevTask && !isNextTask) {
+                    clumpStyle = {}; // Solo task, regular styling
+                } else if (!isPrevTask && isNextTask) {
+                    clumpStyle = styles.taskCardClumpedFirst;
+                } else if (isPrevTask && isNextTask) {
+                    clumpStyle = styles.taskCardClumpedMiddle;
+                } else if (isPrevTask && !isNextTask) {
+                    clumpStyle = styles.taskCardClumpedLast;
+                }
+            }
+
             return (
-                <View style={[styles.taskCard, { zIndex: zIdx, elevation: zIdx }]}>
+                <View style={[styles.taskCard, isClumped && styles.taskCardClumped, clumpStyle, { zIndex: zIdx, elevation: zIdx }]}>
                     <SwipeableTaskRow
                         id={task.id} recurrence={task.rrule} title={task.title} completed={task.isCompleted}
                         deadline={task.deadline} estimatedTime={task.estimatedTime} progress={task.progress}
@@ -639,6 +691,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         onDragStateChange={handleDragStateChange}
                         scrollY={mainScrollY}
                         scrollRef={scrollRef}
+                        isClumped={isClumped}
                     />
                 </ScrollView>
                 <TouchableOpacity

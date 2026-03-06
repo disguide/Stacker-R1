@@ -11,6 +11,7 @@ export function useHomeState() {
     } = useTaskNavigation();
 
     const [isReorderMode, setIsReorderMode] = useState(false);
+    const [isClumped, setIsClumped] = useState(false);
     const [isSprintSelectionMode, setIsSprintSelectionMode] = useState(false);
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const [isOrganizeMenuVisible, setIsOrganizeMenuVisible] = useState(false);
@@ -32,6 +33,8 @@ export function useHomeState() {
         showViewPicker,
         setShowViewPicker,
         dates,
+        isClumped,
+        setIsClumped,
         isReorderMode,
         setIsReorderMode,
         isSprintSelectionMode,

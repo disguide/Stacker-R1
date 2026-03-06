@@ -687,6 +687,25 @@ export const styles = StyleSheet.create({
         overflow: 'visible',
         position: 'relative',
     },
+    taskCardClumped: {
+        marginBottom: 0,
+        marginTop: 0,
+    },
+    taskCardClumpedFirst: {
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
+        borderBottomWidth: 1, // Keep separator
+    },
+    taskCardClumpedMiddle: {
+        borderRadius: 0,
+        borderBottomWidth: 1,
+    },
+    taskCardClumpedLast: {
+        borderTopLeftRadius: 0,
+        borderTopRightRadius: 0,
+        borderBottomWidth: 1,
+        marginBottom: 12, // Restore margin after the clump is done
+    },
     subtaskRowWrapper: {
         borderTopWidth: 1,
         borderTopColor: '#F1F5F9', // Subtle separator between main task and subtasks

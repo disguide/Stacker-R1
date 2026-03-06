@@ -206,6 +206,8 @@ export default function TaskListScreen() {
                 setSortOption={homeState.setSortOption}
                 isReorderMode={homeState.isReorderMode}
                 setIsReorderMode={homeState.setIsReorderMode}
+                isClumped={homeState.isClumped}
+                setIsClumped={homeState.setIsClumped}
                 form={{
                     ...form,
                     handleAddTask: creation.handleAddTask,
@@ -393,17 +395,23 @@ export default function TaskListScreen() {
             <OrganizeMenu
                 visible={homeState.isOrganizeMenuVisible}
                 onClose={() => homeState.setIsOrganizeMenuVisible(false)}
+                isClumped={homeState.isClumped}
                 onSelectFilter={(filter) => {
                     if (filter === 'manual_reorder') {
                         homeState.setIsReorderMode(true);
                         homeState.setSortOption(null);
+                        homeState.setIsOrganizeMenuVisible(false);
                     } else if (filter === 'auto_organise') {
                         homeState.setSortOption('auto_organise');
+                        homeState.setIsOrganizeMenuVisible(false);
+                    } else if (filter === 'toggle_clump') {
+                        homeState.setIsClumped(prev => !prev);
+                        homeState.setIsOrganizeMenuVisible(false);
                     } else {
                         // Removed the toggle off feature to prevent accidental reshuffling
                         homeState.setSortOption(filter);
+                        homeState.setIsOrganizeMenuVisible(false);
                     }
-                    homeState.setIsOrganizeMenuVisible(false);
                 }}
             />
 

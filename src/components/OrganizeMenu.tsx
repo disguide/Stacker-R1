@@ -6,9 +6,10 @@ interface OrganizeMenuProps {
     visible: boolean;
     onClose: () => void;
     onSelectFilter: (filterType: string) => void;
+    isClumped: boolean;
 }
 
-export const OrganizeMenu = ({ visible, onClose, onSelectFilter }: OrganizeMenuProps) => {
+export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped }: OrganizeMenuProps) => {
     if (!visible) return null;
 
     return (
@@ -53,6 +54,11 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter }: OrganizeMenuP
                     <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('manual_reorder')}>
                         <MaterialCommunityIcons name="drag" size={20} color="#10B981" />
                         <Text style={[styles.menuText, { color: '#10B981', fontWeight: 'bold' }]}>Manual Reorder</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('toggle_clump')}>
+                        <MaterialCommunityIcons name={isClumped ? "format-line-spacing" : "format-vertical-align-center"} size={20} color="#8B5CF6" />
+                        <Text style={[styles.menuText, { color: '#8B5CF6', fontWeight: 'bold' }]}>{isClumped ? "Declump Tasks" : "Clump Tasks"}</Text>
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>
