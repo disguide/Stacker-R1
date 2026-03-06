@@ -683,7 +683,7 @@ export const styles = StyleSheet.create({
 
         borderRadius: 12, // Soft rounded corners (removed when touching)
 
-        overflow: 'visible',
+        overflow: 'hidden', // Clips inner square colored bars so the edges look right!
         position: 'relative',
     },
     taskCardClumped: {
@@ -691,12 +691,17 @@ export const styles = StyleSheet.create({
         marginTop: 0,
     },
     taskCardClumpedFirst: {
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
         borderBottomWidth: 1, // Keep separator
     },
     taskCardClumpedMiddle: {
+        borderRadius: 0,
         borderBottomWidth: 1,
     },
     taskCardClumpedLast: {
+        borderTopLeftRadius: 0,
+        borderTopRightRadius: 0,
         borderBottomWidth: 1,
         marginBottom: 8, // Restore margin after the clump is done
     },
