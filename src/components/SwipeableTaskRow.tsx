@@ -340,19 +340,15 @@ export default function SwipeableTaskRow({
 
             {/* Dynamic Sweeping Background and Border */}
             {!isSelectionMode && (
-                <View style={{ position: 'absolute', top: -6, bottom: -1, left: -1, right: -6, borderRadius: 0, overflow: 'hidden' }} pointerEvents="none">
+                <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, borderRadius: 0, overflow: 'hidden' }} pointerEvents="none">
                     <Animated.View style={[
                         styles.progressFill,
                         {
                             top: 0,
                             left: 0,
                             bottom: 0,
-                            borderTopWidth: 6,
-                            borderLeftWidth: 1,
-                            borderBottomWidth: 1,
-                            borderColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : hexToRgba('#38A169', (completed || isCompleting) ? 0.35 : 0.25),
-                            borderTopLeftRadius: 12,
-                            borderBottomLeftRadius: 12,
+                            borderTopLeftRadius: 10,
+                            borderBottomLeftRadius: 10,
                             borderTopRightRadius: 0,
                             borderBottomRightRadius: 0,
                             width: progressAnim.interpolate({
@@ -379,12 +375,12 @@ export default function SwipeableTaskRow({
                 {/* Color Stripe - Always present, defaults to soft gray, rendering on ROOT container edge */}
                 <View style={{
                     position: 'absolute',
-                    left: -1,
-                    top: -6,
-                    bottom: -1,
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
                     width: 4,
-                    borderTopLeftRadius: 12, // Always cleanly round out the left side!
-                    borderBottomLeftRadius: 12,
+                    borderTopLeftRadius: 10, // Curve matches the inner radius of the task card
+                    borderBottomLeftRadius: 10,
                     backgroundColor: props.color || '#CBD5E0',
                     zIndex: 2, // Ensure it sits above the progress fill
                 }} />
