@@ -316,6 +316,8 @@ function ReorderableList({
                 const isActive = activeIdx === idx;
 
                 let clumpStyle = {};
+                let touchingTop = false;
+                let touchingBottom = false;
                 if (isClumped && !isActive) {
                     const prevItem = idx > 0 ? items[idx - 1] : null;
                     const nextItem = idx < items.length - 1 ? items[idx + 1] : null;
@@ -326,6 +328,9 @@ function ReorderableList({
                     // Note: Check activeIdx out of the calculation, so dragging items don't clump
                     const isPrevValid = isPrevTask && (idx - 1) !== activeIdx;
                     const isNextValid = isNextTask && (idx + 1) !== activeIdx;
+
+                    touchingTop = isPrevValid;
+                    touchingBottom = isNextValid;
 
                     if (!isPrevValid && !isNextValid) {
                         clumpStyle = {};
@@ -347,6 +352,8 @@ function ReorderableList({
                         isActive={isActive}
                         isClumped={isClumped}
                         clumpStyle={clumpStyle}
+                        touchingTop={touchingTop}
+                        touchingBottom={touchingBottom}
                         onLayout={e => {
                             itemLayouts.current[idx] = {
                                 y: e.nativeEvent.layout.y,
@@ -383,7 +390,7 @@ function ReorderableList({
 
 // Sub-component wrapper attaching the gesture responder
 const DraggableRow = React.memo(function DraggableRow({
-    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle
+    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, touchingTop, touchingBottom
 }: {
     index: number;
     task: any;
@@ -395,6 +402,8 @@ const DraggableRow = React.memo(function DraggableRow({
     onDragEnd: () => void;
     isClumped?: boolean;
     clumpStyle?: any;
+    touchingTop?: boolean;
+    touchingBottom?: boolean;
 }) {
     const pan = useRef(new Animated.ValueXY()).current;
 
@@ -564,12 +573,17 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
             const task = item.data;
 
             let clumpStyle = {};
+            let touchingTop = false;
+            let touchingBottom = false;
             if (isClumped) {
                 const prevItem = index > 0 ? listData[index - 1] : null;
                 const nextItem = index < listData.length - 1 ? listData[index + 1] : null;
 
                 const isPrevTask = prevItem && prevItem.type === 'task';
                 const isNextTask = nextItem && nextItem.type === 'task';
+
+                touchingTop = isPrevTask;
+                touchingBottom = isNextTask;
 
                 if (!isPrevTask && !isNextTask) {
                     clumpStyle = {}; // Solo task, regular styling
@@ -597,6 +611,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         taskType={task.taskType} importance={task.importance} reminderEnabled={task.reminderEnabled}
                         reminderTime={task.reminderTime} reminderDate={task.reminderDate}
                         onToggleReminder={() => ops.onToggleReminder(task)}
+                        touchingTop={touchingTop} touchingBottom={touchingBottom}
                     />
                     {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any) => (
                         <SwipeableTaskRow

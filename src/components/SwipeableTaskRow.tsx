@@ -74,6 +74,9 @@ interface SwipeableTaskRowProps {
     // NEW: Cooldown State
     isCompleting?: boolean;
     isReorderMode?: boolean;
+    // NEW: Clump Touching State
+    touchingTop?: boolean;
+    touchingBottom?: boolean;
 }
 
 // Helper to calculate remaining time locally
@@ -143,6 +146,8 @@ export default function SwipeableTaskRow({
     onSelect,
     isCompleting = false,
     isReorderMode = false,
+    touchingTop = false,
+    touchingBottom = false,
     ...props // Catch-all for recurrence to avoid destructuring mess or add it explicitly
 }: SwipeableTaskRowProps) {
     const [containerWidth, setContainerWidth] = useState(0);
@@ -351,8 +356,8 @@ export default function SwipeableTaskRow({
                             borderLeftWidth: 1,
                             borderBottomWidth: 1,
                             borderColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : hexToRgba('#38A169', (completed || isCompleting) ? 0.35 : 0.25),
-                            borderTopLeftRadius: 12,
-                            borderBottomLeftRadius: 12,
+                            borderTopLeftRadius: touchingTop ? 0 : 12,
+                            borderBottomLeftRadius: touchingBottom ? 0 : 12,
                             borderTopRightRadius: 0,
                             borderBottomRightRadius: 0,
                             width: progressAnim.interpolate({
@@ -383,8 +388,8 @@ export default function SwipeableTaskRow({
                     top: 0,
                     bottom: 0,
                     width: 4,
-                    borderTopLeftRadius: 6, // Matches inner curvature of the 6px top boundary (12 - 6 = 6)
-                    borderBottomLeftRadius: 10, // Matches inner curvature of 1px bottom boundary (12 - 1 = 11, visually 10 is smooth)
+                    borderTopLeftRadius: touchingTop ? 0 : 6, // Matches inner curvature of the 6px top boundary (12 - 6 = 6)
+                    borderBottomLeftRadius: touchingBottom ? 0 : 10, // Matches inner curvature of 1px bottom boundary (12 - 1 = 11, visually 10 is smooth)
                     backgroundColor: props.color || '#CBD5E0',
                     zIndex: 2, // Ensure it sits above the progress fill
                 }} />
