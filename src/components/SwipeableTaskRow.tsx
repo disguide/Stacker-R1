@@ -347,10 +347,15 @@ export default function SwipeableTaskRow({
                             top: 0,
                             left: 0,
                             bottom: 0,
+                            borderTopWidth: 6, // Restore 3D color shade
+                            borderRightWidth: 6, // Restore 3D color shade
+                            borderLeftWidth: 1,
+                            borderBottomWidth: 1,
+                            borderColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : hexToRgba('#38A169', (completed || isCompleting) ? 0.35 : 0.25),
                             borderTopLeftRadius: 10,
                             borderBottomLeftRadius: 10,
-                            borderTopRightRadius: 0,
-                            borderBottomRightRadius: 0,
+                            borderTopRightRadius: 10, // Let the parent's overflow:hidden handle flattening when clumped!
+                            borderBottomRightRadius: 10,
                             width: progressAnim.interpolate({
                                 inputRange: [0, 100],
                                 outputRange: ['0%', '100%']
