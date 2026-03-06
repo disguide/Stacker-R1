@@ -351,8 +351,8 @@ export default function SwipeableTaskRow({
                             borderLeftWidth: 1,
                             borderBottomWidth: 1,
                             borderColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : hexToRgba('#38A169', (completed || isCompleting) ? 0.35 : 0.25),
-                            borderTopLeftRadius: 0,
-                            borderBottomLeftRadius: 0,
+                            borderTopLeftRadius: 12,
+                            borderBottomLeftRadius: 12,
                             borderTopRightRadius: 0,
                             borderBottomRightRadius: 0,
                             width: progressAnim.interpolate({
@@ -383,8 +383,8 @@ export default function SwipeableTaskRow({
                     top: -6,
                     bottom: -1,
                     width: 4,
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
+                    borderTopLeftRadius: 12, // Always cleanly round out the left side!
+                    borderBottomLeftRadius: 12,
                     backgroundColor: props.color || '#CBD5E0',
                     zIndex: 2, // Ensure it sits above the progress fill
                 }} />

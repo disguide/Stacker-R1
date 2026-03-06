@@ -687,7 +687,7 @@ export const styles = StyleSheet.create({
         position: 'relative',
     },
     taskCardClumped: {
-        marginBottom: 0,
+        marginBottom: -6, // Tightly pull tasks over each other's 6px 3D shade!
         marginTop: 0,
     },
     taskCardClumpedFirst: {
