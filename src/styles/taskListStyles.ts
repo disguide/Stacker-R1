@@ -345,7 +345,7 @@ export const styles = StyleSheet.create({
     taskCheckbox: {
         width: 22,
         height: 22,
-        borderRadius: 6, // Rounded square
+        borderRadius: 0, // Squared off to match new style
         borderWidth: 1.5,
         borderColor: '#444444',
         marginRight: 14,
@@ -357,7 +357,7 @@ export const styles = StyleSheet.create({
         width: 12,
         height: 12,
         backgroundColor: THEME.success, // Green for checkmark
-        borderRadius: 2,
+        borderRadius: 0,
     },
     taskLeftContent: {
         flex: 1,
@@ -640,7 +640,7 @@ export const styles = StyleSheet.create({
     subtaskDot: {
         width: 6,
         height: 6,
-        borderRadius: 3,
+        borderRadius: 0,
         backgroundColor: '#CBD5E0',
         marginRight: 8,
     },
@@ -666,15 +666,14 @@ export const styles = StyleSheet.create({
     },
     taskCard: {
         backgroundColor: '#FFFFFF',
-        marginBottom: 4, // Tighter spacing requested by user
+        marginBottom: 2, // Even tighter spacing requested by user
         marginHorizontal: 8,
         marginTop: 0,
 
-        // Soft 3D Geometry - Thickened on TOP and RIGHT
         borderBottomWidth: 1,
         borderLeftWidth: 1,
-        borderTopWidth: 6, // Thick shading/depth top
-        borderRightWidth: 6, // Thick shading right
+        borderTopWidth: 1,
+        borderRightWidth: 1,
 
         // Default Soft Palette (Will be overridden by Task Color physically)
         borderColor: '#E2E8F0', // Base soft grey for uncolored tasks
@@ -682,7 +681,7 @@ export const styles = StyleSheet.create({
         shadowColor: 'transparent',
         elevation: 0,
 
-        borderRadius: 12, // Soft rounded corners returns
+        borderRadius: 0, // Squared off corners as requested
 
         overflow: 'visible',
         position: 'relative',
@@ -692,19 +691,14 @@ export const styles = StyleSheet.create({
         marginTop: 0,
     },
     taskCardClumpedFirst: {
-        borderBottomLeftRadius: 0,
-        borderBottomRightRadius: 0,
         borderBottomWidth: 1, // Keep separator
     },
     taskCardClumpedMiddle: {
-        borderRadius: 0,
         borderBottomWidth: 1,
     },
     taskCardClumpedLast: {
-        borderTopLeftRadius: 0,
-        borderTopRightRadius: 0,
         borderBottomWidth: 1,
-        marginBottom: 12, // Restore margin after the clump is done
+        marginBottom: 8, // Restore margin after the clump is done
     },
     subtaskRowWrapper: {
         borderTopWidth: 1,
