@@ -74,7 +74,7 @@ interface SwipeableTaskRowProps {
     // NEW: Cooldown State
     isCompleting?: boolean;
     isReorderMode?: boolean;
-    clumpPosition?: 'first' | 'middle' | 'last' | 'solo';
+    clumpStatus?: 'solo' | 'first' | 'middle' | 'last';
 }
 
 // Helper to calculate remaining time locally
@@ -144,10 +144,14 @@ export default function SwipeableTaskRow({
     onSelect,
     isCompleting = false,
     isReorderMode = false,
-    clumpPosition = 'solo',
+    clumpStatus = 'solo',
     ...props // Catch-all for recurrence to avoid destructuring mess or add it explicitly
 }: SwipeableTaskRowProps) {
     const [containerWidth, setContainerWidth] = useState(0);
+
+    const baseRadius = isSubtask ? 0 : 12;
+    const topRadius = (clumpStatus === 'solo' || clumpStatus === 'first') ? baseRadius : 0;
+    const bottomRadius = (clumpStatus === 'solo' || clumpStatus === 'last') ? baseRadius : 0;
 
     // Animation Values
     const progressAnim = useMemo(() => new Animated.Value(progress), []);
@@ -342,22 +346,21 @@ export default function SwipeableTaskRow({
 
             {/* Dynamic Sweeping Background and Border */}
             {!isSelectionMode && (
-                <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, borderRadius: 0, overflow: 'hidden' }} pointerEvents="none">
+                <View style={{ position: 'absolute', top: -6, bottom: -1, left: -1, right: -6, borderTopLeftRadius: topRadius, borderTopRightRadius: topRadius, borderBottomLeftRadius: bottomRadius, borderBottomRightRadius: bottomRadius, overflow: 'hidden' }} pointerEvents="none">
                     <Animated.View style={[
                         styles.progressFill,
                         {
                             top: 0,
                             left: 0,
                             bottom: 0,
-                            borderTopWidth: 6, // Restore 3D color shade
-                            borderRightWidth: 6, // Restore 3D color shade
+                            borderTopWidth: 6,
                             borderLeftWidth: 1,
                             borderBottomWidth: 1,
                             borderColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : hexToRgba('#38A169', (completed || isCompleting) ? 0.35 : 0.25),
-                            borderTopLeftRadius: (clumpPosition === 'middle' || clumpPosition === 'last') ? 0 : 10,
-                            borderBottomLeftRadius: (clumpPosition === 'middle' || clumpPosition === 'first') ? 0 : 10,
-                            borderTopRightRadius: (clumpPosition === 'middle' || clumpPosition === 'last') ? 0 : 10,
-                            borderBottomRightRadius: (clumpPosition === 'middle' || clumpPosition === 'first') ? 0 : 10,
+                            borderTopLeftRadius: topRadius,
+                            borderBottomLeftRadius: bottomRadius,
+                            borderTopRightRadius: topRadius,
+                            borderBottomRightRadius: bottomRadius,
                             width: progressAnim.interpolate({
                                 inputRange: [0, 100],
                                 outputRange: ['0%', '100%']
@@ -376,18 +379,19 @@ export default function SwipeableTaskRow({
                 ref={viewRef}
                 style={[
                     styles.container,
-                    isSubtask && { minHeight: 40 }
+                    isSubtask && { minHeight: 40 },
+                    { borderTopLeftRadius: topRadius, borderTopRightRadius: topRadius, borderBottomLeftRadius: bottomRadius, borderBottomRightRadius: bottomRadius }
                 ]}
             >
                 {/* Color Stripe - Always present, defaults to soft gray, rendering on ROOT container edge */}
                 <View style={{
                     position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
+                    left: -1,
+                    top: -6,
+                    bottom: -1,
                     width: 4,
-                    borderTopLeftRadius: (clumpPosition === 'middle' || clumpPosition === 'last') ? 0 : 10,
-                    borderBottomLeftRadius: (clumpPosition === 'middle' || clumpPosition === 'first') ? 0 : 10,
+                    borderTopLeftRadius: topRadius, // Dynamic based on clump status!
+                    borderBottomLeftRadius: bottomRadius,
                     backgroundColor: props.color || '#CBD5E0',
                     zIndex: 2, // Ensure it sits above the progress fill
                 }} />

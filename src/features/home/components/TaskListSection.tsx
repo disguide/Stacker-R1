@@ -315,8 +315,8 @@ function ReorderableList({
                 const task = item.data;
                 const isActive = activeIdx === idx;
 
+                let clumpStatus: 'solo' | 'first' | 'middle' | 'last' = 'solo';
                 let clumpStyle = {};
-                let clumpPosition: 'first' | 'middle' | 'last' | 'solo' = 'solo';
                 if (isClumped && !isActive) {
                     const prevItem = idx > 0 ? items[idx - 1] : null;
                     const nextItem = idx < items.length - 1 ? items[idx + 1] : null;
@@ -330,16 +330,16 @@ function ReorderableList({
 
                     if (!isPrevValid && !isNextValid) {
                         clumpStyle = {};
-                        clumpPosition = 'solo';
+                        clumpStatus = 'solo';
                     } else if (!isPrevValid && isNextValid) {
                         clumpStyle = styles.taskCardClumpedFirst;
-                        clumpPosition = 'first';
+                        clumpStatus = 'first';
                     } else if (isPrevValid && isNextValid) {
                         clumpStyle = styles.taskCardClumpedMiddle;
-                        clumpPosition = 'middle';
+                        clumpStatus = 'middle';
                     } else if (isPrevValid && !isNextValid) {
                         clumpStyle = styles.taskCardClumpedLast;
-                        clumpPosition = 'last';
+                        clumpStatus = 'last';
                     }
                 }
 
@@ -352,7 +352,7 @@ function ReorderableList({
                         isActive={isActive}
                         isClumped={isClumped}
                         clumpStyle={clumpStyle}
-                        clumpPosition={clumpPosition}
+                        clumpStatus={clumpStatus}
                         onLayout={e => {
                             itemLayouts.current[idx] = {
                                 y: e.nativeEvent.layout.y,
@@ -389,7 +389,7 @@ function ReorderableList({
 
 // Sub-component wrapper attaching the gesture responder
 const DraggableRow = React.memo(function DraggableRow({
-    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, clumpPosition
+    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, clumpStatus
 }: {
     index: number;
     task: any;
@@ -401,7 +401,7 @@ const DraggableRow = React.memo(function DraggableRow({
     onDragEnd: () => void;
     isClumped?: boolean;
     clumpStyle?: any;
-    clumpPosition?: 'first' | 'middle' | 'last' | 'solo';
+    clumpStatus?: 'solo' | 'first' | 'middle' | 'last';
 }) {
     const pan = useRef(new Animated.ValueXY()).current;
 
@@ -412,35 +412,24 @@ const DraggableRow = React.memo(function DraggableRow({
     }, [onDragStart, onDragMove, onDragEnd, index]);
 
     // Note: because reorder mode covers the whole row, we trigger drag immediately
-    // or upon slight movement/hold. By returning true onStartShouldSetPanResponder,
-    // the whole row becomes a drag grip.
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-            onMoveShouldSetPanResponder: () => true,
-            onPanResponderGrant: (e) => {
-                // @ts-ignore: _value exists at runtime for Animated.Value
-                const currentY = pan.y._value || 0;
-                pan.setOffset({ x: 0, y: currentY });
-                pan.setValue({ x: 0, y: 0 });
-                handlersRef.current.onDragStart(handlersRef.current.index, e.nativeEvent.pageY);
-            },
-            onPanResponderMove: (e, gestureState) => {
-                pan.y.setValue(gestureState.dy);
-                handlersRef.current.onDragMove(gestureState.dy, e.nativeEvent.pageY);
-            },
-            onPanResponderRelease: () => {
-                pan.flattenOffset();
-                pan.setValue({ x: 0, y: 0 });
-                handlersRef.current.onDragEnd();
-            },
-            onPanResponderTerminate: () => {
-                pan.flattenOffset();
-                pan.setValue({ x: 0, y: 0 });
-                handlersRef.current.onDragEnd(); // e.g., if scrolled away or cancelled
-            }
-        })
-    ).current;
+    const panResponder = useMemo(() => PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt, gestureState) => {
+            onDragStart(index, gestureState.y0);
+        },
+        onPanResponderMove: (evt, gestureState) => {
+            onDragMove(gestureState.dy, gestureState.moveY);
+        },
+        onPanResponderRelease: () => {
+            onDragEnd();
+            pan.setValue({ x: 0, y: 0 }); // Instantly snap back logic
+        },
+        onPanResponderTerminate: () => {
+            onDragEnd();
+            pan.setValue({ x: 0, y: 0 });
+        }
+    }), [index, onDragStart, onDragMove, onDragEnd]);
 
     return (
         <Animated.View
@@ -454,18 +443,18 @@ const DraggableRow = React.memo(function DraggableRow({
                     transform: [{ translateY: pan.y }, { scale: 1.02 }],
                     opacity: 0.9,
                     borderColor: '#10B981',
-                    borderWidth: 2,
-                    borderRadius: 12,
-                    zIndex: 999, // Ensure picked up row is above others
+                    borderLeftWidth: 4,
+                    zIndex: 999,
                     elevation: 10,
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 10 },
+                    shadowOffset: { width: 0, height: 8 },
                     shadowOpacity: 0.2,
-                    shadowRadius: 15
+                    shadowRadius: 10,
                 }
             ]}
         >
             <SwipeableTaskRow
+                clumpStatus={clumpStatus}
                 id={task.id} recurrence={task.rrule} title={task.title}
                 completed={task.isCompleted} deadline={task.deadline}
                 estimatedTime={task.estimatedTime} progress={task.progress}
@@ -480,7 +469,6 @@ const DraggableRow = React.memo(function DraggableRow({
                 importance={task.importance} reminderEnabled={task.reminderEnabled}
                 reminderTime={task.reminderTime} reminderDate={task.reminderDate}
                 isReorderMode={true}
-                clumpPosition={clumpPosition}
             />
             {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any) => (
                 <SwipeableTaskRow
@@ -571,8 +559,8 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
         } else if (item.type === 'task') {
             const task = item.data;
 
+            let clumpStatus: 'solo' | 'first' | 'middle' | 'last' = 'solo';
             let clumpStyle = {};
-            let clumpPosition: 'first' | 'middle' | 'last' | 'solo' = 'solo';
             if (isClumped) {
                 const prevItem = index > 0 ? listData[index - 1] : null;
                 const nextItem = index < listData.length - 1 ? listData[index + 1] : null;
@@ -582,22 +570,23 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
 
                 if (!isPrevTask && !isNextTask) {
                     clumpStyle = {}; // Solo task, regular styling
-                    clumpPosition = 'solo';
+                    clumpStatus = 'solo';
                 } else if (!isPrevTask && isNextTask) {
                     clumpStyle = styles.taskCardClumpedFirst;
-                    clumpPosition = 'first';
+                    clumpStatus = 'first';
                 } else if (isPrevTask && isNextTask) {
                     clumpStyle = styles.taskCardClumpedMiddle;
-                    clumpPosition = 'middle';
+                    clumpStatus = 'middle';
                 } else if (isPrevTask && !isNextTask) {
                     clumpStyle = styles.taskCardClumpedLast;
-                    clumpPosition = 'last';
+                    clumpStatus = 'last';
                 }
             }
 
             return (
                 <View style={[styles.taskCard, isClumped && styles.taskCardClumped, clumpStyle, { zIndex: zIdx, elevation: zIdx }]}>
                     <SwipeableTaskRow
+                        clumpStatus={clumpStatus}
                         id={task.id} recurrence={task.rrule} title={task.title} completed={task.isCompleted}
                         deadline={task.deadline} estimatedTime={task.estimatedTime} progress={task.progress}
                         daysRolled={task.daysRolled || 0} menuIcon="dots-horizontal" menuColor="#94A3B8"
@@ -610,7 +599,6 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         taskType={task.taskType} importance={task.importance} reminderEnabled={task.reminderEnabled}
                         reminderTime={task.reminderTime} reminderDate={task.reminderDate}
                         onToggleReminder={() => ops.onToggleReminder(task)}
-                        clumpPosition={clumpPosition}
                     />
                     {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any) => (
                         <SwipeableTaskRow
