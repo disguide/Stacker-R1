@@ -394,20 +394,12 @@ const DraggableRow = React.memo(function DraggableRow({
             },
             onPanResponderRelease: () => {
                 pan.flattenOffset();
-                Animated.spring(pan, {
-                    toValue: { x: 0, y: 0 },
-                    friction: 5,
-                    useNativeDriver: true
-                }).start();
+                pan.setValue({ x: 0, y: 0 });
                 handlersRef.current.onDragEnd();
             },
             onPanResponderTerminate: () => {
                 pan.flattenOffset();
-                Animated.spring(pan, {
-                    toValue: { x: 0, y: 0 },
-                    friction: 5,
-                    useNativeDriver: true
-                }).start();
+                pan.setValue({ x: 0, y: 0 });
                 handlersRef.current.onDragEnd(); // e.g., if scrolled away or cancelled
             }
         })

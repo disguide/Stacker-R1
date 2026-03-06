@@ -400,7 +400,8 @@ export default function TaskListScreen() {
                     } else if (filter === 'auto_organise') {
                         homeState.setSortOption('auto_organise');
                     } else {
-                        homeState.setSortOption(filter === homeState.sortOption ? null : filter);
+                        // Removed the toggle off feature to prevent accidental reshuffling
+                        homeState.setSortOption(filter);
                     }
                     homeState.setIsOrganizeMenuVisible(false);
                 }}

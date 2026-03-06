@@ -163,8 +163,9 @@ export const styles = StyleSheet.create({
     dateHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between', // Push stats to the right
-        marginBottom: 12,
+        justifyContent: 'space-between',
+        marginTop: 16,
+        marginBottom: 16,
         paddingHorizontal: 4,
     },
     dateText: {
@@ -665,9 +666,9 @@ export const styles = StyleSheet.create({
     },
     taskCard: {
         backgroundColor: '#FFFFFF',
-        marginBottom: -3, // Slight overlap
+        marginBottom: 4, // Tighter spacing requested by user
         marginHorizontal: 8,
-        marginTop: 6,
+        marginTop: 0,
 
         // Soft 3D Geometry - Thickened on TOP and RIGHT
         borderBottomWidth: 1,
