@@ -547,7 +547,7 @@ export default function SwipeableTaskRow({
                         <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
                             <MaterialCommunityIcons name="pencil" size={20} color="#94A3B8" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={onMenu} onLongPress={props.onMenuLongPress} delayLongPress={400}>
+                        <TouchableOpacity style={styles.actionButton} onPress={onMenu}>
                             <MaterialCommunityIcons name={menuIcon} size={20} color={menuColor} />
                         </TouchableOpacity>
                     </View>

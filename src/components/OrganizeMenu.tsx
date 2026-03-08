@@ -38,9 +38,9 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped }: Or
                         <Text style={styles.menuText}>Due Date</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('recurrence')}>
-                        <MaterialCommunityIcons name="repeat" size={20} color="#333" />
-                        <Text style={styles.menuText}>Recurrence</Text>
+                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('estimatedTime')}>
+                        <MaterialCommunityIcons name="clock-outline" size={20} color="#333" />
+                        <Text style={styles.menuText}>Estimated Time</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('color')}>
@@ -56,9 +56,9 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped }: Or
                         <Text style={[styles.menuText, { color: '#10B981', fontWeight: 'bold' }]}>Manual Reorder</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('toggle_clump')}>
-                        <MaterialCommunityIcons name={isClumped ? "format-line-spacing" : "format-vertical-align-center"} size={20} color="#8B5CF6" />
-                        <Text style={[styles.menuText, { color: '#8B5CF6', fontWeight: 'bold' }]}>{isClumped ? "Declump Tasks" : "Clump Tasks"}</Text>
+                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('clump_off')}>
+                        <MaterialCommunityIcons name="format-line-spacing" size={20} color="#EF4444" />
+                        <Text style={[styles.menuText, { color: '#EF4444', fontWeight: 'bold' }]}>Declump Tasks</Text>
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>

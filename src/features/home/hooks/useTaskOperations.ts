@@ -170,6 +170,17 @@ export function useTaskOperations(
             });
         }
 
+        // Helper to parse estimated time like "1h 30m" into minutes
+        const parseTime = (timeStr?: string) => {
+            if (!timeStr) return Number.MAX_SAFE_INTEGER;
+            let mins = 0;
+            const hMatch = timeStr.match(/(\d+)h/);
+            const mMatch = timeStr.match(/(\d+)m/);
+            if (hMatch) mins += parseInt(hMatch[1], 10) * 60;
+            if (mMatch) mins += parseInt(mMatch[1], 10);
+            return mins > 0 ? mins : Number.MAX_SAFE_INTEGER;
+        };
+
         switch (criteria) {
             case 'auto_organise':
                 return sorted.sort((a, b) => {
@@ -194,15 +205,6 @@ export function useTaskOperations(
                     if (impA !== impB) return impB - impA;
 
                     // 4. Estimated Time (Shortest first, empty to bottom)
-                    const parseTime = (timeStr?: string) => {
-                        if (!timeStr) return Number.MAX_SAFE_INTEGER;
-                        let mins = 0;
-                        const hMatch = timeStr.match(/(\d+)h/);
-                        const mMatch = timeStr.match(/(\d+)m/);
-                        if (hMatch) mins += parseInt(hMatch[1], 10) * 60;
-                        if (mMatch) mins += parseInt(mMatch[1], 10);
-                        return mins > 0 ? mins : Number.MAX_SAFE_INTEGER;
-                    };
                     const estA = parseTime(a.estimatedTime);
                     const estB = parseTime(b.estimatedTime);
                     if (estA !== estB) return estA - estB;
@@ -220,12 +222,11 @@ export function useTaskOperations(
                     if (!b.deadline) return -1;
                     return a.deadline.localeCompare(b.deadline);
                 });
-            case 'recurrence':
+            case 'estimatedTime':
                 return sorted.sort((a, b) => {
-                    const aRec = !!a.recurrence || !!a.rrule;
-                    const bRec = !!b.recurrence || !!b.rrule;
-                    if (aRec === bRec) return 0;
-                    return aRec ? -1 : 1;
+                    const estA = parseTime(a.estimatedTime);
+                    const estB = parseTime(b.estimatedTime);
+                    return estA - estB;
                 });
             case 'color':
                 return sorted.sort((a, b) => {

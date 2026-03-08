@@ -403,13 +403,18 @@ export default function TaskListScreen() {
                         homeState.setIsOrganizeMenuVisible(false);
                     } else if (filter === 'auto_organise') {
                         homeState.setSortOption('auto_organise');
+                        homeState.setIsClumped(true); // Auto-clump for Auto-Organise
                         homeState.setIsOrganizeMenuVisible(false);
-                    } else if (filter === 'toggle_clump') {
-                        homeState.setIsClumped(prev => !prev);
+                    } else if (filter === 'clump_on') {
+                        homeState.setIsClumped(true);
+                        homeState.setIsOrganizeMenuVisible(false);
+                    } else if (filter === 'clump_off') {
+                        homeState.setIsClumped(false);
                         homeState.setIsOrganizeMenuVisible(false);
                     } else {
-                        // Removed the toggle off feature to prevent accidental reshuffling
+                        // All other specific sorts (color, importance, date, recurrence)
                         homeState.setSortOption(filter);
+                        homeState.setIsClumped(true); // Always clump when a specific sort is applied
                         homeState.setIsOrganizeMenuVisible(false);
                     }
                 }}

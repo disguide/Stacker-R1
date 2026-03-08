@@ -75,7 +75,7 @@ type FlatItem = { type: 'header'; date: Date; dateString: string; key: string }
 
 // ============ Draggable List implementation (Pure React Native) ============
 function ReorderableList({
-    flatItems, ops, renderDateHeader, onDragStateChange, scrollY, scrollRef, isClumped
+    flatItems, ops, renderDateHeader, onDragStateChange, scrollY, scrollRef, isClumped, sortOption
 }: {
     flatItems: FlatItem[];
     ops: TaskListSectionProps['ops'];
@@ -84,6 +84,7 @@ function ReorderableList({
     scrollY: React.MutableRefObject<number>;
     scrollRef: React.RefObject<ScrollView>;
     isClumped: boolean;
+    sortOption: string | null;
 }) {
     const [items, setItems] = useState(flatItems);
 
@@ -93,13 +94,22 @@ function ReorderableList({
 
     // Drag state
     const [activeIdx, setActiveIdx] = useState(-1);
-    const indicatorY = useRef(new Animated.Value(-100)).current;
-    const indicatorOpacity = useRef(new Animated.Value(0)).current;
+    const spacerHeight = useRef(0);
     const targetGapRef = useRef(-1);
+    const activeIdxRef = useRef(-1);
+    const rowTranslations = useRef<Animated.Value[]>([]);
+
+    const getRowTranslation = useCallback((idx: number) => {
+        while (rowTranslations.current.length <= idx) {
+            rowTranslations.current.push(new Animated.Value(0));
+        }
+        return rowTranslations.current[idx];
+    }, []);
 
     // Auto-scroll state
     const autoScrollTimer = useRef<NodeJS.Timeout | null>(null);
     const scrollRefProp = useRef<ScrollView>(null); // We need the scroll ref, see param below
+    const scrollOffset = useRef(new Animated.Value(0)).current;
 
     // Relative Coordinate Tracking (Avoids Absolute screen bounds errors)
     const initialFingerY = useRef(0);
@@ -151,18 +161,19 @@ function ReorderableList({
 
     const handleDragStart = useCallback((idx: number, pageY: number) => {
         setActiveIdx(idx);
+        activeIdxRef.current = idx;
         targetGapRef.current = idx;
 
         const layout = itemLayouts.current[idx];
         initialFingerY.current = layout ? (layout.y + layout.height / 2) : 0;
         initialScrollY.current = scrollY.current;
         currentDy.current = 0;
+        spacerHeight.current = layout ? layout.height : 60;
 
-        const initialY = getBarYForGap(idx);
-        indicatorY.setValue(initialY - 2);
-        Animated.timing(indicatorOpacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+        scrollOffset.setValue(0);
+
         onDragStateChange?.(true);
-    }, [getBarYForGap, onDragStateChange, indicatorY, indicatorOpacity, scrollY]);
+    }, [onDragStateChange, scrollY]);
 
     const handleDragMove = useCallback((dy: number, pageY: number) => {
         currentDy.current = dy;
@@ -171,21 +182,37 @@ function ReorderableList({
 
         const gap = findNearestGap(fingerY);
 
+        const applyDisplacements = (targetGap: number) => {
+            const total = itemLayouts.current.length;
+            const dragIdx = activeIdxRef.current;
+            for (let i = 0; i < total; i++) {
+                if (i === dragIdx) continue;
+                const trans = getRowTranslation(i);
+                let toValue = 0;
+                if (i >= targetGap && i < dragIdx) {
+                    toValue = spacerHeight.current; // visually shift down
+                } else if (i < targetGap && i > dragIdx) {
+                    toValue = -spacerHeight.current; // visually shift up
+                }
+                Animated.spring(trans, {
+                    toValue,
+                    friction: 8,
+                    tension: 45,
+                    useNativeDriver: false // FIX: Must be false to prevent ghosting when swapping with JS-driven PanResponder!
+                }).start();
+            }
+        };
+
         if (gap !== targetGapRef.current) {
             targetGapRef.current = gap;
-            Animated.spring(indicatorY, {
-                toValue: getBarYForGap(gap) - 2,
-                friction: 6,
-                tension: 40,
-                useNativeDriver: true,
-            }).start();
+            applyDisplacements(gap);
         }
 
         // Dynamic Edge-based Auto-scrolling
         const windowHeight = Dimensions.get('window').height;
-        const topEdge = 150; // Increased zone to make it more sensitive
-        const bottomEdge = windowHeight - 150; // Increased zone to make it more sensitive
-        const maxScrollSpeed = 40; // Increased maximum speed
+        const topEdge = 250; // Massively increased top zone
+        const bottomEdge = windowHeight - 250; // Massively increased bottom zone
+        const maxScrollSpeed = 30; // Further reduced max speed to eliminate jitter and ensure buttery frames
 
         // Clear existing interval to prevent overlapping scrolls
         if (autoScrollTimer.current) {
@@ -197,7 +224,7 @@ function ReorderableList({
         if (pageY > 0 && pageY < topEdge) {
             // Scroll UP - Faster as you get closer to 0
             const distanceIntoZone = topEdge - Math.max(0, pageY);
-            // Proportional speed: ranges from ~2 to maxScrollSpeed
+            // Proportional speed formulation
             const scrollSpeed = Math.min(Math.max(2, (distanceIntoZone / topEdge) * maxScrollSpeed), maxScrollSpeed);
 
             autoScrollTimer.current = setInterval(() => {
@@ -208,18 +235,20 @@ function ReorderableList({
 
                     // Re-evaluate gap as we scroll
                     const newScrollDelta = nextY - initialScrollY.current;
+                    scrollOffset.setValue(newScrollDelta);
+
                     const newFingerY = initialFingerY.current + currentDy.current + newScrollDelta;
                     const newGap = findNearestGap(newFingerY);
                     if (newGap !== targetGapRef.current) {
                         targetGapRef.current = newGap;
-                        indicatorY.setValue(getBarYForGap(newGap) - 2);
+                        applyDisplacements(newGap);
                     }
                 }
             }, 16);
         } else if (pageY > bottomEdge && pageY < windowHeight + 50) {
             // Scroll DOWN - Faster as you get closer to screen bottom
             const distanceIntoZone = pageY - bottomEdge;
-            const zoneHeight = 150; // Match expanded zone size
+            const zoneHeight = 250; // Match expanded bottom zone size
             // Proportional speed formulation
             const scrollSpeed = Math.min(Math.max(2, (distanceIntoZone / zoneHeight) * maxScrollSpeed), maxScrollSpeed);
 
@@ -232,16 +261,18 @@ function ReorderableList({
 
                     // Re-evaluate gap as we scroll
                     const newScrollDelta = nextY - initialScrollY.current;
+                    scrollOffset.setValue(newScrollDelta);
+
                     const newFingerY = initialFingerY.current + currentDy.current + newScrollDelta;
                     const newGap = findNearestGap(newFingerY);
                     if (newGap !== targetGapRef.current) {
                         targetGapRef.current = newGap;
-                        indicatorY.setValue(getBarYForGap(newGap) - 2);
+                        applyDisplacements(newGap);
                     }
                 }
             }, 16);
         }
-    }, [findNearestGap, getBarYForGap, scrollY, indicatorY, scrollRef]);
+    }, [findNearestGap, scrollY, scrollRef]);
 
     const handleDrop = useCallback(() => {
         if (autoScrollTimer.current) {
@@ -249,8 +280,9 @@ function ReorderableList({
             autoScrollTimer.current = null;
         }
 
+        rowTranslations.current.forEach(t => t.setValue(0));
+
         const tgtGap = targetGapRef.current;
-        Animated.timing(indicatorOpacity, { toValue: 0, duration: 150, useNativeDriver: true }).start();
         onDragStateChange?.(false);
 
         // Gap calculation: moving item[activeIdx] to tgtGap.
@@ -307,17 +339,21 @@ function ReorderableList({
         }
 
         setActiveIdx(-1);
+        activeIdxRef.current = -1;
         targetGapRef.current = -1;
-    }, [activeIdx, items, ops, onDragStateChange, indicatorOpacity]);
+    }, [activeIdx, items, ops, onDragStateChange]);
 
     return (
         <View onLayout={e => { containerY.current = e.nativeEvent.layout.y || 0; }} style={{ width: '100%', paddingBottom: 100 }}>
             {items.map((item, idx) => {
                 if (item.type === 'header') {
                     return (
-                        <View
+                        <Animated.View
                             key={item.key}
-                            style={{ zIndex: 1 }}
+                            style={{
+                                zIndex: 5, // Ensure headers float above drifting normal tasks
+                                transform: [{ translateY: getRowTranslation(idx) }] // Make header slide for spacers!
+                            }}
                             onLayout={e => {
                                 itemLayouts.current[idx] = {
                                     y: e.nativeEvent.layout.y,
@@ -326,7 +362,7 @@ function ReorderableList({
                             }}
                         >
                             {renderDateHeader(item.date)}
-                        </View>
+                        </Animated.View>
                     );
                 }
 
@@ -336,12 +372,31 @@ function ReorderableList({
                 let clumpStyle = {};
                 let touchingTop = false;
                 let touchingBottom = false;
-                if (isClumped && !isActive) {
+                // Deactivate clumping visually when actively dragging
+                if (isClumped && !isActive && activeIdx === -1) {
                     const prevItem = idx > 0 ? items[idx - 1] : null;
                     const nextItem = idx < items.length - 1 ? items[idx + 1] : null;
 
-                    const isPrevTask = prevItem && prevItem.type === 'task';
-                    const isNextTask = nextItem && nextItem.type === 'task';
+                    // Dynamic Clumping Logic (Reorder List)
+                    const isMatchingTask = (otherItem: any) => {
+                        if (!otherItem || otherItem.type !== 'task') return false;
+                        const otherTask = otherItem.data;
+
+                        if (sortOption === 'color') {
+                            return (task.color || 'none') === (otherTask.color || 'none');
+                        } else if (sortOption === 'importance') {
+                            return (task.importance || 0) === (otherTask.importance || 0);
+                        } else if (sortOption === 'estimatedTime') {
+                            return task.estimatedTime === otherTask.estimatedTime;
+                        } else if (sortOption === 'date' || sortOption === 'auto_organise' || sortOption === 'manual') {
+                            return true;
+                        }
+
+                        return true;
+                    };
+
+                    const isPrevTask = isMatchingTask(prevItem);
+                    const isNextTask = isMatchingTask(nextItem);
 
                     // Note: Check activeIdx out of the calculation, so dragging items don't clump
                     const isPrevValid = isPrevTask && (idx - 1) !== activeIdx;
@@ -370,6 +425,8 @@ function ReorderableList({
                         isActive={isActive}
                         isClumped={isClumped}
                         clumpStyle={clumpStyle}
+                        baseTranslateY={getRowTranslation(idx)}
+                        scrollOffset={scrollOffset}
                         touchingTop={touchingTop}
                         touchingBottom={touchingBottom}
                         onLayout={e => {
@@ -381,34 +438,18 @@ function ReorderableList({
                         onDragStart={handleDragStart}
                         onDragMove={handleDragMove}
                         onDragEnd={handleDrop}
+                        style={isActive ? { zIndex: 9999 } : {}}
                     />
                 );
             })}
 
-            {/* Pure Native Animated Drop Indicator */}
-            <Animated.View
-                style={{
-                    position: 'absolute',
-                    left: 16, right: 16, height: 4,
-                    backgroundColor: '#10B981',
-                    borderRadius: 2,
-                    zIndex: 9999, elevation: 9999,
-                    shadowColor: '#10B981',
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.6,
-                    shadowRadius: 6,
-                    transform: [{ translateY: indicatorY }],
-                    opacity: indicatorOpacity,
-                    pointerEvents: 'none'
-                }}
-            />
         </View>
     );
 }
 
 // Sub-component wrapper attaching the gesture responder
 const DraggableRow = React.memo(function DraggableRow({
-    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, touchingTop, touchingBottom
+    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, touchingTop, touchingBottom, baseTranslateY, scrollOffset, style
 }: {
     index: number;
     task: any;
@@ -422,8 +463,14 @@ const DraggableRow = React.memo(function DraggableRow({
     clumpStyle?: any;
     touchingTop?: boolean;
     touchingBottom?: boolean;
+    baseTranslateY: Animated.Value;
+    scrollOffset: Animated.Value;
+    style?: any;
 }) {
     const pan = useRef(new Animated.ValueXY()).current;
+
+    // Combine pan and scroll offset once so it doesn't break the animation graph on re-renders
+    const activeTranslateY = useRef(Animated.add(pan.y, scrollOffset)).current;
 
     // Store latest callbacks and index so PanResponder doesn't trap old closures
     const handlersRef = useRef({ onDragStart, onDragMove, onDragEnd, index });
@@ -469,15 +516,17 @@ const DraggableRow = React.memo(function DraggableRow({
             {...panResponder.panHandlers}
             style={[
                 styles.taskCard,
-                isClumped && !isActive && styles.taskCardClumped,
+                style,
+                !isActive && { transform: [{ translateY: baseTranslateY }] },
+                (touchingTop || touchingBottom) && !isActive && styles.taskCardClumped,
                 !isActive && clumpStyle,
                 isActive && {
-                    transform: [{ translateY: pan.y }, { scale: 1.02 }],
+                    transform: [{ translateY: activeTranslateY }, { scale: 1.02 }],
                     opacity: 0.9,
                     borderColor: '#10B981',
                     borderWidth: 2,
                     borderRadius: 12,
-                    zIndex: 999, // Ensure picked up row is above others
+                    zIndex: 9999, // Massively elevated
                     elevation: 10,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 10 },
@@ -598,8 +647,26 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                 const prevItem = index > 0 ? listData[index - 1] : null;
                 const nextItem = index < listData.length - 1 ? listData[index + 1] : null;
 
-                const isPrevTask = prevItem && prevItem.type === 'task';
-                const isNextTask = nextItem && nextItem.type === 'task';
+                // Dynamic Clumping Logic
+                const isMatchingTask = (otherItem: any) => {
+                    if (!otherItem || otherItem.type !== 'task') return false;
+                    const otherTask = otherItem.data;
+
+                    if (sortOption === 'color') {
+                        return (task.color || 'none') === (otherTask.color || 'none');
+                    } else if (sortOption === 'importance') {
+                        return (task.importance || 0) === (otherTask.importance || 0);
+                    } else if (sortOption === 'estimatedTime') {
+                        return task.estimatedTime === otherTask.estimatedTime;
+                    } else if (sortOption === 'date' || sortOption === 'auto_organise' || sortOption === 'manual') {
+                        return true; // Default clumping (everything clumps together if adjacent)
+                    }
+
+                    return true;
+                };
+
+                const isPrevTask = isMatchingTask(prevItem);
+                const isNextTask = isMatchingTask(nextItem);
 
                 touchingTop = isPrevTask;
                 touchingBottom = isNextTask;
@@ -616,7 +683,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
             }
 
             return (
-                <View style={[styles.taskCard, isClumped && styles.taskCardClumped, clumpStyle, { zIndex: zIdx, elevation: zIdx }]}>
+                <View style={[styles.taskCard, (touchingTop || touchingBottom) && styles.taskCardClumped, clumpStyle, { zIndex: zIdx, elevation: zIdx }]}>
                     <SwipeableTaskRow
                         id={task.id} recurrence={task.rrule} title={task.title} completed={task.isCompleted}
                         deadline={task.deadline} estimatedTime={task.estimatedTime} progress={task.progress}
@@ -726,6 +793,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         scrollY={mainScrollY}
                         scrollRef={scrollRef}
                         isClumped={isClumped}
+                        sortOption={sortOption}
                     />
                 </ScrollView>
                 <TouchableOpacity

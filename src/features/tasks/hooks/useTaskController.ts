@@ -445,6 +445,17 @@ export const useTaskController = () => {
 
             // ===== Step 2: Create a CLEAN duplicate on the NEW date =====
             // Source the data from the calendarItem (which has all display fields)
+
+            // If the item had recurrence, we need to generate a new RRule string starting from the new date
+            let newRRule = calendarItem.rrule;
+            if (calendarItem.recurrence) {
+                try {
+                    newRRule = createRRuleString(calendarItem.recurrence, newDate);
+                } catch (e) {
+                    console.error("[moveTaskToDate] Failed to regenerate RRule for duplicated task", e);
+                }
+            }
+
             const duplicate: Task = {
                 id: `${masterId || calendarItem.id}_moved_${Date.now()}`,
                 title: calendarItem.title,
@@ -455,12 +466,21 @@ export const useTaskController = () => {
                 color: calendarItem.color,
                 type: calendarItem.taskType || calendarItem.type,
                 importance: calendarItem.importance,
-                // Clean slate — NO recurrence fields
-                // rrule: undefined,
-                // recurrence: undefined,
-                // completedDates: undefined,
-                // exceptionDates: undefined,
-                // originalTaskId: undefined,
+
+                // Properties to restore
+                tagIds: calendarItem.tagIds,
+
+                // Reminder fields
+                reminderEnabled: calendarItem.reminderEnabled,
+                reminderTime: calendarItem.reminderTime,
+                reminderDate: undefined, // Let it default to the day the task resides in
+
+                // Recurrence restoration (clean slate histories)
+                rrule: newRRule,
+                recurrence: calendarItem.recurrence,
+                completedDates: undefined,
+                exceptionDates: undefined,
+
                 sortOrder: 9999, // End of new day
             };
 
@@ -473,7 +493,7 @@ export const useTaskController = () => {
                 action: 'added',
                 timestamp: new Date().toISOString(),
                 date: newDate,
-                details: `Moved from ${oldDate} (clean duplicate)`
+                details: `Moved from ${oldDate} (clean duplicate with retained properties)`
             });
 
             return [...updatedTasks, duplicate];
