@@ -314,7 +314,18 @@ export default function SprintScreen() {
                 <View style={{ width: 40 }} />
                 <TouchableOpacity onPress={() => setTimerVisible(!timerVisible)} style={styles.headerCenter}>
                     {timerVisible && settings.showTimer ? (
-                        <Text style={styles.headerTimerText}>{formatTimerDisplay()}</Text>
+                        <View style={{ alignItems: 'center' }}>
+                            <Text style={styles.headerTimerText}>
+                                {settings.autoBreakMode && settings.autoBreakWorkTime
+                                    ? formatCountdown(Math.max(0, (settings.autoBreakWorkTime * 60) - (elapsedSeconds % (settings.autoBreakWorkTime * 60))))
+                                    : formatMinutesOnly(elapsedSeconds)}
+                            </Text>
+                            {settings.autoBreakMode && (
+                                <Text style={styles.headerElapsedText}>
+                                    {formatMinutesOnly(elapsedSeconds)} ELAPSED
+                                </Text>
+                            )}
+                        </View>
                     ) : (
                         <MaterialCommunityIcons name="clock-outline" size={24} color={THEME.textSecondary} />
                     )}
@@ -485,6 +496,14 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: THEME.textPrimary,
         fontVariant: ['tabular-nums'],
+    },
+    headerElapsedText: {
+        fontSize: 11,
+        color: THEME.textSecondary,
+        fontWeight: '600',
+        marginTop: -2,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     closeButton: {
         padding: 8,

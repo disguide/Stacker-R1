@@ -129,7 +129,7 @@ export default function SettingsScreen() {
 
                 <View style={styles.divider} />
 
-                <Text style={styles.sectionHeader}>General</Text>
+                <Text style={styles.sectionHeader}>Tags & Categories</Text>
 
                 {/* Manage Color Meanings Button */}
                 <TouchableOpacity style={styles.menuItem} onPress={() => setIsColorModalVisible(true)}>
