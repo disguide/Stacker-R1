@@ -215,7 +215,7 @@ export default function ProfileScreen() {
                 {/* Top Bar (Exit Button with Top Gap before Banner) */}
                 <View style={styles.topBar}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.exitBtn}>
-                        <Ionicons name="arrow-back" size={24} color="#1E293B" />
+                        <Text style={styles.backButtonText}>Back</Text>
                     </TouchableOpacity>
                     <View style={{ flex: 1 }} />
                     {isEditing ? (
@@ -505,9 +505,13 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFF',
     },
     exitBtn: {
-        padding: 8,
-        borderRadius: 20,
-        backgroundColor: '#F1F5F9',
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+    },
+    backButtonText: {
+        fontSize: 17,
+        color: '#007AFF', // Standard iOS blue or #3B82F6
+        fontWeight: '500',
     },
     editProfileBtn: {
         paddingVertical: 8,
@@ -570,18 +574,18 @@ const styles = StyleSheet.create({
     },
     avatarWrapper: {
         marginRight: 20,
-        borderRadius: 40,
+        borderRadius: 16,
         overflow: 'hidden',
     },
-    avatarImage: { width: 80, height: 80, borderRadius: 40 },
-    avatarPlaceholder: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+    avatarImage: { width: 80, height: 80, borderRadius: 16 },
+    avatarPlaceholder: { width: 80, height: 80, borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
     avatarEditOverlay: {
         position: 'absolute',
         top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.4)',
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 40,
+        borderRadius: 16,
     },
 
     nameBlock: { flex: 1, justifyContent: 'center' },

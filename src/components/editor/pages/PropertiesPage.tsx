@@ -44,7 +44,7 @@ export const PropertiesPage = React.memo(function PropertiesPage({ width, color,
 
     return (
         <View style={{ width, flex: 1 }}>
-            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
+            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
                 {/* Type Selection */}
                 <Text style={p.sectionLabel}>Type</Text>
                 <View style={p.typeRow}>

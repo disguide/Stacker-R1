@@ -3,6 +3,7 @@ import { View, Modal, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { NotificationService } from '../src/services/notifications';
 import { TaskListHeader } from '../src/components/TaskListHeader';
@@ -112,6 +113,15 @@ export default function TaskListScreen() {
         }, 500);
         return () => clearTimeout(timer);
     }, [todayItems]);
+
+    // 4c. Splash Screen Disabling
+    useEffect(() => {
+        // Once taskController finishes its intense initial load (including RolloverSystem)
+        // hide the splash screen to reveal the UI.
+        if (!taskController.loading) {
+            SplashScreen.hideAsync();
+        }
+    }, [taskController.loading]);
 
     // 6. Local Handlers (Bridging)
     const handleOpenAddDrawer = (feature?: FeatureKey) => {

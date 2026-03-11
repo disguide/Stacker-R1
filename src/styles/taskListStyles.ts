@@ -504,7 +504,7 @@ export const styles = StyleSheet.create({
         left: 12, // Moved closer to left edge
         right: 20,
         flexDirection: 'column', // Stack vertically
-        alignItems: 'flex-start', // Align to left
+        alignItems: 'center', // Center horizontally
         justifyContent: 'flex-end', // Stick to bottom
         zIndex: 200,
         elevation: 200,
@@ -517,7 +517,7 @@ export const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingVertical: 14,
         paddingHorizontal: 20,
-        borderRadius: 30, // Pill shape
+        borderRadius: 12, // Rounded rectangle instead of pill
         // flex: 1, // Remove flex to let it size to content or specific width if needed, but flex:1 fills space
         // flex: 1, // Removed flex to let it size naturally next to organize button
         gap: 12,

@@ -107,6 +107,13 @@ export default function TaskFeatureCarousel({
 
     const [renderedPages, setRenderedPages] = useState<Set<number>>(new Set());
 
+    // Extend the active features array with clones at the beginning and end for infinite scroll illusion
+    const extendedFeatures = [
+        activeFeatures[activeFeatures.length - 1], // Clone of Last
+        ...activeFeatures,
+        activeFeatures[0] // Clone of First
+    ];
+
     // Set initial page state and derived offset without delay
     useEffect(() => {
         if (visible) {
@@ -114,6 +121,11 @@ export default function TaskFeatureCarousel({
             const page = idx >= 0 ? idx : 0;
             setCurrentPage(page);
             setRenderedPages(new Set([page]));
+            
+            // Re-sync initial offset immediately for the padded array (real index + 1)
+            setTimeout(() => {
+                 flatListRef.current?.scrollToIndex({ index: page + 1, animated: false });
+            }, 0);
         } else {
             // Clear rendered memory when closed so next time it opens fast
             setRenderedPages(new Set());
@@ -121,15 +133,12 @@ export default function TaskFeatureCarousel({
     }, [visible, initialFeature]);
 
     // Automatically load remaining pages slightly after the initial render
-    // This gives the "instant open" feel of lazy loading, but ensures they are 
-    // ready in the background before the user swipes.
     useEffect(() => {
         if (!visible) return;
         if (renderedPages.size > 0 && renderedPages.size < activeFeatures.length) {
             const timer = setTimeout(() => {
                 setRenderedPages(prev => {
                     const next = new Set(prev);
-                    // Find first unrendered page and add it
                     for (let i = 0; i < activeFeatures.length; i++) {
                         if (!next.has(i)) {
                             next.add(i);
@@ -138,24 +147,47 @@ export default function TaskFeatureCarousel({
                     }
                     return next;
                 });
-            }, 100); // 100ms stagger between background page renders
+            }, 100);
             return () => clearTimeout(timer);
         }
     }, [visible, renderedPages]);
 
     const handleScroll = (e: any) => {
         const x = e.nativeEvent.contentOffset.x;
-        const page = Math.round(x / pageWidth);
-        if (page !== currentPage && page >= 0 && page < activeFeatures.length) {
-            setCurrentPage(page);
-            setRenderedPages(prev => new Set(prev).add(page));
+        // extendedFeatures length is activeFeatures.length + 2
+        // So actual visual page includes the clone. The math provides an index from 0 to N+1
+        const visualPage = Math.round(x / pageWidth);
+        
+        // Map visual page back to actual logical activeFeatures page
+        let realPage = visualPage - 1;
+        if (realPage < 0) realPage = activeFeatures.length - 1; // It's showing the left clone
+        if (realPage >= activeFeatures.length) realPage = 0; // It's showing the right clone
+
+        if (realPage !== currentPage) {
+            setCurrentPage(realPage);
+            setRenderedPages(prev => new Set(prev).add(realPage));
         }
     };
 
-    const scrollToPage = (page: number) => {
+    const scrollToPage = (page: number, animated: boolean = true) => {
         setRenderedPages(prev => new Set(prev).add(page));
-        flatListRef.current?.scrollToIndex({ index: page, animated: true });
+        // Add +1 because index 0 is the clone
+        flatListRef.current?.scrollToIndex({ index: page + 1, animated });
         setCurrentPage(page);
+    };
+
+    const handleMomentumScrollEnd = (e: any) => {
+        const xOffset = e.nativeEvent.contentOffset.x;
+        const visualPage = Math.round(xOffset / pageWidth);
+        
+        // If we settled on the left clone (index 0), snap silently to the real last item
+        if (visualPage === 0) {
+            flatListRef.current?.scrollToIndex({ index: activeFeatures.length, animated: false });
+        }
+        // If we settled on the right clone (index N+1), snap silently to the real first item
+        else if (visualPage === extendedFeatures.length - 1) {
+            flatListRef.current?.scrollToIndex({ index: 1, animated: false });
+        }
     };
 
     if (!visible) return null;
@@ -190,23 +222,26 @@ export default function TaskFeatureCarousel({
             {/* Pages */}
             <FlatList
                 ref={flatListRef}
-                data={activeFeatures}
-                keyExtractor={(item) => item}
+                data={extendedFeatures}
+                keyExtractor={(item, index) => `${item}-${index}`}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 onScroll={handleScroll}
+                onMomentumScrollEnd={handleMomentumScrollEnd}
                 scrollEventThrottle={16}
                 bounces={false}
                 style={{ flex: 1 }}
-                initialScrollIndex={activeFeatures.indexOf(initialFeature) >= 0 ? activeFeatures.indexOf(initialFeature) : 0}
+                initialScrollIndex={activeFeatures.indexOf(initialFeature) >= 0 ? activeFeatures.indexOf(initialFeature) + 1 : 1}
                 getItemLayout={(_, index) => ({
                     length: pageWidth,
                     offset: pageWidth * index,
                     index,
                 })}
                 renderItem={({ item, index }) => {
-                    const isRendered = renderedPages.has(index);
+                    // Logic index handling for rendering elements. 
+                    // To handle copies correctly, we derive logical state from the item itself:
+                    const isRendered = true; // For clones, just render them so they're fully visible during scroll.
                     return (
                         <LazyPage isRendered={isRendered} width={pageWidth}>
                             {item === 'deadline' && (

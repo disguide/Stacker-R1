@@ -117,7 +117,7 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
 
     return (
         <View style={{ width, flex: 1 }}>
-            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
+            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
                 {viewMode === 'presets' ? (
                     <View>
                         {[

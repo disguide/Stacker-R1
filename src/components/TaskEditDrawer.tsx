@@ -173,6 +173,9 @@ export default function TaskEditDrawer({
 
     // Animation value for translateY
     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+    
+    // Animation value for full-screen carousel overlay swipe-up
+    const carouselPanY = useRef(new Animated.Value(0)).current;
 
     // Track previous task to handle updates intelligently
     const prevTaskRef = useRef<Task | null>(null);
@@ -198,6 +201,9 @@ export default function TaskEditDrawer({
                 // Note: Reminder state is handled by useTaskReminders hook
 
                 setActiveFeature(initialActiveFeature || null);
+                
+                // Immediately reset carousel swipe animation for any new task opening
+                carouselPanY.setValue(0);
 
                 if (initialActiveFeature) {
                     // Bypass drawer animation completely when opening straight directly to Carousel
@@ -250,7 +256,7 @@ export default function TaskEditDrawer({
         }
     }, [visible, task]);
 
-    const handleSave = () => {
+    const handleSave = (skipAnimation = false) => {
         if (!task) return;
 
         let finalTitle = title.trim();
@@ -289,6 +295,12 @@ export default function TaskEditDrawer({
 
             seriesId: finalSeriesId,
         });
+
+        if (skipAnimation) {
+            setIsRendered(false);
+            onClose();
+            return;
+        }
 
         // 2. Animate Out (ALWAYS)
         Animated.timing(panY, {
@@ -338,6 +350,62 @@ export default function TaskEditDrawer({
         })
     ).current;
 
+    const closeCarouselRef = useRef(() => setActiveFeature(null));
+    useEffect(() => { closeCarouselRef.current = () => setActiveFeature(null); });
+
+    const carouselPanResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => false,
+            // Only capture strong UPWARD movement logic
+            onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+                 return gestureState.dy < -15 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
+            },
+            onPanResponderGrant: () => {
+                carouselPanY.setOffset((carouselPanY as any)._value);
+                carouselPanY.setValue(0);
+            },
+            onPanResponderMove: (_, gestureState) => {
+                // Only allow upward translation
+                if (gestureState.dy < 0) {
+                    carouselPanY.setValue(gestureState.dy);
+                }
+            },
+            onPanResponderRelease: (_, gestureState) => {
+                carouselPanY.flattenOffset();
+                if (gestureState.dy < -60 || gestureState.vy < -0.8) {
+                    // Swiped up far enough -> save and close EVERYTHING simultaneously
+                    Animated.parallel([
+                        Animated.timing(carouselPanY, {
+                            toValue: -SCREEN_HEIGHT,
+                            duration: 200,
+                            useNativeDriver: true,
+                        }),
+                        Animated.timing(panY, {
+                            toValue: SCREEN_HEIGHT,
+                            duration: 200, // Sync the background dim fade and main drawer slide down perfectly
+                            useNativeDriver: true,
+                        })
+                    ]).start(() => {
+                        handleSaveRef.current(true); // Save and return to home WITHOUT second delay
+                    });
+                } else {
+                    // Snap back
+                    Animated.spring(carouselPanY, {
+                        toValue: 0,
+                        useNativeDriver: true,
+                    }).start();
+                }
+            },
+        })
+    ).current;
+
+    // Reset carousel position when opened
+    useEffect(() => {
+        if (activeFeature) {
+            carouselPanY.setValue(0);
+        }
+    }, [activeFeature]);
+
     const handleRequestColorSettings = useCallback(() => {
         if (__DEV__) console.log('[TaskEditDrawer] onRequestColorSettings called');
         if (onRequestColorSettings) onRequestColorSettings();
@@ -362,7 +430,7 @@ export default function TaskEditDrawer({
                 }]}
                 pointerEvents={visible ? 'auto' : 'none'}
             >
-                <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={handleSave} />
+                <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => handleSave()} />
             </Animated.View>
 
             <Animated.View
@@ -392,7 +460,7 @@ export default function TaskEditDrawer({
 
                                 <Text style={styles.title}>{task?.id.startsWith('new_temp_') ? 'New Task' : 'Edit Task'}</Text>
 
-                                <TouchableOpacity onPress={handleSave}>
+                                <TouchableOpacity onPress={() => handleSave()}>
                                     <Text style={styles.saveButton}>Done</Text>
                                 </TouchableOpacity>
                             </View>
@@ -410,6 +478,8 @@ export default function TaskEditDrawer({
                                 {/* Deadline Card */}
                                 <TouchableOpacity
                                     style={styles.featureCardGrid}
+                                    activeOpacity={0.7}
+                                    delayPressIn={0}
                                     onPress={() => setActiveFeature('deadline')}
                                 >
                                     <View style={styles.featureIconContainer}>
@@ -437,6 +507,8 @@ export default function TaskEditDrawer({
                                 {/* Estimate Card */}
                                 <TouchableOpacity
                                     style={styles.featureCardGrid}
+                                    activeOpacity={0.7}
+                                    delayPressIn={0}
                                     onPress={() => setActiveFeature('estimate')}
                                 >
                                     <View style={styles.featureIconContainer}>
@@ -460,6 +532,8 @@ export default function TaskEditDrawer({
                                 {/* Tags / Properties Card */}
                                 <TouchableOpacity
                                     style={[styles.featureCardGrid, color ? { borderColor: color, backgroundColor: color + '10' } : {}]}
+                                    activeOpacity={0.7}
+                                    delayPressIn={0}
                                     onPress={() => setActiveFeature('properties')}
                                 >
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
@@ -509,6 +583,8 @@ export default function TaskEditDrawer({
                                 {!isSubtask && (
                                     <TouchableOpacity
                                         style={styles.featureCardGrid}
+                                        activeOpacity={0.7}
+                                        delayPressIn={0}
                                         onPress={() => setActiveFeature('recurrence')}
                                     >
                                         <View style={styles.featureIconContainer}>
@@ -594,13 +670,35 @@ export default function TaskEditDrawer({
             {
                 activeFeature && (
                     <View style={styles.carouselOverlay}>
-                        <View style={styles.carouselSheet}>
+                        <Animated.View 
+                            style={[
+                                styles.carouselSheet,
+                                { transform: [{ translateY: carouselPanY }] }
+                            ]}
+                            {...carouselPanResponder.panHandlers}
+                        >
                             <View style={styles.carouselHeader}>
-                                <TouchableOpacity onPress={() => setActiveFeature(null)}>
+                                <TouchableOpacity onPress={() => setActiveFeature(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                     <Ionicons name="chevron-back" size={24} color={THEME.textPrimary} />
                                 </TouchableOpacity>
                                 <Text style={{ fontSize: 16, fontWeight: '600', color: THEME.textPrimary }}>Edit Features</Text>
-                                <TouchableOpacity onPress={() => setActiveFeature(null)}>
+                                <TouchableOpacity onPress={() => {
+                                    // Make "Done" press clear the dimming background instantly too
+                                    Animated.parallel([
+                                        Animated.timing(carouselPanY, {
+                                            toValue: -SCREEN_HEIGHT,
+                                            duration: 200,
+                                            useNativeDriver: true,
+                                        }),
+                                        Animated.timing(panY, {
+                                            toValue: SCREEN_HEIGHT,
+                                            duration: 200,
+                                            useNativeDriver: true,
+                                        })
+                                    ]).start(() => {
+                                        handleSaveRef.current(true);
+                                    });
+                                }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                     <Text style={{ fontSize: 16, fontWeight: 'bold', color: THEME.accent }}>Done</Text>
                                 </TouchableOpacity>
                             </View>
@@ -623,11 +721,27 @@ export default function TaskEditDrawer({
                                 reminderOffset={reminderOffset}
                                 reminderTime={reminderTime}
                                 reminderEnabled={reminderEnabled}
-                                onClose={() => setActiveFeature(null)}
+                                onClose={() => {
+                                    // Make "Confirm" press clear the dimming background instantly too
+                                    Animated.parallel([
+                                        Animated.timing(carouselPanY, {
+                                            toValue: -SCREEN_HEIGHT,
+                                            duration: 200,
+                                            useNativeDriver: true,
+                                        }),
+                                        Animated.timing(panY, {
+                                            toValue: SCREEN_HEIGHT,
+                                            duration: 200,
+                                            useNativeDriver: true,
+                                        })
+                                    ]).start(() => {
+                                        handleSaveRef.current(true);
+                                    });
+                                }}
                                 userColors={userColors}
                                 onRequestColorSettings={handleRequestColorSettings}
                             />
-                        </View>
+                        </Animated.View>
                     </View>
                 )
             }
@@ -1174,7 +1288,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.45)',
+        backgroundColor: 'transparent',
         zIndex: 200,
         justifyContent: 'center',
         alignItems: 'center',

@@ -400,70 +400,59 @@ export default function SprintScreen() {
             </View>
 
             {/* PAUSE MODAL OVERLAY */}
-            <Modal visible={isPaused} transparent animationType="fade">
-                <View style={styles.pauseOverlay}>
-                    <View style={styles.pauseCard}>
-                        <View style={styles.pauseIconContainer}>
-                            <Ionicons name="pause" size={32} color={THEME.accent} />
-                        </View>
-                        <Text style={styles.pauseTitle}>Sprint Paused</Text>
+            <Modal visible={isPaused} transparent={false} animationType="fade">
+                <SafeAreaView style={styles.pauseOverlay}>
+                    {/* Top Left Exit Button */}
+                    <TouchableOpacity style={styles.modalExitButton} onPress={handleResume}>
+                        <Ionicons name="close" size={32} color="#94A3B8" />
+                    </TouchableOpacity>
 
-                        {breakPhase === 'claiming' ? (
-                            <>
-                                <Text style={styles.pauseSubtitle}>Configure your break time</Text>
-                                <View style={styles.timerPreview}>
-                                    <Text style={styles.timerPreviewText}>
-                                        {formatCountdown(breakDuration * 60)}
-                                    </Text>
-                                </View>
-
-                                {/* Accumulation Buttons */}
-                                <View style={styles.limitButtonsRow}>
-                                    {[1, 5, 15].map(m => (
-                                        <TouchableOpacity
-                                            key={m}
-                                            style={styles.limitBtn}
-                                            onPress={() => addBreakTime(m)}
-                                        >
-                                            <Text style={styles.limitBtnText}>+{m}m</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
-                                <TouchableOpacity onPress={() => setBreakDuration(0)}>
-                                    <Text style={styles.cancelLimitText}>Reset to 0m</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={styles.resumeButton} onPress={handleStartBreak}>
-                                    <Text style={styles.resumeButtonText}>Start Break</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={[styles.resumeButton, { backgroundColor: '#F1F5F9', marginTop: 12 }]} onPress={handleResume}>
-                                    <Text style={[styles.resumeButtonText, { color: '#64748B' }]}>Cancel (Resume Sprint)</Text>
-                                </TouchableOpacity>
-                            </>
-                        ) : (
-                            <>
-                                <Text style={styles.pauseSubtitle}>
-                                    {breakDuration > 0 ? "Time Remaining" : "Time Paused"}
+                    {breakPhase === 'claiming' ? (
+                        <View style={styles.pauseContentCenter}>
+                            <View style={styles.timerPreview}>
+                                <Text style={styles.timerPreviewText}>
+                                    {formatCountdown(breakDuration * 60)}
                                 </Text>
+                            </View>
 
-                                <View style={styles.timerPreview}>
-                                    <Text style={styles.timerPreviewText}>
-                                        {breakDuration > 0
-                                            ? formatCountdown(Math.max(0, (breakDuration * 60) - pauseElapsed))
-                                            : formatCountdown(pauseElapsed)
-                                        }
-                                    </Text>
-                                </View>
-
-                                <TouchableOpacity style={styles.resumeButton} onPress={handleResume}>
-                                    <Text style={styles.resumeButtonText}>End Break Early</Text>
+                            {/* Accumulation Buttons */}
+                            <View style={styles.limitButtonsRow}>
+                                <TouchableOpacity style={styles.limitBtn} onPress={() => addBreakTime(1)}>
+                                    <Text style={styles.limitBtnText}>+1</Text>
                                 </TouchableOpacity>
-                            </>
-                        )}
-                    </View>
-                </View>
+                                <TouchableOpacity style={styles.limitBtn} onPress={() => addBreakTime(5)}>
+                                    <Text style={styles.limitBtnText}>+5</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.limitBtn} onPress={() => addBreakTime(15)}>
+                                    <Text style={styles.limitBtnText}>+15</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity onPress={() => setBreakDuration(0)} style={{ marginBottom: 40, padding: 10 }}>
+                                <Text style={styles.cancelLimitText}>Reset</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={styles.resumeButton} onPress={handleStartBreak}>
+                                <Text style={styles.resumeButtonText}>Start</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={styles.pauseContentCenter}>
+                            <View style={styles.timerPreview}>
+                                <Text style={styles.timerPreviewText}>
+                                    {breakDuration > 0
+                                        ? formatCountdown(Math.max(0, (breakDuration * 60) - pauseElapsed))
+                                        : formatCountdown(pauseElapsed)
+                                    }
+                                </Text>
+                            </View>
+
+                            <TouchableOpacity style={styles.resumeButton} onPress={handleResume}>
+                                <Text style={styles.resumeButtonText}>End break</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+                </SafeAreaView>
             </Modal>
         </SafeAreaView>
     );
@@ -511,7 +500,7 @@ const styles = StyleSheet.create({
     pauseButton: {
         padding: 8,
         backgroundColor: '#E2E8F0',
-        borderRadius: 20,
+        borderRadius: 12,
     },
     timerPill: {
         flexDirection: 'row',
@@ -610,7 +599,7 @@ const styles = StyleSheet.create({
         width: '100%',
         height: 72, // Big touch target
         backgroundColor: '#F1F5F9', // Light Slate for the Switch side
-        borderRadius: 36, // Fully rounded pill
+        borderRadius: 12, // Fully rounded pill -> rounded rectangle
         overflow: 'hidden',
         marginTop: 20,
         borderWidth: 1,
@@ -683,98 +672,71 @@ const styles = StyleSheet.create({
     // Pause Modal
     pauseOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        backgroundColor: '#F8FAFC', // Relaxed, full screen cover
+    },
+    modalExitButton: {
+        position: 'absolute',
+        top: 20,
+        left: 20,
+        zIndex: 10,
+        padding: 12, // Larger touch target
+    },
+    pauseContentCenter: {
+        flex: 1,
+        alignItems: 'center',
         justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    pauseCard: {
+        paddingHorizontal: 30,
         width: '100%',
-        maxWidth: 320,
-        backgroundColor: '#FFF',
-        borderRadius: 24,
-        padding: 30,
-        alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 10,
-    },
-    pauseIconContainer: {
-        width: 60, height: 60,
-        borderRadius: 30,
-        backgroundColor: '#EFF6FF',
-        alignItems: 'center', justifyContent: 'center',
-        marginBottom: 20,
-    },
-    pauseTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#1E293B',
-        marginBottom: 8,
-    },
-    pauseSubtitle: {
-        fontSize: 14,
-        color: '#64748B',
-        textAlign: 'center',
-        marginBottom: 24,
     },
     timerPreview: {
-        marginBottom: 30,
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 12,
-        backgroundColor: '#F8FAFC',
+        marginBottom: 50,
+        alignItems: 'center',
     },
     timerPreviewText: {
-        fontSize: 32,
-        fontWeight: '700',
-        color: THEME.accent,
+        fontSize: 80, // Even bigger
+        fontWeight: '300', // Relaxed, thin font
+        color: '#334155', // Softer
         fontVariant: ['tabular-nums'],
-    },
-    resumeButton: {
-        width: '100%',
-        backgroundColor: THEME.accent,
-        paddingVertical: 16,
-        borderRadius: 16,
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    resumeButtonText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#FFF',
-    },
-    limitLabel: {
-        fontSize: 12,
-        color: '#94A3B8',
-        fontWeight: '600',
-        marginBottom: 8,
-        textTransform: 'uppercase'
     },
     limitButtonsRow: {
         flexDirection: 'row',
-        gap: 8,
-        marginBottom: 24,
+        justifyContent: 'center',
+        gap: 16,
+        marginBottom: 20,
     },
     limitBtn: {
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 8,
-        backgroundColor: '#F1F5F9',
-        minWidth: 50,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        borderColor: '#CBD5E0',
+        minWidth: 70,
         alignItems: 'center'
     },
     limitBtnText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#475569'
+        fontSize: 18,
+        fontWeight: '400',
+        color: '#64748B'
     },
     cancelLimitText: {
-        fontSize: 14,
-        color: THEME.accent,
-        marginBottom: 24,
-        fontWeight: '500'
-    }
+        fontSize: 16,
+        color: '#94A3B8',
+        fontWeight: '400',
+    },
+    resumeButton: {
+        width: '100%',
+        maxWidth: 240, // Keeps it comfortably sized
+        backgroundColor: 'transparent', 
+        borderWidth: 1,
+        borderColor: '#94A3B8',
+        paddingVertical: 18,
+        borderRadius: 12, // Rounded rectangle
+        alignItems: 'center',
+    },
+    resumeButtonText: {
+        fontSize: 18,
+        fontWeight: '400',
+        color: '#475569',
+    },
 });

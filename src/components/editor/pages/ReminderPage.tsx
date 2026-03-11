@@ -50,7 +50,7 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
 
     return (
         <View style={{ width, flex: 1 }}>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, paddingTop: 60 }}>
                 <View style={{ flex: 1, opacity: reminderEnabled ? 1 : 0.3 }} pointerEvents={reminderEnabled ? 'auto' : 'none'}>
                     <TimeWheelPanel
                         hour={tempHour}
@@ -61,7 +61,7 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
                 </View>
                 {!reminderEnabled && (
                     <Pressable
-                        style={StyleSheet.absoluteFill}
+                        style={[StyleSheet.absoluteFill, { top: 60 }]}
                         onPress={() => {
                             // Activate on touch if disabled
                             const hh = String(tempHour).padStart(2, '0');

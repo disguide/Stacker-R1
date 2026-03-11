@@ -1,6 +1,10 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Prevent the splash screen from auto-hiding before asset/data loading is complete
+SplashScreen.preventAutoHideAsync();
 
 export default function Layout() {
     return (

@@ -53,7 +53,7 @@ export function DurationPage({ width, estimatedTime, onEstimateChange, onClose }
 
     return (
         <View style={{ width, flex: 1 }}>
-            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, flex: 1 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
+            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 100, flex: 1 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
                 {/* Display */}
                 <View style={p.durationDisplay}>
                     <Text style={p.durationText}>
@@ -111,6 +111,7 @@ const p = StyleSheet.create({
         flexWrap: 'wrap',
         gap: 10,
         justifyContent: 'center',
+        marginTop: 60,
     },
     durationBtn: {
         paddingVertical: 12,

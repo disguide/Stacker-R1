@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
     avatarContainer: {
         width: 50,
         height: 50,
-        borderRadius: 16, // Smoother corner for larger size
+        borderRadius: 10, // Consistent rounded square for 50x50
         backgroundColor: '#000000',
         justifyContent: 'center',
         alignItems: 'center',

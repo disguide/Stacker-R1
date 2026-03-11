@@ -9,12 +9,16 @@ export function ActionBar({ onReset, onConfirm, hasValue }: {
     hasValue: boolean;
 }) {
     return (
-        <View style={p.actionBar}>
-            <TouchableOpacity
-                style={[p.actionBtn, p.resetBtn, !hasValue && { opacity: 0.4 }]}
-                onPress={onReset}
-                disabled={!hasValue}
-            >
+        <View
+            style={p.actionBarContainer}
+        >
+            
+            <View style={p.actionBar}>
+                <TouchableOpacity
+                    style={[p.actionBtn, p.resetBtn, !hasValue && { opacity: 0.4 }]}
+                    onPress={onReset}
+                    disabled={!hasValue}
+                >
                 <MaterialCommunityIcons name="close" size={18} color="#EF4444" />
                 <Text style={p.resetBtnText}>Reset</Text>
             </TouchableOpacity>
@@ -22,18 +26,39 @@ export function ActionBar({ onReset, onConfirm, hasValue }: {
                 <Ionicons name="checkmark" size={18} color="#FFF" />
                 <Text style={p.confirmBtnText}>Confirm</Text>
             </TouchableOpacity>
+            </View>
+
+            {/* Visual swipe indicator bar */}
+            <View style={p.swipeIndicatorWrapper}>
+                <View style={p.swipeIndicator} />
+            </View>
         </View>
     );
 }
 
 const p = StyleSheet.create({
+    actionBarContainer: {
+        backgroundColor: '#FFF',
+        borderTopWidth: 1,
+        borderTopColor: THEME.border,
+    },
+    swipeIndicatorWrapper: {
+        alignItems: 'center',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    swipeIndicator: {
+        width: 60, // Made wider
+        height: 6, // Made slightly thicker
+        borderRadius: 3,
+        backgroundColor: '#D1D5DB', // Light gray pill
+    },
     actionBar: {
         flexDirection: 'row',
         gap: 12,
         paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: THEME.border,
+        paddingTop: 16,
+        paddingBottom: 4,
         backgroundColor: '#FFF',
     },
     actionBtn: {
