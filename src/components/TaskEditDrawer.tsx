@@ -214,7 +214,10 @@ export default function TaskEditDrawer({
                     Animated.spring(panY, {
                         toValue: 0,
                         useNativeDriver: true,
+                        speed: 30,
                         bounciness: 0,
+                        restSpeedThreshold: 100,
+                        restDisplacementThreshold: 40,
                     }).start();
                 }
             } else {
@@ -443,11 +446,8 @@ export default function TaskEditDrawer({
                         <View style={styles.handleContainer}>
                             <View style={styles.handle} />
                         </View>
-                        <ScrollView
-                            style={styles.content}
-                            contentContainerStyle={{ paddingBottom: 40 }}
-                            keyboardShouldPersistTaps="always"
-                            showsVerticalScrollIndicator={false}
+                        <View
+                            style={[styles.content, { paddingBottom: 40 }]}
                         >
                             <View style={styles.header}>
                                 {/* Complete Toggle */}
@@ -661,7 +661,7 @@ export default function TaskEditDrawer({
 
 
 
-                        </ScrollView>
+                        </View>
                     </>
                 )}
             </Animated.View>
