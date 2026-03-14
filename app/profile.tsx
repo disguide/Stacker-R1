@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { StorageService, UserProfile, GoalCategory } from '../src/services/storage';
+import { StorageService, UserProfile, GoalCategory, SavedSprint } from '../src/services/storage';
 import * as ImagePicker from 'expo-image-picker';
 
 const GOAL_PALETTE = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#06B6D4', '#F97316'];
@@ -18,6 +18,25 @@ export default function ProfileScreen() {
     const scrollViewRef = useRef<ScrollView>(null);
     const quickAddInputRef = useRef<TextInput>(null);
     const [selectedCategory, setSelectedCategory] = useState<GoalCategory>('outcomes');
+
+    const [savedSprints, setSavedSprints] = useState<SavedSprint[]>([]);
+
+    const formatDuration = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        if (h > 0) return `${h}h ${m}m`;
+        return `${m}m`;
+    };
+
+    useFocusEffect(
+        useCallback(() => {
+            let mounted = true;
+            StorageService.loadSavedSprints().then(sprints => {
+                if (mounted) setSavedSprints(sprints);
+            });
+            return () => { mounted = false; };
+        }, [])
+    );
 
     const [profile, setProfile] = useState<UserProfile>({
         name: '',
@@ -203,8 +222,31 @@ export default function ProfileScreen() {
         }
     };
 
+    const cancelGoalItem = async (id: string) => {
+        let newProfile = { ...profile };
+        const now = new Date().toISOString();
+        const updater = (g: any) => {
+            if (g.id !== id) return g;
+            return {
+                ...g,
+                cancelled: true,
+                cancelledAt: now,
+                events: [...(g.events || []), { id: Date.now().toString(), type: 'cancelled' as const, date: now }]
+            };
+        };
+
+        if (activeTab === 'goals') {
+            newProfile.goals = (newProfile.goals || []).map(updater);
+        } else {
+            newProfile.antigoals = (newProfile.antigoals || []).map(updater);
+        }
+
+        setProfile(newProfile);
+        await StorageService.saveProfile(newProfile);
+    };
+
     // Split active tasks into pending and completed for the view mode
-    const pendingItems = activeList.filter(item => !item.completed);
+    const pendingItems = activeList.filter(item => !item.completed && !item.cancelled);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -215,6 +257,7 @@ export default function ProfileScreen() {
                 {/* Top Bar (Exit Button with Top Gap before Banner) */}
                 <View style={styles.topBar}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.exitBtn}>
+                        <Ionicons name="chevron-back" size={28} color="#007AFF" />
                         <Text style={styles.backButtonText}>Back</Text>
                     </TouchableOpacity>
                     <View style={{ flex: 1 }} />
@@ -385,6 +428,18 @@ export default function ProfileScreen() {
                                                         placeholderTextColor="#94A3B8"
                                                         editable={isEditing}
                                                     />
+
+                                                    {/* Cancel Button - visible in View Mode */}
+                                                    {!isEditing && (
+                                                        <TouchableOpacity 
+                                                            onPress={() => cancelGoalItem(item.id)}
+                                                            style={styles.inlineCancelBtn}
+                                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                        >
+                                                            <Ionicons name="close-circle-outline" size={20} color="#94A3B8" />
+                                                        </TouchableOpacity>
+                                                    )}
+
                                                     {isEditing && (
                                                         <TouchableOpacity onPress={() => deleteGoalItem(item.id)} style={styles.inlineDeleteBtn}>
                                                             <Ionicons name="close" size={20} color="#94A3B8" />
@@ -423,12 +478,49 @@ export default function ProfileScreen() {
                                         </TouchableOpacity>
                                     </View>
 
-                                    {/* --- BEST DAYS SECTION (Empty Window) --- */}
+                                    {/* Divider */}
+                                    <View style={{ height: 1, backgroundColor: '#E2E8F0', marginVertical: 8 }} />
+
+                                    {/* --- RECENT SAVED SPRINTS --- */}
                                     <View style={styles.bestDaysContainer}>
-                                        <Text style={styles.bestDaysTitle}>Best Days</Text>
-                                        <View style={styles.bestDaysWindow}>
-                                            <Text style={styles.bestDaysPlaceholder}>No best days recorded yet.</Text>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                            <Text style={styles.bestDaysTitle}>Recent Sprints</Text>
+                                            {savedSprints.length > 0 && (
+                                                <TouchableOpacity onPress={() => router.push('/saved-sprints')}>
+                                                    <Text style={{ color: '#3B82F6', fontWeight: '600', fontSize: 14 }}>View All</Text>
+                                                </TouchableOpacity>
+                                            )}
                                         </View>
+                                        
+                                        {savedSprints.length === 0 ? (
+                                            <View style={styles.bestDaysWindow}>
+                                                <Text style={styles.bestDaysPlaceholder}>No saved sprints yet.</Text>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.savedSprintsList}>
+                                                {savedSprints.slice(0, 5).map((sprint, index, arr) => (
+                                                    <View key={sprint.id} style={styles.savedSprintRow}>
+                                                        {/* Timeline Node & Line */}
+                                                        <View style={styles.timelineNodeContainer}>
+                                                            <View style={styles.timelineNode}>
+                                                                <Ionicons name="flash" size={16} color="#3B82F6" />
+                                                            </View>
+                                                            {index < arr.length - 1 && <View style={styles.timelineConnectLine} />}
+                                                        </View>
+                                                        
+                                                        {/* Card */}
+                                                        <View style={styles.savedSprintCardContent}>
+                                                            <View style={styles.savedSprintInfo}>
+                                                                <Text style={styles.savedSprintDate}>
+                                                                    {new Date(sprint.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                                </Text>
+                                                                <Text style={styles.savedSprintTime}>{formatDuration(sprint.durationSeconds)} Focus Time</Text>
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
                                     </View>
 
                                 </View>
@@ -505,13 +597,15 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFF',
     },
     exitBtn: {
-        paddingVertical: 8,
-        paddingHorizontal: 4,
+        flexDirection: 'row',
+        alignItems: 'center',
+        minWidth: 80,
     },
     backButtonText: {
         fontSize: 17,
-        color: '#007AFF', // Standard iOS blue or #3B82F6
+        color: '#007AFF',
         fontWeight: '500',
+        marginLeft: -4,
     },
     editProfileBtn: {
         paddingVertical: 8,
@@ -740,7 +834,11 @@ const styles = StyleSheet.create({
     },
     inlineDeleteBtn: {
         padding: 4,
-        marginLeft: 8,
+        marginLeft: 4,
+    },
+    inlineCancelBtn: {
+        padding: 4,
+        marginLeft: 4,
     },
 
     // Quick Add Button (Traditional)
@@ -875,5 +973,59 @@ const styles = StyleSheet.create({
         color: '#94A3B8',
         fontSize: 14,
         fontStyle: 'italic',
+    },
+
+    // Saved Sprints
+    savedSprintsList: {
+        gap: 0,
+    },
+    savedSprintRow: {
+        flexDirection: 'row',
+        minHeight: 80,
+    },
+    timelineNodeContainer: {
+        width: 32,
+        alignItems: 'center',
+    },
+    timelineNode: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#EFF6FF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 16,
+        zIndex: 2,
+    },
+    timelineConnectLine: {
+        width: 2,
+        flex: 1,
+        backgroundColor: '#E2E8F0',
+        marginTop: 4,
+        marginBottom: -16, // To cross slightly into next item
+        zIndex: 1,
+    },
+    savedSprintCardContent: {
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginBottom: 16,
+        marginLeft: 12,
+    },
+    savedSprintInfo: {
+        flex: 1,
+    },
+    savedSprintDate: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#0F172A',
+        marginBottom: 4,
+    },
+    savedSprintTime: {
+        fontSize: 14,
+        color: '#64748B',
     }
 });

@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
     USER_PROFILE: '@stacker_user_profile_v1',
     USER_COLORS: '@stacker_user_colors_v1',
     SPRINT_SETTINGS: '@stacker_sprint_settings_v1', // New Key
+    SAVED_SPRINTS: '@stacker_saved_sprints_v1',
     MAIL: '@stacker_mail_v1',
 };
 
@@ -21,9 +22,16 @@ export interface SprintSettings {
     autoBreakDuration?: number;
 }
 
+export interface SavedSprint {
+    id: string;
+    date: string;
+    durationSeconds: number;
+    timelineEvents: any[];
+}
+
 export type GoalCategory = 'traits' | 'habits' | 'environment' | 'outcomes';
 
-export type GoalEventType = 'added' | 'achieved' | 'modified';
+export type GoalEventType = 'added' | 'achieved' | 'modified' | 'cancelled';
 
 export interface GoalEvent {
     id: string;
@@ -39,6 +47,8 @@ export interface GoalItem {
     completedAt?: string;
     category?: GoalCategory;
     color?: string;
+    cancelled?: boolean;
+    cancelledAt?: string;
     events?: GoalEvent[];
 }
 
@@ -355,6 +365,45 @@ export const StorageService = {
             await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_SETTINGS, JSON.stringify(settings));
         } catch (e) {
             console.error('Failed to save sprint settings', e);
+        }
+    },
+
+    // SAVED SPRINTS
+    async loadSavedSprints(): Promise<SavedSprint[]> {
+        try {
+            const jsonValue = await AsyncStorage.getItem(STORAGE_KEYS.SAVED_SPRINTS);
+            return jsonValue != null ? JSON.parse(jsonValue) : [];
+        } catch (e) {
+            console.error('Failed to load saved sprints', e);
+            return [];
+        }
+    },
+
+    async saveSavedSprint(sprint: SavedSprint) {
+        try {
+            const currentSprints = await this.loadSavedSprints();
+            const updatedSprints = [sprint, ...currentSprints];
+            await AsyncStorage.setItem(STORAGE_KEYS.SAVED_SPRINTS, JSON.stringify(updatedSprints));
+        } catch (e) {
+            console.error('Failed to save saved sprint', e);
+        }
+    },
+
+    async updateSavedSprints(sprints: SavedSprint[]) {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.SAVED_SPRINTS, JSON.stringify(sprints));
+        } catch (e) {
+            console.error('Failed to update saved sprints array', e);
+        }
+    },
+
+    async deleteSavedSprint(sprintId: string) {
+        try {
+            const currentSprints = await this.loadSavedSprints();
+            const updated = currentSprints.filter(s => s.id !== sprintId);
+            await AsyncStorage.setItem(STORAGE_KEYS.SAVED_SPRINTS, JSON.stringify(updated));
+        } catch (e) {
+            console.error('Failed to delete saved sprint', e);
         }
     },
 

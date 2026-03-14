@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, PanResponder, Animated, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, PanResponder, Animated, Modal, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Task, StorageService } from '../src/services/storage';
@@ -248,6 +248,21 @@ export default function SprintSummaryScreen() {
         setTaskProgress(prev => ({ ...prev, [taskId]: progress }));
     };
 
+    const handleSaveSprint = async () => {
+        try {
+            await StorageService.saveSavedSprint({
+                id: Date.now().toString(),
+                date: new Date().toISOString(),
+                durationSeconds,
+                timelineEvents
+            });
+            Alert.alert("Success", "Sprint saved to Best Days!");
+        } catch (error) {
+            console.error("Failed to save sprint:", error);
+            Alert.alert("Error", "Could not save sprint. Please try again.");
+        }
+    };
+
     const handleFinish = async () => {
         try {
             const activeTasks = await StorageService.loadActiveTasks();
@@ -400,6 +415,10 @@ export default function SprintSummaryScreen() {
                 <TouchableOpacity onPress={handleFinish} style={styles.exitButton}>
                     <Ionicons name="close" size={24} color={THEME.textPrimary} />
                 </TouchableOpacity>
+                <TouchableOpacity onPress={handleSaveSprint} style={styles.headerSaveButton}>
+                    <Ionicons name="bookmark-outline" size={20} color={THEME.accent} style={{ marginRight: 6 }} />
+                    <Text style={styles.headerSaveText}>Save</Text>
+                </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.content}>
@@ -479,8 +498,17 @@ export default function SprintSummaryScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: THEME.bg },
-    header: { padding: 20, alignItems: 'flex-end' },
+    header: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     exitButton: { padding: 8, backgroundColor: '#F1F5F9', borderRadius: 20 },
+    headerSaveButton: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: '#EFF6FF', 
+        paddingHorizontal: 16, 
+        paddingVertical: 8, 
+        borderRadius: 20 
+    },
+    headerSaveText: { color: THEME.accent, fontWeight: 'bold', fontSize: 16 },
     content: { padding: 24, paddingBottom: 100 },
     summaryHeader: {
         alignItems: 'center', marginBottom: 24

@@ -24,6 +24,7 @@ import { Task } from '../features/tasks/types';
 import { Switch } from 'react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
+const SCREEN_WIDTH = Dimensions.get('window').width;
 
 // Theme Constants
 const THEME = {
@@ -151,6 +152,8 @@ export default function TaskEditDrawer({
 
     const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
     const [activeFeature, setActiveFeature] = useState<FeatureKey | null>(null);
+    const activeFeatureRef = useRef(activeFeature);
+    activeFeatureRef.current = activeFeature;
     const [isRendered, setIsRendered] = useState(visible);
 
     // Use Custom Hook for Reminders
@@ -359,9 +362,15 @@ export default function TaskEditDrawer({
     const carouselPanResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => false,
-            // Only capture strong UPWARD movement logic
-            onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-                 return gestureState.dy < -15 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
+            // Only capture strong UPWARD movement logic (in bubbling phase to let wheels scroll)
+            onMoveShouldSetPanResponder: (_, gestureState) => {
+                 if (activeFeatureRef.current === 'reminder') {
+                     // Check if touch started near the horizontal center (where time wheels are) 
+                     // and ignore the swipe gesture so wheels can scroll freely
+                     const isTouchingWheels = gestureState.x0 > SCREEN_WIDTH / 2 - 120 && gestureState.x0 < SCREEN_WIDTH / 2 + 120;
+                     if (isTouchingWheels) return false;
+                 }
+                 return gestureState.dy < -40 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
             },
             onPanResponderGrant: () => {
                 carouselPanY.setOffset((carouselPanY as any)._value);

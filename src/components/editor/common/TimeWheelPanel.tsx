@@ -125,9 +125,6 @@ export function TimeWheelPanel({ hour, minute, onHourChange, onMinuteChange }: {
 
     return (
         <View style={{ flex: 1, justifyContent: 'flex-start', paddingTop: 60, alignItems: 'center', backgroundColor: '#FFF' }}>
-            <Text style={{ fontSize: 14, color: THEME.textSecondary, fontWeight: '600', marginBottom: 8 }}>Set Time</Text>
-            <Text style={{ fontSize: 28, fontWeight: 'bold', color: THEME.green, marginBottom: 16 }}>{timeStr}</Text>
-
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <WheelPicker
                     items={HOURS_12}

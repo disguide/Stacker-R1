@@ -56,7 +56,8 @@ export default function TimelineScreen() {
             ev.type === 'start' ? '#64748B' :
                 ev.type === 'added' ? '#3B82F6' :
                     ev.type === 'modified' ? '#F59E0B' :
-                        ev.type === 'achieved' ? '#10B981' : '#64748B';
+                        ev.type === 'achieved' ? '#10B981' :
+                            ev.type === 'cancelled' ? '#EF4444' : '#64748B';
     };
 
     const events = useMemo(() => {
@@ -250,7 +251,8 @@ export default function TimelineScreen() {
             item.type === 'start' ? 'Timeline' :
                 item.type === 'added' ? 'Added' :
                     item.type === 'modified' ? 'Reconsidered' :
-                        item.type === 'achieved' ? 'Completed' : 'Updated';
+                        item.type === 'achieved' ? 'Completed' :
+                            item.type === 'cancelled' ? 'Cancelled' : 'Updated';
 
         const isSystemNode = item.type === 'present' || item.type === 'start';
         const isTimeJump = item.type === 'time-jump';
@@ -356,15 +358,19 @@ export default function TimelineScreen() {
         <View style={styles.container}>
             <Stack.Screen
                 options={{
-                    title: 'Timeline Archive',
-                    headerLeft: () => (
-                        <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 16 }}>
-                            <Ionicons name="arrow-back" size={24} color="#1E293B" />
-                        </TouchableOpacity>
-                    ),
-                    headerRight: () => null
+                    headerShown: false,
                 }}
             />
+
+            {/* Custom Back Button */}
+            <TouchableOpacity 
+                style={styles.backButton} 
+                onPress={() => router.back()}
+                activeOpacity={0.7}
+            >
+                <Ionicons name="chevron-back" size={28} color="#007AFF" />
+                <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
 
             <FlatList
                 data={events}
@@ -427,8 +433,24 @@ export default function TimelineScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
+    backButton: {
+        position: 'absolute',
+        top: 20,
+        left: 20,
+        zIndex: 100,
+        flexDirection: 'row',
+        alignItems: 'center',
+        minWidth: 80,
+    },
+    backButtonText: {
+        fontSize: 17,
+        fontWeight: '500',
+        color: '#007AFF',
+        marginLeft: -4,
+    },
     listContent: {
-        paddingVertical: 16,
+        paddingTop: 60,
+        paddingHorizontal: 0,
         paddingBottom: 150
     },
 
