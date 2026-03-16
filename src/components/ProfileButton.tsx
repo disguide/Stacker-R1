@@ -32,30 +32,30 @@ const styles = StyleSheet.create({
         padding: 0, // Removed padding to move it left
     },
     avatarContainer: {
-        width: 50,
-        height: 50,
-        borderRadius: 10, // Consistent rounded square for 50x50
+        width: 60,
+        height: 60,
+        borderRadius: 12,
         backgroundColor: '#000000',
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
     },
     avatarImage: {
-        width: 50,
-        height: 50,
+        width: 60,
+        height: 60,
     },
     head: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
         backgroundColor: '#FFFFFF',
-        marginBottom: 4,
+        marginBottom: 5,
     },
     body: {
-        width: 32,
-        height: 16,
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
+        width: 36,
+        height: 18,
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 18,
         backgroundColor: '#FFFFFF',
     },
 });

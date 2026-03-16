@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform, Alert, useWindowDimensions } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { StorageService, UserProfile, GoalCategory, SavedSprint } from '../src/services/storage';
+import { StorageService, UserProfile, GoalCategory, SavedSprint, Task } from '../src/services/storage';
+import { LinearGradient } from 'expo-linear-gradient';
+
 import * as ImagePicker from 'expo-image-picker';
 
 const GOAL_PALETTE = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#06B6D4', '#F97316'];
@@ -11,15 +13,21 @@ export default function ProfileScreen() {
     const router = useRouter();
 
     const [isEditing, setIsEditing] = useState(false);
-    const [mainTab, setMainTab] = useState<'focus' | 'archive'>('focus');
+    const [activeSection, setActiveSection] = useState<'profile' | 'goals' | 'sprints'>('profile');
     const [activeTab, setActiveTab] = useState<'goals' | 'antigoals'>('goals');
     const [quickAddText, setQuickAddText] = useState('');
     const [isAddingGoal, setIsAddingGoal] = useState(false);
-    const scrollViewRef = useRef<ScrollView>(null);
+    const { width: SCREEN_WIDTH } = useWindowDimensions();
+    const horizontalPagerRef = useRef<ScrollView>(null);
+    const profileScrollRef = useRef<ScrollView>(null);
+    const goalsScrollRef = useRef<ScrollView>(null);
+    const sprintsScrollRef = useRef<ScrollView>(null);
     const quickAddInputRef = useRef<TextInput>(null);
     const [selectedCategory, setSelectedCategory] = useState<GoalCategory>('outcomes');
 
     const [savedSprints, setSavedSprints] = useState<SavedSprint[]>([]);
+    const [sprintHistory, setSprintHistory] = useState<SavedSprint[]>([]);
+    const [taskHistory, setTaskHistory] = useState<Task[]>([]);
 
     const formatDuration = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
@@ -34,9 +42,28 @@ export default function ProfileScreen() {
             StorageService.loadSavedSprints().then(sprints => {
                 if (mounted) setSavedSprints(sprints);
             });
+            StorageService.loadSprintHistory().then(history => {
+                if (mounted) setSprintHistory(history);
+            });
+            StorageService.loadHistory().then(history => {
+                if (mounted) setTaskHistory(history);
+            });
             return () => { mounted = false; };
         }, [])
     );
+
+    // Career Stats Calculation
+    const careerStats = useCallback(() => {
+        const totalWorkSeconds = sprintHistory.reduce((acc, s) => acc + (s.durationSeconds || 0), 0);
+        const totalWins = sprintHistory.reduce((acc, s) => acc + (s.taskCount || 0), 0);
+        const totalAchievements = savedSprints.length;
+
+        return {
+            totalWorkSeconds,
+            totalWins,
+            totalAchievements
+        };
+    }, [sprintHistory, savedSprints])();
 
     const [profile, setProfile] = useState<UserProfile>({
         name: '',
@@ -115,6 +142,26 @@ export default function ProfileScreen() {
         ? (profile.goals || [])
         : (profile.antigoals || []);
 
+    const handleFieldFocus = (y: number) => {
+        // Give a little offset for context
+        const scrollY = Math.max(0, y - 50);
+        goalsScrollRef.current?.scrollTo({ y: scrollY, animated: true });
+    };
+
+    const scrollToSection = (section: 'profile' | 'goals' | 'sprints') => {
+        setActiveSection(section);
+        const index = section === 'profile' ? 0 : section === 'goals' ? 1 : 2;
+        horizontalPagerRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
+    };
+
+    const handleMomentumScrollEnd = (e: any) => {
+        const offset = e.nativeEvent.contentOffset.x;
+        const index = Math.round(offset / SCREEN_WIDTH);
+        if (index === 0) setActiveSection('profile');
+        else if (index === 1) setActiveSection('goals');
+        else if (index === 2) setActiveSection('sprints');
+    };
+
     const addGoalItem = (title?: string) => {
         const goalTitle = title?.trim() || '';
         if (!goalTitle) return;
@@ -141,7 +188,7 @@ export default function ProfileScreen() {
 
         // Auto-scroll to bottom after a small delay to allow item to render
         setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
+            goalsScrollRef.current?.scrollToEnd({ animated: true });
         }, 150);
     };
 
@@ -248,286 +295,506 @@ export default function ProfileScreen() {
     // Split active tasks into pending and completed for the view mode
     const pendingItems = activeList.filter(item => !item.completed && !item.cancelled);
 
+    const handleUndoTask = async (taskId: string) => {
+        const task = await StorageService.removeFromHistory(taskId);
+        if (task) {
+            const activeTasks = await StorageService.loadActiveTasks();
+            await StorageService.saveActiveTasks([{ ...task, completed: false, completedAt: undefined }, ...activeTasks]);
+            // Refresh history
+            const history = await StorageService.loadHistory();
+            setTaskHistory(history);
+        }
+    };
+
+    const handleDeleteHistoryTask = async (taskId: string) => {
+        await StorageService.deleteFromHistory(taskId);
+        const history = await StorageService.loadHistory();
+        setTaskHistory(history);
+    };
+
+    // Derived: Recent Sprints (History + Saved, sorted by date)
+    const recentSprints = [...sprintHistory, ...savedSprints]
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i) // Unique IDs
+        .slice(0, 3);
+
+    const handleResetEverything = () => {
+        Alert.alert(
+            "Clear All Data?",
+            "This will permanently delete your profile, career stats, goals, and history. This cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "YES, RESET ALL",
+                    style: "destructive",
+                    onPress: async () => {
+                        await StorageService.clearAllData();
+                        // Reset local states to trigger re-renders or just reload the app state
+                        setProfile({
+                            name: '',
+                            handle: '',
+                            goals: [],
+                            antigoals: [],
+                        });
+                        setSavedSprints([]);
+                        setSprintHistory([]);
+                        setTaskHistory([]);
+                        setActiveSection('profile');
+                        horizontalPagerRef.current?.scrollTo({ x: 0, animated: false });
+                        Alert.alert("Data Reset", "All statistics and settings have been cleared.");
+                    }
+                }
+            ]
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
                 {/* Top Bar (Exit Button with Top Gap before Banner) */}
+                {/* Top Navigation Bar */}
                 <View style={styles.topBar}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.exitBtn}>
-                        <Ionicons name="chevron-back" size={28} color="#007AFF" />
-                        <Text style={styles.backButtonText}>Back</Text>
+                        <View style={styles.backCircle}>
+                            <Ionicons name="chevron-back" size={24} color="#007AFF" />
+                        </View>
                     </TouchableOpacity>
-                    <View style={{ flex: 1 }} />
-                    {isEditing ? (
-                        <View style={styles.editActionRow}>
-                            <TouchableOpacity onPress={handleEditToggle} style={styles.cancelBtn}>
-                                <Text style={styles.cancelText}>Cancel</Text>
+
+                    {/* Centered Tab Switcher */}
+                    <View style={styles.topSelectorWrapper}>
+                        <View style={styles.sectionTabRow}>
+                            <TouchableOpacity
+                                onPress={() => scrollToSection('profile')}
+                                style={[styles.sectionTab, activeSection === 'profile' && styles.sectionTabActive]}
+                            >
+                                <Text style={[styles.sectionTabText, activeSection === 'profile' && styles.sectionTabTextActive]}>Profile</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={saveChanges} style={styles.saveBtn}>
-                                <Text style={styles.saveText}>Save</Text>
+                            <TouchableOpacity
+                                onPress={() => scrollToSection('goals')}
+                                style={[styles.sectionTab, activeSection === 'goals' && styles.sectionTabActive]}
+                            >
+                                <Text style={[styles.sectionTabText, activeSection === 'goals' && styles.sectionTabTextActive]}>Goals</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => scrollToSection('sprints')}
+                                style={[styles.sectionTab, activeSection === 'sprints' && styles.sectionTabActive]}
+                            >
+                                <Text style={[styles.sectionTabText, activeSection === 'sprints' && styles.sectionTabTextActive]}>Sprints</Text>
                             </TouchableOpacity>
                         </View>
-                    ) : (
-                        <TouchableOpacity onPress={handleEditToggle} style={styles.editProfileBtn}>
-                            <Text style={styles.editProfileText}>Edit Profile</Text>
-                        </TouchableOpacity>
-                    )}
+                    </View>
+                    
+                    {/* Balanced right side */}
+                    <View style={{ width: 44 }} />
                 </View>
 
                 <ScrollView
-                    style={styles.pageScroll}
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                    ref={scrollViewRef}
+                    ref={horizontalPagerRef}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={handleMomentumScrollEnd}
+                    scrollEventThrottle={16}
                     keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag"
+                    bounces={false}
                 >
-                    <View style={styles.headerContainer}>
-                        {/* YouTube-Style Banner (Below Top Gap) */}
-                        <TouchableOpacity
-                            activeOpacity={isEditing ? 0.8 : 1}
-                            onPress={() => handlePickImage('banner')}
-                            disabled={!isEditing}
-                            style={styles.bannerWrapper}
-                        >
-                            {profile.banner ? (
-                                <Image source={{ uri: profile.banner }} style={styles.bannerImage} />
-                            ) : (
-                                <View style={[styles.bannerImage, { backgroundColor: '#E2E8F0' }]} />
-                            )}
-                            {isEditing && (
-                                <View style={styles.imageEditOverlay}>
-                                    <Ionicons name="camera" size={24} color="#FFF" />
-                                </View>
-                            )}
-                        </TouchableOpacity>
-
-                        {/* Profile Block (Separated entirely from banner) */}
-                        <View style={styles.profileBlock}>
-                            {/* Avatar & Name Row */}
-                            <View style={styles.identityRow}>
-                                <TouchableOpacity
-                                    activeOpacity={isEditing ? 0.8 : 1}
-                                    onPress={() => handlePickImage('avatar')}
-                                    disabled={!isEditing}
-                                    style={styles.avatarWrapper}
-                                >
-                                    {profile.avatar ? (
-                                        <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
-                                    ) : (
-                                        <View style={styles.avatarPlaceholder}>
-                                            <Text style={{ fontSize: 36 }}>👤</Text>
-                                        </View>
-                                    )}
-                                    {isEditing && (
-                                        <View style={styles.avatarEditOverlay}>
-                                            <Ionicons name="camera" size={16} color="#FFF" />
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
-
-                                <View style={styles.nameBlock}>
+                    {/* SLIDE 1: PROFILE */}
+                    <ScrollView
+                        ref={profileScrollRef}
+                        style={{ width: SCREEN_WIDTH }}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        <View style={styles.profileTabContent}>
+                            <View style={styles.bannerContainer}>
+                                <Text style={styles.fillerTitle}>Personal overview</Text>
+                                <View style={styles.profileEditWrapper}>
                                     {isEditing ? (
-                                        <TextInput
-                                            style={styles.userNameInput}
-                                            value={profile.name}
-                                            onChangeText={(text) => updateProfile({ name: text })}
-                                            placeholder="Name"
-                                            placeholderTextColor="#94A3B8"
-                                        />
+                                        <TouchableOpacity onPress={saveChanges} style={styles.exitEditBtn}>
+                                            <Ionicons name="close-circle" size={28} color="#007AFF" />
+                                        </TouchableOpacity>
                                     ) : (
-                                        <Text style={styles.userNameText}>{profile.name || "Add a name"}</Text>
+                                        <TouchableOpacity onPress={handleEditToggle} style={styles.editProfileBtnInline}>
+                                            <Text style={styles.editProfileText}>Edit</Text>
+                                        </TouchableOpacity>
                                     )}
-                                    <Text style={styles.handleText}>@stacker</Text>
                                 </View>
                             </View>
 
-                            {/* Bio / Description */}
-                            <View style={styles.bioContainer}>
-                                {isEditing ? (
-                                    <TextInput
-                                        style={styles.userBioInput}
-                                        value={profile.bio || ''}
-                                        onChangeText={(text) => updateProfile({ bio: text })}
-                                        placeholder="Add a bio..."
-                                        placeholderTextColor="#94A3B8"
-                                        multiline
-                                    />
+                            {/* YouTube-Style Banner (Profile Tab Only) */}
+                            <TouchableOpacity
+                                activeOpacity={isEditing ? 0.8 : 1}
+                                onPress={() => handlePickImage('banner')}
+                                disabled={!isEditing}
+                                style={styles.bannerWrapper}
+                            >
+                                {profile.banner ? (
+                                    <Image source={{ uri: profile.banner }} style={styles.bannerImage} />
                                 ) : (
-                                    <View style={styles.bioDisplayBox}>
-                                        <Text style={styles.userBioText}>
-                                            {profile.bio || "No description yet."}
-                                        </Text>
+                                    <View style={[styles.bannerImage, { backgroundColor: '#E2E8F0' }]} />
+                                )}
+                                {isEditing && (
+                                    <View style={styles.imageEditOverlay}>
+                                        <Ionicons name="camera" size={24} color="#FFF" />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+
+                            <View style={styles.profileBlock}>
+                                {/* Avatar & Name Row */}
+                                <View style={styles.identityRow}>
+                                    <TouchableOpacity
+                                        activeOpacity={isEditing ? 0.8 : 1}
+                                        onPress={() => handlePickImage('avatar')}
+                                        disabled={!isEditing}
+                                        style={styles.avatarWrapper}
+                                    >
+                                        {profile.avatar ? (
+                                            <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
+                                        ) : (
+                                            <View style={styles.avatarPlaceholder}>
+                                                <Text style={{ fontSize: 36 }}>👤</Text>
+                                            </View>
+                                        )}
+                                        {isEditing && (
+                                            <View style={styles.avatarEditOverlay}>
+                                                <Ionicons name="camera" size={16} color="#FFF" />
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <View style={styles.nameBlock}>
+                                        {isEditing ? (
+                                            <TextInput
+                                                style={styles.userNameInput}
+                                                value={profile.name}
+                                                onChangeText={(text) => updateProfile({ name: text })}
+                                                placeholder="Name"
+                                                placeholderTextColor="#94A3B8"
+                                            />
+                                        ) : (
+                                            <Text style={styles.userNameText}>{profile.name || "Add a name"}</Text>
+                                        )}
+                                        <Text style={styles.handleText}>@stacker</Text>
+                                    </View>
+                                </View>
+
+                                {/* Bio / Description */}
+                                <View style={styles.bioContainer}>
+                                    {isEditing ? (
+                                        <TextInput
+                                            style={styles.userBioInput}
+                                            value={profile.bio || ''}
+                                            onChangeText={(text) => updateProfile({ bio: text })}
+                                            placeholder="Add a bio..."
+                                            placeholderTextColor="#94A3B8"
+                                            multiline
+                                        />
+                                    ) : (
+                                        <View style={styles.bioDisplayBox}>
+                                            <Text style={styles.userBioText}>
+                                                {profile.bio || "No description yet."}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+                        </View>
+                    </ScrollView>
+
+                    {/* SLIDE 2: GOALS */}
+                    <ScrollView
+                        ref={goalsScrollRef}
+                        style={{ width: SCREEN_WIDTH }}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        <View style={styles.goalsTabContent}>
+                            <Text style={styles.fillerTitle}>Current progress</Text>
+                            {/* --- TIMELINE HERO --- */}
+                            {!isEditing && (
+                                <View style={styles.archivedSectionBlock}>
+                                    <TouchableOpacity
+                                        style={styles.timelineHeroBlock}
+                                        onPress={() => router.push('/timeline')}
+                                        activeOpacity={0.8}
+                                    >
+                                        <View style={styles.heroContentInner}>
+                                            <View style={styles.timelineHeroHeader}>
+                                                <View style={styles.timelineIconBox}>
+                                                    <Ionicons name="git-commit-outline" size={22} color="#FFF" />
+                                                </View>
+                                                <Text style={styles.timelineHeroTag}>ACTIVITY & TIMELINE</Text>
+                                            </View>
+                                            <Text style={styles.timelineHeroTitle}>Goals Timeline</Text>
+                                            {sprintHistory.length > 0 ? (
+                                                <View style={styles.timelineHeroInsight}>
+                                                    <Ionicons name="trending-up" size={14} color="rgba(255,255,255,0.7)" />
+                                                    <Text style={styles.timelineInsightText}>
+                                                        Longest Focus: {sprintHistory[0].primaryTask || 'Focus Session'}
+                                                    </Text>
+                                                </View>
+                                            ) : (
+                                                <Text style={styles.timelineHeroSub}>View your daily work flow and milestones</Text>
+                                            )}
+                                        </View>
+                                        <View style={styles.timelineHeroArrow}>
+                                            <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.6)" />
+                                        </View>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            {/* --- COMBINED LISTS --- */}
+                            <View style={styles.combinedListContainer}>
+                                <Text style={styles.sectionHeading}>🎯 GOALS</Text>
+                                {(profile.goals || []).filter(g => !g.completed && !g.cancelled).length === 0 ? (
+                                    <Text style={styles.emptyText}>No active goals.</Text>
+                                ) : (
+                                    (profile.goals || []).filter(g => !g.completed && !g.cancelled).map((item) => (
+                                        <View key={item.id} style={styles.inlineEditRow}>
+                                            <TouchableOpacity
+                                                onPress={() => isEditing ? cycleGoalColor(item.id) : toggleGoalCompletion(item.id, true)}
+                                                style={styles.inlineCheckbox}
+                                            >
+                                                <Ionicons
+                                                    name={item.completed ? "checkmark-circle" : "ellipse-outline"}
+                                                    size={24}
+                                                    color={item.color || '#3B82F6'}
+                                                />
+                                            </TouchableOpacity>
+
+                                            {!isEditing && (
+                                                <View style={styles.tagWrapper}>
+                                                    <View style={[styles.listCategoryTag, { backgroundColor: (item.color || '#3B82F6') + '15' }]}>
+                                                        <Text style={[styles.listCategoryTagText, { color: item.color || '#3B82F6' }]}>
+                                                            {item.category ? item.category.toUpperCase() : 'GOAL'}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            )}
+
+                                            <TextInput
+                                                style={styles.inlineInput}
+                                                value={item.title}
+                                                onChangeText={(t) => updateGoalItem(item.id, t)}
+                                                onFocus={(e) => {
+                                                    setActiveTab('goals');
+                                                    if (!isEditing) handleEditToggle();
+                                                    e.target.measure((x, y, width, height, pageX, pageY) => {
+                                                        handleFieldFocus(pageY);
+                                                    });
+                                                }}
+                                                placeholder="Enter Goal..."
+                                                placeholderTextColor="#94A3B8"
+                                            />
+
+                                            {!isEditing && (
+                                                <TouchableOpacity onPress={() => cancelGoalItem(item.id)} style={styles.inlineCancelBtn}>
+                                                    <Ionicons name="close-circle-outline" size={20} color="#94A3B8" />
+                                                </TouchableOpacity>
+                                            )}
+
+                                            {isEditing && (
+                                                <TouchableOpacity onPress={() => deleteGoalItem(item.id)} style={styles.inlineDeleteBtn}>
+                                                    <Ionicons name="close" size={20} color="#94A3B8" />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    ))
+                                )}
+                                {(profile.goals || []).filter(g => !g.completed && !g.cancelled).length < 5 && (
+                                    <TouchableOpacity
+                                        style={styles.addGoalBtnSmall}
+                                        onPress={() => { setActiveTab('goals'); setIsAddingGoal(true); }}
+                                    >
+                                        <Ionicons name="add" size={18} color="#3B82F6" />
+                                        <Text style={styles.addGoalTextSmall}>Add Goal</Text>
+                                    </TouchableOpacity>
+                                )}
+
+                                <Text style={[styles.sectionHeading, { marginTop: 32 }]}>🚫 ANTI-GOALS</Text>
+                                {(profile.antigoals || []).filter(g => !g.completed && !g.cancelled).length === 0 ? (
+                                    <Text style={styles.emptyText}>No active anti-goals.</Text>
+                                ) : (
+                                    (profile.antigoals || []).filter(g => !g.completed && !g.cancelled).map((item) => (
+                                        <View key={item.id} style={styles.inlineEditRow}>
+                                            <TouchableOpacity
+                                                onPress={() => isEditing ? cycleGoalColor(item.id) : toggleGoalCompletion(item.id, true)}
+                                                style={styles.inlineCheckbox}
+                                            >
+                                                <Ionicons
+                                                    name={item.completed ? "checkmark-circle" : "ellipse-outline"}
+                                                    size={24}
+                                                    color={item.color || '#EC4899'}
+                                                />
+                                            </TouchableOpacity>
+
+                                            {!isEditing && (
+                                                <View style={styles.tagWrapper}>
+                                                    <View style={[styles.listCategoryTag, { backgroundColor: (item.color || '#EC4899') + '15' }]}>
+                                                        <Text style={[styles.listCategoryTagText, { color: item.color || '#EC4899' }]}>
+                                                            {item.category ? item.category.toUpperCase() : 'ANTI-GOAL'}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            )}
+
+                                            <TextInput
+                                                style={styles.inlineInput}
+                                                value={item.title}
+                                                onChangeText={(t) => updateGoalItem(item.id, t)}
+                                                onFocus={(e) => {
+                                                    setActiveTab('antigoals');
+                                                    if (!isEditing) handleEditToggle();
+                                                    e.target.measure((x, y, width, height, pageX, pageY) => {
+                                                        handleFieldFocus(pageY);
+                                                    });
+                                                }}
+                                                placeholder="Enter Anti-Goal..."
+                                                placeholderTextColor="#94A3B8"
+                                            />
+
+                                            {!isEditing && (
+                                                <TouchableOpacity onPress={() => cancelGoalItem(item.id)} style={styles.inlineCancelBtn}>
+                                                    <Ionicons name="close-circle-outline" size={20} color="#94A3B8" />
+                                                </TouchableOpacity>
+                                            )}
+
+                                            {isEditing && (
+                                                <TouchableOpacity onPress={() => deleteGoalItem(item.id)} style={styles.inlineDeleteBtn}>
+                                                    <Ionicons name="close" size={20} color="#94A3B8" />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    ))
+                                )}
+                                {(profile.antigoals || []).filter(g => !g.completed && !g.cancelled).length < 5 && (
+                                    <TouchableOpacity
+                                        style={styles.addGoalBtnSmall}
+                                        onPress={() => { setActiveTab('antigoals'); setIsAddingGoal(true); }}
+                                    >
+                                        <Ionicons name="add" size={18} color="#EC4899" />
+                                        <Text style={[styles.addGoalTextSmall, { color: '#EC4899' }]}>Add Anti-Goal</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+                    </ScrollView>
+
+                    {/* SLIDE 3: SPRINTS */}
+                    <ScrollView
+                        ref={sprintsScrollRef}
+                        style={{ width: SCREEN_WIDTH }}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        <View style={styles.sprintsTabContent}>
+                            <Text style={styles.fillerTitle}>Hall of Fame</Text>
+                            <View style={styles.bestDaysContainer}>
+                                <TouchableOpacity
+                                    activeOpacity={0.9}
+                                    onPress={() => router.push('/saved-sprints')}
+                                >
+                                    <LinearGradient
+                                        colors={['#F59E0B', '#FBBF24']}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                        style={styles.heroCard}
+                                    >
+                                        <View style={styles.heroBadge}>
+                                            <Ionicons name="trophy" size={12} color="#F59E0B" />
+                                            <Text style={styles.heroBadgeText}>LIFETIME CAREER</Text>
+                                        </View>
+                                        <View style={styles.heroContentInner}>
+                                            <View style={styles.heroMain}>
+                                                <Text style={styles.heroTime}>{formatDuration(careerStats.totalWorkSeconds)}</Text>
+                                                <Text style={styles.heroTask} numberOfLines={1}>Total Deep Focus Time</Text>
+                                            </View>
+                                            <View style={styles.heroFooter}>
+                                                <View style={styles.heroStat}>
+                                                    <Ionicons name="checkmark-done-circle" size={16} color="rgba(255,255,255,0.9)" />
+                                                    <Text style={styles.heroStatText}>{careerStats.totalWins} Total Wins</Text>
+                                                </View>
+                                                <View style={styles.heroStat}>
+                                                    <Ionicons name="ribbon" size={16} color="rgba(255,255,255,0.9)" />
+                                                    <Text style={styles.heroStatText}>{careerStats.totalAchievements} Achievements</Text>
+                                                </View>
+                                            </View>
+                                        </View>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={{ height: 1, backgroundColor: '#E2E8F0', marginVertical: 8, opacity: 0.5 }} />
+
+                            <View style={styles.bestDaysContainer}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                    <Text style={styles.bestDaysTitle}>Focus Journal</Text>
+                                    {sprintHistory.length > 3 && (
+                                        <TouchableOpacity onPress={() => router.push('/sprint-history')}>
+                                            <Text style={{ color: '#3B82F6', fontWeight: '600', fontSize: 14 }}>View All</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                                {recentSprints.length === 0 ? (
+                                    <View style={styles.bestDaysWindow}>
+                                        <Text style={styles.bestDaysPlaceholder}>No recent activity yet.</Text>
+                                    </View>
+                                ) : (
+                                    <View style={styles.savedSprintsList}>
+                                        {recentSprints.map((sprint) => (
+                                            <TouchableOpacity
+                                                key={sprint.id}
+                                                style={styles.journalCard}
+                                                onPress={() => router.push('/sprint-history')}
+                                            >
+                                                <View style={styles.journalIconBox}>
+                                                    <Ionicons name="flash" size={20} color="#3B82F6" />
+                                                </View>
+                                                <View style={styles.journalContent}>
+                                                    <View style={styles.journalHeader}>
+                                                        <Text style={styles.journalTitle} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
+                                                        <Text style={styles.journalDate}>
+                                                            {new Date(sprint.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                        </Text>
+                                                    </View>
+                                                    <View style={styles.journalStats}>
+                                                        <Text style={styles.journalDuration}>{formatDuration(sprint.durationSeconds)} Focus</Text>
+                                                        <View style={styles.statDot} />
+                                                        <Text style={styles.journalTaskCount}>{sprint.taskCount || 0} tasks</Text>
+                                                    </View>
+                                                    <View style={styles.sparklineBackground}>
+                                                        <View style={[styles.sparklineFill, { width: `${sprint.intensity || 0}%` }]} />
+                                                    </View>
+                                                </View>
+                                                <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                                            </TouchableOpacity>
+                                        ))}
                                     </View>
                                 )}
                             </View>
 
-                            {/* --- TOP-LEVEL MASTER TABS --- */}
-                            <View style={styles.masterTabContainer}>
-                                <TouchableOpacity
-                                    style={[styles.masterTabBtn, mainTab === 'focus' && styles.masterTabBtnActive]}
-                                    onPress={() => setMainTab('focus')}
-                                >
-                                    <Text style={[styles.masterTabText, mainTab === 'focus' && styles.masterTabTextActive]}>Current Focus</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.masterTabBtn, mainTab === 'archive' && styles.masterTabBtnActive]}
-                                    onPress={() => setMainTab('archive')}
-                                >
-                                    <Text style={[styles.masterTabText, mainTab === 'archive' && styles.masterTabTextActive]}>Archive</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* ========================================= */}
-                            {/* CURRENT FOCUS TAB */}
-                            {/* ========================================= */}
-                            {mainTab === 'focus' && (
-                                <View>
-                                    {/* --- GOALS / ANTIGOALS INNER TOGGLE --- */}
-                                    <View style={styles.tabContainer}>
-                                        <TouchableOpacity
-                                            style={[styles.tabBtn, activeTab === 'goals' && styles.tabBtnActive]}
-                                            onPress={() => setActiveTab('goals')}
-                                        >
-                                            <Text style={[styles.tabText, activeTab === 'goals' && styles.tabTextActive]}>Goals</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={[styles.tabBtn, activeTab === 'antigoals' && styles.tabBtnActive]}
-                                            onPress={() => setActiveTab('antigoals')}
-                                        >
-                                            <Text style={[styles.tabText, activeTab === 'antigoals' && styles.tabTextActive]}>Anti-Goals</Text>
+                            {!isEditing && (
+                                <>
+                                    <View style={{ height: 1, backgroundColor: '#E2E8F0', marginVertical: 32 }} />
+                                    <View style={styles.resetContainer}>
+                                        <Text style={styles.resetHeader}>DANGER ZONE</Text>
+                                        <TouchableOpacity style={styles.resetFullBtn} onPress={handleResetEverything}>
+                                            <Ionicons name="trash-bin-outline" size={20} color="#EF4444" />
+                                            <Text style={styles.resetFullText}>Reset All Data & Statistics</Text>
                                         </TouchableOpacity>
                                     </View>
-
-                                    {/* --- LIST SECTION --- */}
-                                    <View style={styles.listContainer}>
-                                        {pendingItems.length === 0 ? (
-                                            <Text style={styles.emptyText}>No active {activeTab} at the moment.</Text>
-                                        ) : (
-                                            pendingItems.map((item) => (
-                                                <View key={item.id} style={styles.inlineEditRow}>
-                                                    <TouchableOpacity onPress={() => toggleGoalCompletion(item.id, true)} style={styles.inlineCheckbox}>
-                                                        <Ionicons name="ellipse-outline" size={24} color="#CBD5E1" />
-                                                    </TouchableOpacity>
-
-                                                    {isEditing && (
-                                                        <TouchableOpacity
-                                                            style={[styles.inlineColorDot, { backgroundColor: item.color || '#3B82F6' }]}
-                                                            onPress={() => cycleGoalColor(item.id)}
-                                                        />
-                                                    )}
-
-                                                    <TextInput
-                                                        style={styles.inlineInput}
-                                                        value={item.title}
-                                                        onChangeText={(t) => updateGoalItem(item.id, t)}
-                                                        placeholder={`Enter ${activeTab === 'goals' ? 'Goal' : 'Anti-Goal'}...`}
-                                                        placeholderTextColor="#94A3B8"
-                                                        editable={isEditing}
-                                                    />
-
-                                                    {/* Cancel Button - visible in View Mode */}
-                                                    {!isEditing && (
-                                                        <TouchableOpacity 
-                                                            onPress={() => cancelGoalItem(item.id)}
-                                                            style={styles.inlineCancelBtn}
-                                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                                        >
-                                                            <Ionicons name="close-circle-outline" size={20} color="#94A3B8" />
-                                                        </TouchableOpacity>
-                                                    )}
-
-                                                    {isEditing && (
-                                                        <TouchableOpacity onPress={() => deleteGoalItem(item.id)} style={styles.inlineDeleteBtn}>
-                                                            <Ionicons name="close" size={20} color="#94A3B8" />
-                                                        </TouchableOpacity>
-                                                    )}
-                                                </View>
-                                            ))
-                                        )}
-
-                                        {/* Triggered Add Button capped at 5 active items */}
-                                        {pendingItems.length < 5 && (
-                                            <TouchableOpacity
-                                                style={styles.addGoalBtn}
-                                                onPress={() => setIsAddingGoal(true)}
-                                            >
-                                                <Ionicons name="add" size={20} color="#3B82F6" />
-                                                <Text style={styles.addGoalText}>Add {activeTab === 'goals' ? 'Goal' : 'Anti-Goal'} ({pendingItems.length}/5)</Text>
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                </View>
+                                </>
                             )}
-
-                            {/* ========================================= */}
-                            {/* ARCHIVE TAB */}
-                            {/* ========================================= */}
-                            {mainTab === 'archive' && !isEditing && (
-                                <View style={styles.archiveContainer}>
-
-                                    <View style={styles.archivedSectionBlock}>
-                                        <Text style={styles.archivedHeader}>ACHIEVEMENT TIMELINE</Text>
-                                        <TouchableOpacity style={styles.viewTimelineBtn} onPress={() => router.push('/timeline')}>
-                                            <Ionicons name="git-commit-outline" size={24} color="#3B82F6" />
-                                            <Text style={styles.viewTimelineText}>View Achievement Timeline</Text>
-                                            <Ionicons name="chevron-forward" size={20} color="#94A3B8" style={{ marginLeft: 'auto' }} />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    {/* Divider */}
-                                    <View style={{ height: 1, backgroundColor: '#E2E8F0', marginVertical: 8 }} />
-
-                                    {/* --- RECENT SAVED SPRINTS --- */}
-                                    <View style={styles.bestDaysContainer}>
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                            <Text style={styles.bestDaysTitle}>Recent Sprints</Text>
-                                            {savedSprints.length > 0 && (
-                                                <TouchableOpacity onPress={() => router.push('/saved-sprints')}>
-                                                    <Text style={{ color: '#3B82F6', fontWeight: '600', fontSize: 14 }}>View All</Text>
-                                                </TouchableOpacity>
-                                            )}
-                                        </View>
-                                        
-                                        {savedSprints.length === 0 ? (
-                                            <View style={styles.bestDaysWindow}>
-                                                <Text style={styles.bestDaysPlaceholder}>No saved sprints yet.</Text>
-                                            </View>
-                                        ) : (
-                                            <View style={styles.savedSprintsList}>
-                                                {savedSprints.slice(0, 5).map((sprint, index, arr) => (
-                                                    <View key={sprint.id} style={styles.savedSprintRow}>
-                                                        {/* Timeline Node & Line */}
-                                                        <View style={styles.timelineNodeContainer}>
-                                                            <View style={styles.timelineNode}>
-                                                                <Ionicons name="flash" size={16} color="#3B82F6" />
-                                                            </View>
-                                                            {index < arr.length - 1 && <View style={styles.timelineConnectLine} />}
-                                                        </View>
-                                                        
-                                                        {/* Card */}
-                                                        <View style={styles.savedSprintCardContent}>
-                                                            <View style={styles.savedSprintInfo}>
-                                                                <Text style={styles.savedSprintDate}>
-                                                                    {new Date(sprint.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                                </Text>
-                                                                <Text style={styles.savedSprintTime}>{formatDuration(sprint.durationSeconds)} Focus Time</Text>
-                                                            </View>
-                                                        </View>
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        )}
-                                    </View>
-
-                                </View>
-                            )}
-
                         </View>
-                    </View>
+                    </ScrollView>
                 </ScrollView>
 
                 {/* --- TRIGGERED QUICK ADD BAR (Keyboard Aligned) --- */}
@@ -592,47 +859,68 @@ const styles = StyleSheet.create({
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingLeft: 8,
+        paddingRight: 16,
+        paddingTop: 4,
+        paddingBottom: 8,
         backgroundColor: '#FFF',
+        justifyContent: 'space-between',
+    },
+    fillerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#0F172A',
+        marginLeft: 16,
+        marginBottom: 4,
+        marginTop: 0,
     },
     exitBtn: {
-        flexDirection: 'row',
+        width: 44,
+        height: 44,
+        justifyContent: 'center',
         alignItems: 'center',
-        minWidth: 80,
     },
-    backButtonText: {
-        fontSize: 17,
-        color: '#007AFF',
-        fontWeight: '500',
-        marginLeft: -4,
-    },
-    editProfileBtn: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
+    backCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         backgroundColor: '#F1F5F9',
-    },
-    editProfileText: { fontSize: 14, fontWeight: '600', color: '#1E293B' },
-
-    // Edit Action Row
-    editActionRow: {
-        flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
-        gap: 12,
     },
-    cancelBtn: { paddingVertical: 8, paddingHorizontal: 16 },
-    cancelText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
-    saveBtn: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        backgroundColor: '#3B82F6',
+    topSelectorWrapper: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    saveText: { fontSize: 14, fontWeight: 'bold', color: '#FFF' },
+    editProfileBtnInline: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 16,
+        backgroundColor: '#F1F5F9',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    editProfileText: { fontSize: 13, fontWeight: '700', color: '#64748B' },
+    bannerContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingRight: 16,
+        marginBottom: 6,
+    },
+    profileEditWrapper: {
+        marginTop: -8,
+        marginBottom: 0,
+    },
+    exitEditBtn: {
+        padding: 4,
+    },
+
+    // Edit Action Row - Removed Cancel/Save specific styles
 
     pageScroll: { flex: 1 },
-    scrollContent: { paddingBottom: 120 },
+    scrollContent: { paddingBottom: 300 },
     headerContainer: { flex: 1 },
 
     bannerWrapper: {
@@ -671,8 +959,8 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         overflow: 'hidden',
     },
-    avatarImage: { width: 80, height: 80, borderRadius: 16 },
-    avatarPlaceholder: { width: 80, height: 80, borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+    avatarImage: { width: 100, height: 100, borderRadius: 16 },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
     avatarEditOverlay: {
         position: 'absolute',
         top: 0, left: 0, right: 0, bottom: 0,
@@ -751,31 +1039,74 @@ const styles = StyleSheet.create({
     masterTabText: { fontSize: 16, fontWeight: '600', color: '#94A3B8' },
     masterTabTextActive: { color: '#0F172A', fontWeight: '700' },
 
-    // Tabs
-    tabContainer: {
+    // Section Navigation Centered
+    sectionTabRow: {
         flexDirection: 'row',
-        marginTop: 16,
-        marginBottom: 16,
         backgroundColor: '#F1F5F9',
-        borderRadius: 12,
+        borderRadius: 14,
         padding: 4,
+        minWidth: 280,
     },
-    tabBtn: {
+    sectionTab: {
         flex: 1,
-        paddingVertical: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 10,
         alignItems: 'center',
-        borderRadius: 8,
     },
-    tabBtnActive: {
+    sectionTabActive: {
         backgroundColor: '#FFF',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        borderColor: '#007AFF', // Blue border for active tab
+        shadowColor: "#007AFF",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 3,
+        elevation: 3,
     },
-    tabText: { fontSize: 14, fontWeight: '600', color: '#64748B' },
-    tabTextActive: { color: '#0F172A' },
+    sectionTabText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#94A3B8',
+    },
+    sectionTabTextActive: {
+        color: '#007AFF', // Blue text for active tab
+        fontWeight: 'bold',
+    },
+
+    // Combined List Styles
+    profileTabContent: {
+        paddingTop: 20,
+    },
+    goalsTabContent: {
+        paddingTop: 20,
+    },
+    combinedListContainer: {
+        paddingHorizontal: 20,
+        marginTop: 24,
+    },
+    sectionHeading: {
+        fontSize: 11,
+        fontWeight: '900',
+        color: '#94A3B8',
+        letterSpacing: 1.5,
+        marginBottom: 16,
+    },
+    addGoalBtnSmall: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        marginTop: 8,
+    },
+    addGoalTextSmall: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#3B82F6',
+        marginLeft: 8,
+    },
+
+    sprintsTabContent: {
+        paddingTop: 20,
+    },
 
     // Lists
     listContainer: {
@@ -809,21 +1140,28 @@ const styles = StyleSheet.create({
     // Inline Edit Items (Focus View)
     inlineEditRow: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#F1F5F9',
     },
     inlineCheckbox: {
         marginRight: 12,
-        marginTop: 2,
     },
-    inlineColorDot: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        marginRight: 12,
-        marginTop: 6,
+    tagWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    listCategoryTag: {
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    listCategoryTagText: {
+        fontSize: 9,
+        fontWeight: '800',
+        letterSpacing: 0.5,
     },
     inlineInput: {
         flex: 1,
@@ -934,12 +1272,126 @@ const styles = StyleSheet.create({
         color: '#3B82F6',
     },
 
+    // Timeline Hero Block
+    timelineHeroBlock: {
+        backgroundColor: '#1E293B',
+        borderRadius: 24,
+        padding: 28,
+        marginHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 15,
+        elevation: 8,
+        minHeight: 180,
+    },
+    heroContentInner: {
+        flex: 1,
+        marginHorizontal: 4,
+    },
+    timelineHeroHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
+    },
+    timelineIconBox: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        backgroundColor: '#3B82F6',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    timelineHeroTag: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: '#94A3B8',
+        letterSpacing: 1.5,
+    },
+    timelineHeroTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: '#FFF',
+        marginBottom: 8,
+    },
+    timelineHeroSub: {
+        fontSize: 14,
+        color: '#94A3B8',
+        fontWeight: '500',
+    },
+    timelineHeroInsight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    timelineInsightText: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.8)',
+        fontWeight: '600',
+    },
+    timelineHeroArrow: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 16,
+    },
+
+    // Reset Styles
+    resetContainer: {
+        marginTop: 16,
+        paddingBottom: 40,
+    },
+    resetHeader: {
+        fontSize: 12,
+        fontWeight: '900',
+        color: '#EF4444',
+        letterSpacing: 1.5,
+        marginBottom: 12,
+    },
+    resetFullBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: '#FEF2F2',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+    },
+    resetFullText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#EF4444',
+    },
+    resetSubtext: {
+        fontSize: 13,
+        color: '#94A3B8',
+        marginTop: 10,
+        fontWeight: '500',
+        lineHeight: 18,
+    },
+
     // Best Days Section
     archiveContainer: {
         marginTop: 16,
     },
     archivedSectionBlock: {
-        marginTop: 16,
+        marginTop: 0,
         marginBottom: 8,
     },
     archivedHeader: {
@@ -950,7 +1402,7 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     bestDaysContainer: {
-        marginTop: 16,
+        marginTop: 0,
         marginBottom: 20,
     },
     bestDaysTitle: {
@@ -975,57 +1427,155 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
 
-    // Saved Sprints
-    savedSprintsList: {
-        gap: 0,
+    // Best Days / Hero Card
+    heroCard: {
+        borderRadius: 24,
+        padding: 28,
+        marginHorizontal: 16,
+        minHeight: 180,
+        position: 'relative',
+        overflow: 'hidden',
+        shadowColor: '#F59E0B',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 15,
+        elevation: 10,
     },
-    savedSprintRow: {
+    heroBadge: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
         flexDirection: 'row',
-        minHeight: 80,
-    },
-    timelineNodeContainer: {
-        width: 32,
         alignItems: 'center',
+        gap: 4,
     },
-    timelineNode: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+    heroBadgeText: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: '#F59E0B',
+        letterSpacing: 1,
+    },
+    heroMain: {
+        marginTop: 20,
+    },
+    heroTime: {
+        fontSize: 42,
+        fontWeight: '900',
+        color: '#FFF',
+        letterSpacing: -1,
+    },
+    heroTask: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: 'rgba(255,255,255,0.9)',
+        marginTop: -4,
+    },
+    heroFooter: {
+        flexDirection: 'row',
+        gap: 16,
+        marginTop: 'auto',
+        paddingTop: 20,
+    },
+    heroStat: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    heroStatText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: 'rgba(255,255,255,0.8)',
+    },
+
+    // Focus Journal
+    savedSprintsList: {
+        gap: 12,
+    },
+    journalCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    journalIconBox: {
+        width: 48,
+        height: 48,
+        borderRadius: 14,
         backgroundColor: '#EFF6FF',
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 16,
-        zIndex: 2,
+        marginRight: 16,
     },
-    timelineConnectLine: {
-        width: 2,
-        flex: 1,
-        backgroundColor: '#E2E8F0',
-        marginTop: 4,
-        marginBottom: -16, // To cross slightly into next item
-        zIndex: 1,
-    },
-    savedSprintCardContent: {
-        flex: 1,
-        backgroundColor: '#F8FAFC',
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        marginBottom: 16,
-        marginLeft: 12,
-    },
-    savedSprintInfo: {
+    journalContent: {
         flex: 1,
     },
-    savedSprintDate: {
+    journalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 2,
+    },
+    journalTitle: {
         fontSize: 16,
         fontWeight: '700',
         color: '#0F172A',
-        marginBottom: 4,
+        maxWidth: '70%',
     },
-    savedSprintTime: {
-        fontSize: 14,
+    journalDate: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#94A3B8',
+    },
+    journalStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    journalDuration: {
+        fontSize: 13,
         color: '#64748B',
-    }
+        fontWeight: '500',
+    },
+    journalTaskCount: {
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: '500',
+    },
+    statDot: {
+        width: 3,
+        height: 3,
+        borderRadius: 1.5,
+        backgroundColor: '#CBD5E1',
+        marginHorizontal: 8,
+    },
+    sparklineBackground: {
+        height: 4,
+        backgroundColor: '#E2E8F0',
+        borderRadius: 2,
+        width: '60%',
+        overflow: 'hidden',
+    },
+    sparklineFill: {
+        height: '100%',
+        backgroundColor: '#3B82F6',
+        borderRadius: 2,
+    },
+    historyActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    historyActionBtn: {
+        padding: 6,
+        backgroundColor: '#FFF',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
 });

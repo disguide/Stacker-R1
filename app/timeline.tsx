@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
     backButton: {
         position: 'absolute',
-        top: 20,
+        top: 40,
         left: 20,
         zIndex: 100,
         flexDirection: 'row',
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
         marginLeft: -4,
     },
     listContent: {
-        paddingTop: 60,
+        paddingTop: 70,
         paddingHorizontal: 0,
         paddingBottom: 150
     },

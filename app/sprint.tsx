@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Vibration, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Vibration, BackHandler, AppState, AppStateStatus, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useKeepAwake } from 'expo-keep-awake';
+import * as Notifications from 'expo-notifications';
 
 import { StorageService, Task, SprintSettings } from '../src/services/storage';
 
@@ -37,6 +38,12 @@ export default function SprintScreen() {
 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
+    
+    // Sync Refs to avoid stale closures in the timer loop
+    const tasksRef = useRef<Task[]>([]);
+    const completedTasksRef = useRef<Task[]>([]);
+    useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+    useEffect(() => { completedTasksRef.current = completedTasks; }, [completedTasks]);
 
     // Settings & Timer State
     const [settings, setSettings] = useState<SprintSettings>({ showTimer: true, allowPause: true });
@@ -46,16 +53,22 @@ export default function SprintScreen() {
     const [intervalsCompleted, setIntervalsCompleted] = useState(0);
     const [timerVisible, setTimerVisible] = useState(false);
 
-    // Timing Refs
-    const startTimeRef = useRef<number>(0);
-    const claimingStartTimeRef = useRef<number>(0); // When user first hit pause (includes claiming phase)
-    const pauseStartTimeRef = useRef<number>(0); // When active break starts (for break timer display)
-    const totalPausedTimeRef = useRef<number>(0);
+    // Timing Refs (Buckets)
+    const workSecondsRef = useRef<number>(0);
+    const breakSecondsRef = useRef<number>(0);
+    const totalSecondsRef = useRef<number>(0);
+    const intervalWorkSecondsRef = useRef<number>(0); // For Auto-Break tracking
+
+    const startTimeRef = useRef<number>(Date.now());
     const intervalsCompletedRef = useRef<number>(0);
 
     // Timeline Tracking
     const timelineRef = useRef<TimelineEvent[]>([]);
     const currentSegmentStartTimeRef = useRef<number>(Date.now());
+    
+    // Background Sync
+    const backgroundTimeRef = useRef<number | null>(null);
+    const appStateRef = useRef(AppState.currentState);
 
     const loadSprintTasks = async () => {
         try {
@@ -90,72 +103,297 @@ export default function SprintScreen() {
         });
     };
 
-    // Initial Load
+    // Initial Load & Permissions
     useEffect(() => {
         const now = Date.now();
         startTimeRef.current = now;
         currentSegmentStartTimeRef.current = now;
+        timelineRef.current = []; // RESET timeline for new sprint
+        
         loadSettings();
         loadSprintTasks();
+        requestNotificationPermissions();
+
+        return () => {
+            cancelTimerNotifications();
+        };
     }, [taskIds]);
 
-    // Prevent hardware back button
+    const requestNotificationPermissions = async () => {
+        if (Platform.OS === 'web') return;
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status !== 'granted') {
+            console.warn('Notification permissions not granted');
+        }
+    };
+
+    // Prevent hardware back button & AppState Listener
     useEffect(() => {
         const onBackPress = () => {
             return true; // Stop default back navigation
         };
-        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-        return () => subscription.remove();
-    }, []);
+        const backSub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        
+        const stateSub = AppState.addEventListener('change', handleAppStateChange);
+        
+        return () => {
+            backSub.remove();
+            stateSub.remove();
+        };
+    }, [settings, isPaused, breakPhase]); // Re-bind when state affecting notifications changes
 
-    // Timer Effect
-    useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (settings.showTimer && !isPaused) {
-            interval = setInterval(() => {
-                const now = Date.now();
-                // Calculate total elapsed excluding paused time
-                const currentElapsed = Math.floor((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
-                setElapsedSeconds(currentElapsed);
-
-                if (settings.autoBreakMode && settings.autoBreakWorkTime) {
-                    const workSeconds = settings.autoBreakWorkTime * 60;
-                    const completed = Math.floor(currentElapsed / workSeconds);
-                    if (completed > intervalsCompletedRef.current && currentElapsed > 0) {
-                        intervalsCompletedRef.current = completed;
-                        setIntervalsCompleted(completed);
-                        triggerAutoBreak();
-                    }
-                }
-            }, 1000); // Check every second, though UI updates less frequently
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+        if (appStateRef.current.match(/active/) && nextAppState === 'background') {
+            // App going to background
+            const now = Date.now();
+            recordCurrentSegment(now); // Close active segment before "hibernating"
+            backgroundTimeRef.current = now;
+            scheduleTimerNotifications();
+        } else if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+            // App coming to foreground
+            syncFromBackground();
+            cancelTimerNotifications();
         }
-        return () => clearInterval(interval);
-    }, [settings.showTimer, isPaused, settings.autoBreakMode, settings.autoBreakWorkTime]);
+        appStateRef.current = nextAppState;
+    };
 
-    // Pause Timeout Effect
+    const scheduleTimerNotifications = async () => {
+        if (Platform.OS === 'web') return;
+        await cancelTimerNotifications();
+
+        // 1. Schedule Goal End Notification
+        if (settings.maxDurationEnabled && settings.maxDurationMinutes > 0) {
+            const limitSec = settings.maxDurationMinutes * 60;
+            const remainingSec = limitSec - totalSecondsRef.current;
+            if (remainingSec > 0) {
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: "Sprint Complete",
+                        body: `You've reached your ${settings.maxDurationMinutes} minute goal!`,
+                        sound: true,
+                    },
+                    trigger: { 
+                        seconds: remainingSec,
+                        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL 
+                    },
+                    identifier: 'sprint-end',
+                });
+            }
+        }
+
+        // 2. Schedule Auto-Break Notification
+        if (!isPaused && settings.autoBreakMode && settings.autoBreakWorkTime > 0) {
+            const limitSec = settings.autoBreakWorkTime * 60;
+            const remainingSec = limitSec - (intervalWorkSecondsRef.current % limitSec);
+            if (remainingSec > 0) {
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: "Break Time!",
+                        body: "Time for a short break.",
+                        sound: true,
+                    },
+                    trigger: { 
+                        seconds: remainingSec,
+                        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL 
+                    },
+                    identifier: 'auto-break',
+                });
+            }
+        }
+
+        // 3. Schedule Break Over Notification (if currently in a break)
+        if (isPaused && breakPhase === 'active' && breakDuration > 0) {
+            const remainingSec = (breakDuration * 60) - pauseElapsed;
+            if (remainingSec > 0) {
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: "Break Over",
+                        body: "Time to get back to work!",
+                        sound: true,
+                    },
+                    trigger: { 
+                        seconds: Math.floor(remainingSec),
+                        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL 
+                    },
+                    identifier: 'break-end',
+                });
+            }
+        }
+    };
+
+    const cancelTimerNotifications = async () => {
+        if (Platform.OS === 'web') return;
+        await Notifications.cancelAllScheduledNotificationsAsync();
+    };
+
+    const syncFromBackground = () => {
+        if (!backgroundTimeRef.current) return;
+        const now = Date.now();
+        const gapSeconds = Math.floor((now - backgroundTimeRef.current) / 1000);
+        backgroundTimeRef.current = null;
+
+        if (gapSeconds <= 0) return;
+
+        // 1. Catch up Total Time (Absolute)
+        totalSecondsRef.current += gapSeconds;
+
+        // 2. Check if Goal End was reached while away
+        if (settings.maxDurationEnabled && settings.maxDurationMinutes > 0) {
+            const limitSec = settings.maxDurationMinutes * 60;
+            if (totalSecondsRef.current >= limitSec) {
+                // Record the "away" segment before ending
+                recordCurrentSegment(now, isPaused ? "Break (Background)" : "Work (Background)");
+                
+                // Goal reached! Show the alert immediately on return
+                Alert.alert(
+                    "Sprint Complete", 
+                    `You've reached your ${settings.maxDurationMinutes} minute goal while you were away!`,
+                    [{ 
+                        text: "View Summary", 
+                        onPress: () => {
+                            const finalTasks = [...completedTasksRef.current, ...tasksRef.current];
+                            finishSprint(finalTasks);
+                        } 
+                    }]
+                );
+                return; // Stop sync here, user needs to pick summary
+            }
+        }
+
+        // 3. Sync Work/Break Buckets
+        if (!isPaused) {
+            // WORK SYNC
+            const workLimitSec = (settings.autoBreakWorkTime || 25) * 60;
+            const remainingToBreak = workLimitSec - (intervalWorkSecondsRef.current % workLimitSec);
+
+            if (settings.autoBreakMode && gapSeconds >= remainingToBreak) {
+                // We passed a break point while in background
+                const transitionTime = (backgroundTimeRef.current || now) + (remainingToBreak * 1000);
+                
+                // 1. Record the Work part of background time
+                recordCurrentSegment(transitionTime, "Work (Away)");
+                
+                workSecondsRef.current += remainingToBreak;
+                intervalWorkSecondsRef.current = 0;
+                
+                const leftover = gapSeconds - remainingToBreak;
+                breakSecondsRef.current += leftover;
+                
+                // Set app state to paused
+                setIsPaused(true);
+                setBreakPhase('active');
+                setBreakDuration(settings.autoBreakDuration || 5);
+                setPauseElapsed(leftover);
+
+                // Note: The next segment (Break Away) will be recorded on next action or finish
+            } else {
+                // Still in work phase
+                workSecondsRef.current += gapSeconds;
+                intervalWorkSecondsRef.current += gapSeconds;
+            }
+            setElapsedSeconds(workSecondsRef.current);
+        } else {
+            // BREAK SYNC
+            const totalBreakElapsed = pauseElapsed + gapSeconds;
+            const breakLimitSec = (breakDuration || 0) * 60;
+
+            if (breakLimitSec > 0 && totalBreakElapsed >= breakLimitSec) {
+                // Break ended while away!
+                const transitionTime = (backgroundTimeRef.current || now) + ((breakLimitSec - pauseElapsed) * 1000);
+                
+                // 1. Record the Break part
+                recordCurrentSegment(transitionTime, "Break (Away)");
+
+                breakSecondsRef.current += (breakLimitSec - pauseElapsed);
+                setPauseElapsed(breakLimitSec);
+                
+                // Add the leftover time back to work
+                const leftover = totalBreakElapsed - breakLimitSec;
+                workSecondsRef.current += leftover;
+                intervalWorkSecondsRef.current += leftover;
+                
+                setIsPaused(false);
+                setBreakPhase('none');
+                setElapsedSeconds(workSecondsRef.current);
+
+                Alert.alert("Break Over", "You're all caught up! Back to work.");
+            } else {
+                // Still in break
+                breakSecondsRef.current += gapSeconds;
+                setPauseElapsed(totalBreakElapsed);
+            }
+        }
+        
+        // Final catch-up: If we didn't end the sprint, the current segment start time needs to be updated to NOW
+        currentSegmentStartTimeRef.current = now;
+    };
+
+    // Timer state for pauses (Now simplified as counters handle the logic)
     const [breakDuration, setBreakDuration] = useState(0); // 0 = indefinite/count up
     const [pauseElapsed, setPauseElapsed] = useState(0);
 
+    // Timer Effect (The Single Heartbeat)
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (isPaused && breakPhase === 'active') {
+        if (settings.showTimer) {
             interval = setInterval(() => {
-                const now = Date.now();
-                const elapsed = Math.floor((now - pauseStartTimeRef.current) / 1000);
-                setPauseElapsed(elapsed);
+                totalSecondsRef.current += 1;
 
-                if (breakDuration > 0) {
-                    // Count down mode
-                    const remaining = (breakDuration * 60) - elapsed;
-                    if (remaining <= 0) {
-                        handleResume();
-                        Alert.alert("Break Over", "Your break time is up! Back to work.");
+                if (!isPaused) {
+                    // WORK TICK
+                    workSecondsRef.current += 1;
+                    intervalWorkSecondsRef.current += 1;
+                    setElapsedSeconds(workSecondsRef.current);
+
+                    // Auto-Break Check (Work-Only)
+                    // GUARD: only if mode is on AND setting > 0
+                    if (settings.autoBreakMode && settings.autoBreakWorkTime && settings.autoBreakWorkTime > 0) {
+                        const workSecondsLimit = settings.autoBreakWorkTime * 60;
+                        if (intervalWorkSecondsRef.current >= workSecondsLimit) {
+                            intervalWorkSecondsRef.current = 0; // Reset for next interval
+                            triggerAutoBreak();
+                        }
+                    }
+                } else {
+                    // BREAK TICK
+                    breakSecondsRef.current += 1;
+                    setPauseElapsed(prev => prev + 1);
+
+                    // Break Countdown Check
+                    // GUARD: only if phase active AND duration > 0
+                    if (breakPhase === 'active' && breakDuration && breakDuration > 0) {
+                        // Note: we use functional update or check against ref if we want to avoid dependency
+                        // But since we want to respond to pauseElapsed changes... 
+                        // Actually, we can check breakSecondsRef.current - segmentStartTime if we wanted to be dependency-free
+                        // But for now, we minimize dependencies.
+                    }
+                }
+
+                // Sprint End Check (Absolute / Wall-Clock)
+                // GUARD: only if enabled AND minutes > 0
+                if (settings.maxDurationEnabled && settings.maxDurationMinutes && settings.maxDurationMinutes > 0) {
+                    const limitSeconds = settings.maxDurationMinutes * 60;
+                    if (totalSecondsRef.current >= limitSeconds) {
+                        clearInterval(interval);
+                        Alert.alert(
+                            "Sprint Complete", 
+                            `You've reached your ${settings.maxDurationMinutes} minute goal! Great work.`,
+                            [{ 
+                                text: "View Summary", 
+                                onPress: () => {
+                                    // Include ALL tasks (using REFS to avoid stale closures)
+                                    const finalTasks = [...completedTasksRef.current, ...tasksRef.current];
+                                    finishSprint(finalTasks);
+                                } 
+                            }]
+                        );
                     }
                 }
             }, 1000);
         }
         return () => clearInterval(interval);
-    }, [isPaused, breakPhase, breakDuration]);
+    }, [settings.showTimer, isPaused, breakPhase, breakDuration, settings.autoBreakMode, settings.autoBreakWorkTime, settings.maxDurationEnabled, settings.maxDurationMinutes]);
+    // NOTE: Removed 'pauseElapsed' from dependency to prevent timer restarts
 
     const recordCurrentSegment = (endTime: number, explicitTitle?: string) => {
         const duration = Math.floor((endTime - currentSegmentStartTimeRef.current) / 1000);
@@ -184,8 +422,6 @@ export default function SprintScreen() {
         recordCurrentSegment(now);
         setIsPaused(true);
         setBreakPhase('claiming');
-        claimingStartTimeRef.current = now; // Track when pause actually started
-        pauseStartTimeRef.current = now;
         setBreakDuration(0); // Default to indefinite
         setPauseElapsed(0);
     };
@@ -194,17 +430,12 @@ export default function SprintScreen() {
         const now = Date.now();
         recordCurrentSegment(now); // Close 'claiming/paused' segment
         setBreakPhase('active');
-        pauseStartTimeRef.current = now; // Reset for break timer display
         setPauseElapsed(0);
-        // Note: claimingStartTimeRef stays as-is — it tracks total pause time
     };
 
     const handleResume = () => {
         const now = Date.now();
         recordCurrentSegment(now); // Close 'pause' or 'break' segment
-        // Use claimingStartTimeRef to include claiming phase in total paused time
-        const pausedDuration = now - claimingStartTimeRef.current;
-        totalPausedTimeRef.current += pausedDuration;
         setIsPaused(false);
         setBreakPhase('none');
     };
@@ -213,8 +444,7 @@ export default function SprintScreen() {
         setBreakDuration(prev => {
             const newDuration = prev + minutes;
             // Guard: if elapsed already exceeds the new duration, auto-resume
-            const currentElapsed = Math.floor((Date.now() - pauseStartTimeRef.current) / 1000);
-            if (newDuration > 0 && currentElapsed >= newDuration * 60) {
+            if (newDuration > 0 && pauseElapsed >= newDuration * 60) {
                 // Schedule resume on next tick to avoid setState-in-setState
                 setTimeout(() => {
                     handleResume();
@@ -241,7 +471,6 @@ export default function SprintScreen() {
         recordCurrentSegment(now); // Close working segment
         setIsPaused(true);
         setBreakPhase('active');
-        pauseStartTimeRef.current = now;
         setBreakDuration(settings.autoBreakDuration || 5);
         setPauseElapsed(0);
         Vibration.vibrate();
@@ -261,7 +490,7 @@ export default function SprintScreen() {
     const handleCompleteTask = async () => {
         if (!tasks[0]) return;
 
-        const taskToComplete = tasks[0];
+        const taskToComplete = { ...tasks[0], completed: true }; // Explicitly mark as completed
         setCompletedTasks(prev => [...prev, taskToComplete]);
 
         const now = Date.now();
@@ -278,34 +507,36 @@ export default function SprintScreen() {
         }
     };
 
-    const finishSprint = (finalCompletedTasks: Task[] = completedTasks) => {
-        // Final duration calculation
+    const finishSprint = (finalTasks: Task[] = [...completedTasks, ...tasks]) => {
         const now = Date.now();
-        // Record very last segment if we haven't already
         if (currentSegmentStartTimeRef.current < now) {
             recordCurrentSegment(now);
         }
 
-        // If we finish WHILE paused, we should not count the current pause duration?
-        // Actually, if paused, we resume implicitly to finish.
-        if (isPaused) {
-            const pausedDuration = now - claimingStartTimeRef.current;
-            totalPausedTimeRef.current += pausedDuration;
-        }
-
-        const duration = Math.round((now - startTimeRef.current - totalPausedTimeRef.current) / 1000);
-
         router.replace({
             pathname: '/sprint-summary',
             params: {
-                duration: duration.toString(),
-                tasks: JSON.stringify(finalCompletedTasks),
+                duration: workSecondsRef.current.toString(), // Total Work Time
+                totalDuration: totalSecondsRef.current.toString(), // Wall-Clock Time
+                breakDuration: breakSecondsRef.current.toString(), // Total Break Time
+                tasks: JSON.stringify(finalTasks),
                 timeline: JSON.stringify(timelineRef.current)
             }
         });
     };
 
     const currentTask = tasks[0];
+
+    // Safe Dashboard Calculations
+    const autoBreakWorkLimit = (Number(settings.autoBreakWorkTime) || 0) * 60;
+    const nextBreakSeconds = autoBreakWorkLimit > 0 
+        ? Math.max(0, autoBreakWorkLimit - ((Number(intervalWorkSecondsRef.current) || 0) % autoBreakWorkLimit)) 
+        : 0;
+    
+    const goalMaxLimit = (Number(settings.maxDurationMinutes) || 0) * 60;
+    const goalRemainingSeconds = goalMaxLimit > 0 
+        ? Math.max(0, goalMaxLimit - (Number(totalSecondsRef.current) || 0)) 
+        : 0;
 
     return (
         <SafeAreaView style={styles.container}>
@@ -314,16 +545,30 @@ export default function SprintScreen() {
                 <View style={{ width: 40 }} />
                 <TouchableOpacity onPress={() => setTimerVisible(!timerVisible)} style={styles.headerCenter}>
                     {timerVisible && settings.showTimer ? (
-                        <View style={{ alignItems: 'center' }}>
-                            <Text style={styles.headerTimerText}>
-                                {settings.autoBreakMode && settings.autoBreakWorkTime
-                                    ? formatCountdown(Math.max(0, (settings.autoBreakWorkTime * 60) - (elapsedSeconds % (settings.autoBreakWorkTime * 60))))
-                                    : formatMinutesOnly(elapsedSeconds)}
-                            </Text>
-                            {settings.autoBreakMode && (
-                                <Text style={styles.headerElapsedText}>
-                                    {formatMinutesOnly(elapsedSeconds)} ELAPSED
-                                </Text>
+                        <View style={styles.dashboardContainer}>
+                            <View style={styles.dashboardItem}>
+                                <Text style={styles.dashboardLabel}>ELAPSED</Text>
+                                <Text style={styles.dashboardValue}>{formatMinutesOnly(elapsedSeconds)}</Text>
+                            </View>
+
+                            {settings.autoBreakMode && autoBreakWorkLimit > 0 && (
+                                <>
+                                    <View style={styles.dashboardDivider} />
+                                    <View style={styles.dashboardItem}>
+                                        <Text style={styles.dashboardLabel}>NEXT BREAK</Text>
+                                        <Text style={styles.dashboardValue}>{formatCountdown(nextBreakSeconds)}</Text>
+                                    </View>
+                                </>
+                            )}
+
+                            {settings.maxDurationEnabled && goalMaxLimit > 0 && (
+                                <>
+                                    <View style={styles.dashboardDivider} />
+                                    <View style={styles.dashboardItem}>
+                                        <Text style={styles.dashboardLabel}>GOAL END</Text>
+                                        <Text style={styles.dashboardValue}>{formatCountdown(goalRemainingSeconds)}</Text>
+                                    </View>
+                                </>
                             )}
                         </View>
                     ) : (
@@ -493,6 +738,38 @@ const styles = StyleSheet.create({
         marginTop: -2,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
+    },
+    dashboardContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    dashboardItem: {
+        alignItems: 'center',
+        paddingHorizontal: 8,
+    },
+    dashboardLabel: {
+        fontSize: 8,
+        fontWeight: '800',
+        color: THEME.textSecondary,
+        letterSpacing: 0.5,
+        marginBottom: 2,
+    },
+    dashboardValue: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: THEME.textPrimary,
+        fontVariant: ['tabular-nums'],
+    },
+    dashboardDivider: {
+        width: 1,
+        height: 20,
+        backgroundColor: '#E2E8F0',
     },
     closeButton: {
         padding: 8,

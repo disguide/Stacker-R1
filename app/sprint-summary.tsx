@@ -58,11 +58,11 @@ const SprintSummaryTaskRow = ({
     onStatusChange: (id: string, isConfirmed: boolean) => void,
     onProgressChange: (id: string, progress: number) => void
 }) => {
-    // Default to 100% since these are tasks from the "Completed" list
-    // BUT if the user wants to adjust, they can.
-    const [progress, setProgress] = useState(100);
+    // Use task status for initialization
+    const initialProgress = task.completed ? 100 : (task.progress || 0);
+    const [progress, setProgress] = useState(initialProgress);
     const [isDragging, setIsDragging] = useState(false);
-    const progressAnim = useRef(new Animated.Value(100)).current;
+    const progressAnim = useRef(new Animated.Value(initialProgress)).current;
 
     // We treat 100% (or very close to it) as "Confirmed"
     const isConfirmed = progress >= 95;
@@ -209,12 +209,15 @@ const SprintSummaryTaskRow = ({
 export default function SprintSummaryScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const durationSeconds = parseInt(params.duration as string || '0', 10);
+    const workSeconds = parseInt(params.duration as string || '0', 10);
+    const breakSeconds = parseInt(params.breakDuration as string || '0', 10);
+    const totalDurationSeconds = parseInt(params.totalDuration as string || '0', 10);
     const initialCompletedTasks: Task[] = params.tasks ? JSON.parse(params.tasks as string) : [];
 
     // Track confirmed status and progress percentage
+    // Only auto-confirm tasks that were already marked 'completed' in the sprint
     const [confirmedTaskIds, setConfirmedTaskIds] = React.useState<Set<string>>(
-        new Set(initialCompletedTasks.map(t => t.id))
+        new Set(initialCompletedTasks.filter(t => t.completed).map(t => t.id))
     );
     const [taskProgress, setTaskProgress] = useState<{ [id: string]: number }>({});
 
@@ -222,10 +225,13 @@ export default function SprintSummaryScreen() {
     const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
     const [showTimeline, setShowTimeline] = useState(false);
 
-    // Initialize progress map with 100 for all initially
+    // Initialize progress map
     useEffect(() => {
         const initialMap: any = {};
-        initialCompletedTasks.forEach(t => initialMap[t.id] = 100);
+        initialCompletedTasks.forEach(t => {
+            // If already completed, set to 100, otherwise leave at 0 or current progress
+            initialMap[t.id] = t.completed ? 100 : (t.progress || 0);
+        });
         setTaskProgress(initialMap);
 
         if (params.timeline) {
@@ -248,13 +254,47 @@ export default function SprintSummaryScreen() {
         setTaskProgress(prev => ({ ...prev, [taskId]: progress }));
     };
 
+    const getLongestTask = () => {
+        if (!timelineEvents || timelineEvents.length === 0) return 'Focus Session';
+        
+        const taskDurations: { [key: string]: number } = {};
+        timelineEvents.forEach(event => {
+            if (event.type === 'task' && event.title) {
+                taskDurations[event.title] = (taskDurations[event.title] || 0) + (event.durationSeconds || 0);
+            }
+        });
+
+        let longestTitle = '';
+        let maxDuration = -1;
+
+        Object.entries(taskDurations).forEach(([title, duration]) => {
+            if (duration > maxDuration) {
+                maxDuration = duration;
+                longestTitle = title;
+            }
+        });
+
+        return longestTitle || 'Focus Session';
+    };
+
     const handleSaveSprint = async () => {
         try {
+            const primaryTask = getLongestTask();
+            
+            // Calculate Intensity (Ratio of work to total time, normalized 0-100)
+            const total = workSeconds + breakSeconds;
+            const intensity = total > 0 ? Math.round((workSeconds / total) * 100) : 0;
+
             await StorageService.saveSavedSprint({
                 id: Date.now().toString(),
                 date: new Date().toISOString(),
-                durationSeconds,
-                timelineEvents
+                durationSeconds: workSeconds,
+                breakDurationSeconds: breakSeconds,
+                totalDurationSeconds,
+                timelineEvents,
+                primaryTask,
+                taskCount: confirmedTaskIds.size,
+                intensity
             });
             Alert.alert("Success", "Sprint saved to Best Days!");
         } catch (error) {
@@ -395,6 +435,25 @@ export default function SprintSummaryScreen() {
             if (hasChanges) {
                 await StorageService.saveActiveTasks(finalActiveTasks);
             }
+
+            // Auto-save this sprint to history
+            const primaryTask = getLongestTask();
+            const total = workSeconds + breakSeconds;
+            const intensity = total > 0 ? Math.round((workSeconds / total) * 100) : 0;
+
+            const sprintRecord = {
+                id: `hist_${Date.now()}`,
+                date: new Date().toISOString(),
+                durationSeconds: workSeconds,
+                breakDurationSeconds: breakSeconds,
+                totalDurationSeconds: workSeconds + breakSeconds,
+                timelineEvents: timelineEvents,
+                primaryTask,
+                taskCount: confirmedTaskIds.size,
+                intensity
+            };
+            await StorageService.addToSprintHistory(sprintRecord);
+
             router.replace('/');
         } catch (e) {
             console.error("Failed to save sprint completion", e);
@@ -423,8 +482,17 @@ export default function SprintSummaryScreen() {
 
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.summaryHeader}>
-                    <Text style={styles.summaryLabel}>FOCUS TIME</Text>
-                    <Text style={styles.scaryBigTime}>{formatDuration(durationSeconds)}</Text>
+                    <View style={styles.statContainer}>
+                        <Text style={styles.summaryLabel}>FOCUS TIME</Text>
+                        <Text style={styles.scaryBigTime}>{formatDuration(workSeconds)}</Text>
+                    </View>
+                    
+                    <View style={styles.statDivider} />
+
+                    <View style={styles.statContainer}>
+                        <Text style={styles.summaryLabel}>BREAK TIME</Text>
+                        <Text style={[styles.scaryBigTime, { color: THEME.success }]}>{formatDuration(breakSeconds)}</Text>
+                    </View>
                 </View>
 
                 <Text style={styles.sectionHeader}>REVIEW PROGRESS</Text>
@@ -511,10 +579,26 @@ const styles = StyleSheet.create({
     headerSaveText: { color: THEME.accent, fontWeight: 'bold', fontSize: 16 },
     content: { padding: 24, paddingBottom: 100 },
     summaryHeader: {
-        alignItems: 'center', marginBottom: 24
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        marginBottom: 32,
+        backgroundColor: '#FFF',
+        paddingVertical: 24,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: THEME.border,
     },
-    summaryLabel: { fontSize: 13, color: THEME.textSecondary, fontWeight: 'bold', letterSpacing: 1.5, marginBottom: 8 },
-    scaryBigTime: { fontSize: 48, fontWeight: 'bold', color: THEME.textPrimary },
+    statContainer: {
+        alignItems: 'center',
+    },
+    statDivider: {
+        width: 1,
+        height: 48,
+        backgroundColor: THEME.border,
+    },
+    summaryLabel: { fontSize: 10, color: THEME.textSecondary, fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 },
+    scaryBigTime: { fontSize: 32, fontWeight: 'bold', color: THEME.textPrimary },
     sectionHeader: { fontSize: 14, fontWeight: 'bold', color: THEME.textSecondary, marginBottom: 16, letterSpacing: 1 },
     taskListContainer: { gap: 6 },
     taskItemContainer: {

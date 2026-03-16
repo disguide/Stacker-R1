@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,11 @@ export default function SettingsScreen() {
     const [isColorModalVisible, setIsColorModalVisible] = useState(false);
     const [userColors, setUserColors] = useState<ColorDefinition[]>([]);
     const [sprintSettings, setSprintSettings] = useState<SprintSettings>({ showTimer: true, allowPause: true });
+    
+    // Local string state to allow "empty" inputs while typing
+    const [workTimeStr, setWorkTimeStr] = useState('25');
+    const [breakTimeStr, setBreakTimeStr] = useState('5');
+    const [maxTimeStr, setMaxTimeStr] = useState('60');
 
     useEffect(() => {
         let mounted = true;
@@ -20,6 +25,9 @@ export default function SettingsScreen() {
             if (mounted) {
                 setUserColors(colors);
                 setSprintSettings(sprint);
+                setWorkTimeStr(sprint.autoBreakWorkTime?.toString() || '25');
+                setBreakTimeStr(sprint.autoBreakDuration?.toString() || '5');
+                setMaxTimeStr(sprint.maxDurationMinutes?.toString() || '60');
             }
         };
         loadData();
@@ -43,6 +51,16 @@ export default function SettingsScreen() {
         await StorageService.saveSprintSettings(newSettings);
     };
 
+    const handleTextUpdate = (key: keyof SprintSettings, text: string, setter: (s: string) => void) => {
+        setter(text);
+        if (text === '') return; // Allow deletion
+        const num = parseInt(text);
+        if (!isNaN(num)) {
+            // Even if 0, we update but the logic in sprint.tsx will skip processing it
+            handleUpdateSprintSetting(key, num);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             {/* Header with Back Button */}
@@ -57,7 +75,16 @@ export default function SettingsScreen() {
                 <View style={styles.placeholder} />
             </View>
 
-            <ScrollView style={styles.content}>
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <ScrollView 
+                    style={styles.content} 
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                >
 
                 <Text style={styles.sectionHeader}>Sprint Configuration</Text>
 
@@ -107,8 +134,8 @@ export default function SettingsScreen() {
                             <TextInput
                                 style={styles.timeInput}
                                 keyboardType="number-pad"
-                                value={sprintSettings.autoBreakWorkTime?.toString() || '25'}
-                                onChangeText={(text) => handleUpdateSprintSetting('autoBreakWorkTime', parseInt(text) || 25)}
+                                value={workTimeStr}
+                                onChangeText={(text) => handleTextUpdate('autoBreakWorkTime', text, setWorkTimeStr)}
                                 maxLength={3}
                             />
                         </View>
@@ -119,12 +146,43 @@ export default function SettingsScreen() {
                             <TextInput
                                 style={styles.timeInput}
                                 keyboardType="number-pad"
-                                value={sprintSettings.autoBreakDuration?.toString() || '5'}
-                                onChangeText={(text) => handleUpdateSprintSetting('autoBreakDuration', parseInt(text) || 5)}
+                                value={breakTimeStr}
+                                onChangeText={(text) => handleTextUpdate('autoBreakDuration', text, setBreakTimeStr)}
                                 maxLength={3}
                             />
                         </View>
                     </>
+                )}
+
+                <View style={styles.divider} />
+                
+                <Text style={styles.sectionHeader}>Sprint Goal</Text>
+                
+                <View style={[styles.settingRow, { borderBottomWidth: sprintSettings.maxDurationEnabled ? 1 : 0 }]}>
+                    <View style={styles.settingInfo}>
+                        <Text style={styles.settingLabel}>Automatic Sprint End</Text>
+                        <Text style={styles.settingSubLabel}>Automatically finish the sprint when time is up</Text>
+                    </View>
+                    <Switch
+                        value={!!sprintSettings.maxDurationEnabled}
+                        onValueChange={() => handleToggleSprintSetting('maxDurationEnabled')}
+                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
+                    />
+                </View>
+
+                {sprintSettings.maxDurationEnabled && (
+                    <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
+                        <View style={styles.settingInfo}>
+                            <Text style={styles.settingLabel}>Max Duration (min)</Text>
+                        </View>
+                        <TextInput
+                            style={styles.timeInput}
+                            keyboardType="number-pad"
+                            value={maxTimeStr}
+                            onChangeText={(text) => handleTextUpdate('maxDurationMinutes', text, setMaxTimeStr)}
+                            maxLength={3}
+                        />
+                    </View>
                 )}
 
                 <View style={styles.divider} />
@@ -149,7 +207,8 @@ export default function SettingsScreen() {
                 <View style={styles.divider} />
                 <Text style={styles.versionText}>Version 1.1.0</Text>
 
-            </ScrollView>
+                </ScrollView>
+            </KeyboardAvoidingView>
 
             <ColorSettingsModal
                 visible={isColorModalVisible}
@@ -194,6 +253,9 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 120, // Extra space for keyboard and comfort
     },
     sectionHeader: {
         fontSize: 12,

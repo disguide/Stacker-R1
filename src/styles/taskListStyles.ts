@@ -9,7 +9,8 @@ export const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingLeft: 8,
+        paddingRight: 20,
         paddingVertical: 10,
         height: 60,
     },
@@ -19,8 +20,8 @@ export const styles = StyleSheet.create({
     toolbar: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginLeft: 16,
-        gap: 12,
+        marginLeft: 6,
+        gap: 4,
     },
     toolbarButton: {
         width: 36,

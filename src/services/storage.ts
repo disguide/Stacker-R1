@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
     USER_COLORS: '@stacker_user_colors_v1',
     SPRINT_SETTINGS: '@stacker_sprint_settings_v1', // New Key
     SAVED_SPRINTS: '@stacker_saved_sprints_v1',
+    SPRINT_HISTORY: '@stacker_sprint_history_v1',
     MAIL: '@stacker_mail_v1',
 };
 
@@ -20,13 +21,23 @@ export interface SprintSettings {
     autoBreakMode?: boolean;
     autoBreakWorkTime?: number;
     autoBreakDuration?: number;
+    maxDurationEnabled?: boolean;
+    maxDurationMinutes?: number;
 }
 
 export interface SavedSprint {
     id: string;
     date: string;
     durationSeconds: number;
+    breakDurationSeconds?: number;
+    totalDurationSeconds?: number;
     timelineEvents: any[];
+    // New Metadata
+    primaryTask?: string;
+    taskCount?: number;
+    note?: string;
+    intensity?: number; // 0-100 score
+    sortOrder?: number;
 }
 
 export type GoalCategory = 'traits' | 'habits' | 'environment' | 'outcomes';
@@ -141,6 +152,7 @@ export const StorageService = {
                 // In `useTaskActions`, detached tasks get `${masterTask.id}_detach_${Date.now()}`.
                 // So "UUID_YYYY-MM-DD" is definitely a temporary ghost ID.
 
+                if (!t) return false;
                 const isGhostId = /_(\d{4}-\d{2}-\d{2})$/.test(t.id);
                 if (isGhostId) {
                     if (__DEV__) console.log('Sanitizing storage: Removing ghost task', t.id);
@@ -352,11 +364,18 @@ export const StorageService = {
                 allowPause: true,
                 autoBreakMode: false,
                 autoBreakWorkTime: 25,
-                autoBreakDuration: 5
+                autoBreakDuration: 5,
+                maxDurationEnabled: false,
+                maxDurationMinutes: 60
             };
         } catch (error) {
             console.error('Error loading sprint settings:', error);
-            return { showTimer: true, allowPause: true };
+            return { 
+                showTimer: true, 
+                allowPause: true,
+                maxDurationEnabled: false,
+                maxDurationMinutes: 60
+            };
         }
     },
 
@@ -407,6 +426,37 @@ export const StorageService = {
         }
     },
 
+    // SPRINT HISTORY (All sessions)
+    async loadSprintHistory(): Promise<SavedSprint[]> {
+        try {
+            const jsonValue = await AsyncStorage.getItem(STORAGE_KEYS.SPRINT_HISTORY);
+            return jsonValue != null ? JSON.parse(jsonValue) : [];
+        } catch (e) {
+            console.error('Failed to load sprint history', e);
+            return [];
+        }
+    },
+
+    async addToSprintHistory(sprint: SavedSprint) {
+        try {
+            const currentHistory = await this.loadSprintHistory();
+            const updatedHistory = [sprint, ...currentHistory];
+            await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_HISTORY, JSON.stringify(updatedHistory));
+        } catch (e) {
+            console.error('Failed to add to sprint history', e);
+        }
+    },
+
+    async deleteSprintHistory(sprintId: string) {
+        try {
+            const currentHistory = await this.loadSprintHistory();
+            const updated = currentHistory.filter(s => s.id !== sprintId);
+            await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_HISTORY, JSON.stringify(updated));
+        } catch (e) {
+            console.error('Failed to delete from sprint history', e);
+        }
+    },
+
     // --- Mail Storage --- //
     async loadMail(): Promise<MailMessage[]> {
         try {
@@ -426,6 +476,16 @@ export const StorageService = {
             await AsyncStorage.setItem(STORAGE_KEYS.MAIL, JSON.stringify(messages));
         } catch (e) {
             console.error('[Storage] Error saving mail', e);
+        }
+    },
+
+    async clearAllData() {
+        try {
+            const keys = Object.values(STORAGE_KEYS);
+            await AsyncStorage.multiRemove(keys);
+            this._userColorsCache = null;
+        } catch (e) {
+            console.error('Failed to clear all data', e);
         }
     }
 };

@@ -44,6 +44,9 @@ export interface Task {
 
     // Manual Sort Order (drag-and-drop)
     sortOrder?: number;
+
+    // Archival Metadata
+    completedAt?: string;
 }
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';

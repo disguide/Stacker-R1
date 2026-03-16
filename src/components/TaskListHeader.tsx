@@ -47,14 +47,15 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                         style={styles.toolbarButton}
                         onPress={() => router.push('/friends')}
                     >
-                        <Ionicons name="people-outline" size={24} color="#333" />
+                        <Ionicons name="people-outline" size={26} color="#007AFF" />
                     </TouchableOpacity>
+
                     <TouchableOpacity
                         style={styles.toolbarButton}
                         onPress={() => router.push('/mail')}
                     >
                         <View>
-                            <Ionicons name="mail-outline" size={24} color="#333" />
+                            <Ionicons name="mail-outline" size={26} color="#007AFF" />
                             {unreadCount > 0 && (
                                 <View style={{
                                     position: 'absolute',
@@ -70,20 +71,19 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                             )}
                         </View>
                     </TouchableOpacity>
+
                     <TouchableOpacity
                         style={styles.toolbarButton}
                         onPress={() => router.push('/long-term')}
                     >
-                        <Ionicons name="telescope-outline" size={24} color="#333" />
+                        <Ionicons name="telescope-outline" size={26} color="#007AFF" />
                     </TouchableOpacity>
-
-
 
                     <TouchableOpacity
                         style={styles.toolbarButton}
                         onPress={onOpenReminders}
                     >
-                        <Ionicons name="notifications-outline" size={24} color="#333" />
+                        <Ionicons name="notifications-outline" size={26} color="#007AFF" />
                     </TouchableOpacity>
                 </View>
 
