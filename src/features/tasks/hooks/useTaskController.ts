@@ -446,16 +446,6 @@ export const useTaskController = () => {
             // ===== Step 2: Create a CLEAN duplicate on the NEW date =====
             // Source the data from the calendarItem (which has all display fields)
 
-            // If the item had recurrence, we need to generate a new RRule string starting from the new date
-            let newRRule = calendarItem.rrule;
-            if (calendarItem.recurrence) {
-                try {
-                    newRRule = createRRuleString(calendarItem.recurrence, newDate);
-                } catch (e) {
-                    console.error("[moveTaskToDate] Failed to regenerate RRule for duplicated task", e);
-                }
-            }
-
             const duplicate: Task = {
                 id: `${masterId || calendarItem.id}_moved_${Date.now()}`,
                 title: calendarItem.title,
@@ -475,9 +465,9 @@ export const useTaskController = () => {
                 reminderTime: calendarItem.reminderTime,
                 reminderDate: undefined, // Let it default to the day the task resides in
 
-                // Recurrence restoration (clean slate histories)
-                rrule: newRRule,
-                recurrence: calendarItem.recurrence,
+                // Recurrence restoration: CLEAR these to ensure it remains a static single task
+                rrule: undefined,
+                recurrence: undefined,
                 completedDates: undefined,
                 exceptionDates: undefined,
 

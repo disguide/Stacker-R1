@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, TouchableOpacity, Text } from 'react-native';
 import { ActionBar } from '../common/ActionBar';
 import { TimeWheelPanel } from '../common/TimeWheelPanel';
+import { StorageService } from '../../../services/storage';
 
 export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnabled, onReminderChange, onClose }: {
     width: number;
@@ -22,6 +23,22 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
     const [tempMinute, setTempMinute] = useState(parsed.m);
     // Default to 0 (Same day) if null
     const [tempOffset, setTempOffset] = useState(reminderOffset !== null ? reminderOffset : 0);
+    const [is24h, setIs24h] = useState(true);
+
+    useEffect(() => {
+        const loadPref = async () => {
+            const settings = await StorageService.loadSprintSettings();
+            setIs24h(!!settings.use24HourFormat);
+        };
+        loadPref();
+    }, []);
+
+    const toggle24h = async () => {
+        const newMode = !is24h;
+        setIs24h(newMode);
+        const settings = await StorageService.loadSprintSettings();
+        await StorageService.saveSprintSettings({ ...settings, use24HourFormat: newMode });
+    };
 
     // ─── Auto-save: apply changes immediately when wheels change ────
     const isFirstRender = useRef(true);
@@ -52,11 +69,27 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
         <View style={{ width, flex: 1 }}>
             <View style={{ flex: 1, paddingTop: 60 }}>
                 <View style={{ flex: 1, opacity: reminderEnabled ? 1 : 0.3 }}>
+                    <TouchableOpacity 
+                        onPress={toggle24h}
+                        style={{ 
+                            alignSelf: 'center', 
+                            paddingHorizontal: 12, 
+                            paddingVertical: 4, 
+                            borderWidth: 1, 
+                            borderColor: '#CCC', 
+                            borderRadius: 6,
+                            marginBottom: 20
+                        }}
+                    >
+                        <Text style={{ fontSize: 12, fontWeight: '600' }}>{is24h ? '24H Mode' : '12H Mode'}</Text>
+                    </TouchableOpacity>
+
                     <TimeWheelPanel
                         hour={tempHour}
                         minute={tempMinute}
                         onHourChange={setTempHour}
                         onMinuteChange={setTempMinute}
+                        is24h={is24h}
                     />
                 </View>
             </View>

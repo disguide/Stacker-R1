@@ -16,11 +16,9 @@ import {
     Pressable
 } from 'react-native';
 import RecurrencePickerModal from './RecurrencePickerModal';
-import { RecurrenceRule, ColorDefinition } from '../services/storage';
+import { StorageService, Task, ColorDefinition, RecurrenceRule } from '../services/storage';
 import TaskFeatureCarousel, { FeatureKey } from './TaskFeatureCarousel';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-
-import { Task } from '../features/tasks/types';
 import { Switch } from 'react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -70,16 +68,24 @@ function useTaskReminders(task: Task | null) {
     const [reminderTime, setReminderTime] = useState<string | null>(null);
     const [reminderEnabled, setReminderEnabled] = useState<boolean>(false);
 
+    const prevTaskIdRef = useRef<string | null>(null);
+
     // 1. Initialization
     useEffect(() => {
         if (task) {
-            setReminderOffset(task.reminderOffset !== undefined ? task.reminderOffset : null);
-            setReminderTime(task.reminderTime || null);
-            // If explicit enabled flag exists, use it. Otherwise, infer from offset presence.
-            setReminderEnabled(task.reminderEnabled !== undefined
-                ? task.reminderEnabled
-                : (task.reminderOffset !== null && task.reminderOffset !== undefined)
-            );
+            const isNewTask = task.id !== prevTaskIdRef.current;
+            if (isNewTask) {
+                setReminderOffset(task.reminderOffset !== undefined ? task.reminderOffset : null);
+                setReminderTime(task.reminderTime || null);
+                // If explicit enabled flag exists, use it. Otherwise, infer from offset presence.
+                setReminderEnabled(task.reminderEnabled !== undefined
+                    ? task.reminderEnabled
+                    : (task.reminderOffset !== null && task.reminderOffset !== undefined)
+                );
+                prevTaskIdRef.current = task.id;
+            }
+        } else {
+            prevTaskIdRef.current = null;
         }
     }, [task]);
 
@@ -166,9 +172,24 @@ export default function TaskEditDrawer({
         clearReminder
     } = useTaskReminders(task);
 
-    // Helper to format time as 12-hour
+    const [use24h, setUse24h] = useState(false);
+
+    useEffect(() => {
+        const loadPref = async () => {
+            const settings = await StorageService.loadSprintSettings();
+            if (settings.use24HourFormat !== undefined) {
+                setUse24h(settings.use24HourFormat);
+            }
+        };
+        loadPref();
+    }, [visible]);
+
+    // Helper to format time based on preference
     const formatTime = (time: string) => {
         const [hours, mins] = time.split(':').map(Number);
+        if (use24h) {
+            return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+        }
         const period = hours >= 12 ? 'PM' : 'AM';
         const displayHours = hours % 12 || 12;
         return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;

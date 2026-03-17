@@ -35,7 +35,6 @@ export default function TimelineScreen() {
     const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
-    const [timelineEditTask, setTimelineEditTask] = useState<{ id: string, title: string, category: string, color: string } | null>(null);
 
     useFocusEffect(
         useCallback(() => {
@@ -211,38 +210,7 @@ export default function TimelineScreen() {
         );
     };
 
-    const handleTimelineSaveTask = async () => {
-        if (!profile || !timelineEditTask) return;
-
-        if (!timelineEditTask.title.trim()) {
-            Alert.alert('Required', 'Please enter a goal title.');
-            return;
-        }
-
-        const np = { ...profile };
-        const now = new Date().toISOString();
-
-        const updater = (g: GoalItem) => {
-            if (g.id !== timelineEditTask.id) return g;
-
-            // Only push a modified event if there were actual changes
-            const hasChanges = g.title !== timelineEditTask.title || g.category !== timelineEditTask.category;
-
-            return {
-                ...g,
-                title: timelineEditTask.title,
-                category: timelineEditTask.category as any,
-                color: timelineEditTask.color,
-                events: hasChanges ? [...(g.events || []), { id: Date.now().toString(), type: 'modified' as GoalEventType, date: now }] : g.events
-            };
-        };
-
-        np.goals = (np.goals || []).map(updater);
-        np.antigoals = (np.antigoals || []).map(updater);
-        setProfile(np);
-        setTimelineEditTask(null);
-        await StorageService.saveProfile(np);
-    };
+    // deleted handleTimelineSaveTask
 
     const renderItem = ({ item, index }: { item: TLEvent; index: number }) => {
         const isExpanded = expandedId === item.id;
@@ -267,7 +235,6 @@ export default function TimelineScreen() {
             return (
                 <View style={[styles.rowContainer, { paddingTop: dynamicMargin }]}>
                     <View style={styles.trackCol}>
-                        <View style={[styles.mainTrackLine, { borderStyle: 'dashed', backgroundColor: 'transparent', borderColor: '#CBD5E1', borderWidth: 1, top: -dynamicMargin }]} />
                         <View style={styles.timeJumpPill}>
                             <Ionicons name="time-outline" size={12} color="#94A3B8" />
                             <Text style={styles.jumpText}>{item.jumpLabel}</Text>
@@ -282,8 +249,6 @@ export default function TimelineScreen() {
             return (
                 <View style={[styles.rowContainer, { paddingTop: dynamicMargin }]}>
                     <View style={styles.trackCol}>
-                        {item.type === 'start' && <View style={[styles.mainTrackLine, { top: 29 }]} />}
-                        {item.type === 'present' && <View style={[styles.mainTrackLine, { top: -dynamicMargin, bottom: undefined, height: dynamicMargin + 29 }]} />}
                         <View style={[styles.auraNode, { backgroundColor: evColor + '20' }]}>
                             <View style={[styles.solidDot, { backgroundColor: evColor }]} />
                         </View>
@@ -302,7 +267,6 @@ export default function TimelineScreen() {
                 onPress={() => setExpandedId(isExpanded ? null : item.id)}
             >
                 <View style={styles.trackCol}>
-                    <View style={[styles.mainTrackLine, { top: -dynamicMargin }]} />
                     <View style={[styles.auraNode, { backgroundColor: evColor + '25', top: 18 }]}>
                         <View style={[styles.solidDot, { backgroundColor: evColor }]} />
                     </View>
@@ -327,25 +291,20 @@ export default function TimelineScreen() {
                         </Text>
 
                         {isExpanded && (
-                            <View style={styles.cardActionsFooter}>
-                                <TouchableOpacity style={styles.cardActionBtn} onPress={() => deleteEvent(item.goalId, item.id, item.type as GoalEventType)}>
-                                    <MaterialCommunityIcons name="delete-outline" size={14} color="#64748B" />
-                                    <Text style={styles.cardActionText}>Delete</Text>
-                                </TouchableOpacity>
+                            <View style={styles.expandedContent}>
+                                {item.goalBase.note ? (
+                                    <View style={styles.noteContainer}>
+                                        <Text style={styles.noteLabel}>NOTE</Text>
+                                        <Text style={styles.noteText}>{item.goalBase.note}</Text>
+                                    </View>
+                                ) : null}
 
-                                <Text style={styles.cardActionDivider}>•</Text>
-
-                                <TouchableOpacity style={styles.cardActionBtn} onPress={() => {
-                                    setTimelineEditTask({
-                                        id: item.goalBase.id,
-                                        title: item.goalBase.title,
-                                        category: item.goalBase.category || 'habits',
-                                        color: item.goalBase.color || CATEGORY_COLORS['habits']
-                                    });
-                                }}>
-                                    <MaterialCommunityIcons name="pencil-outline" size={14} color="#64748B" />
-                                    <Text style={styles.cardActionText}>Edit Goal</Text>
-                                </TouchableOpacity>
+                                <View style={styles.cardActionsFooter}>
+                                    <TouchableOpacity style={styles.cardActionBtn} onPress={() => deleteEvent(item.goalId, item.id, item.type as GoalEventType)}>
+                                        <MaterialCommunityIcons name="delete-outline" size={14} color="#64748B" />
+                                        <Text style={styles.cardActionText}>Delete Event</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         )}
                     </View>
@@ -362,6 +321,9 @@ export default function TimelineScreen() {
                 }}
             />
 
+            {/* Solid Header Background for Back Button Area */}
+            <View style={styles.headerBar} />
+
             {/* Custom Back Button */}
             <TouchableOpacity 
                 style={styles.backButton} 
@@ -372,70 +334,40 @@ export default function TimelineScreen() {
                 <Text style={styles.backButtonText}>Back</Text>
             </TouchableOpacity>
 
-            <FlatList
-                data={events}
-                keyExtractor={(item) => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-            />
+            <View style={styles.flatListWrapper}>
+                {/* Continuous background track line */}
+                <View style={[styles.mainTrackLine, { left: 27 }]} />
+                
+                <FlatList
+                    data={events}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderItem}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                />
+            </View>
 
-            {/* Restricted Inline Edit Modal */}
-            <Modal visible={!!timelineEditTask} transparent animationType="fade">
-                <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                    <View style={styles.modalOverlay}>
-                        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalContent}>
-                            <Text style={styles.modalHeader}>Edit Goal</Text>
 
-                            <Text style={styles.modalLabel}>Action Statement</Text>
-                            <TextInput
-                                style={styles.modalInput}
-                                value={timelineEditTask?.title}
-                                onChangeText={(text) => setTimelineEditTask(prev => prev ? { ...prev, title: text } : null)}
-                                placeholder="I will read 20 pages..."
-                                multiline
-                            />
-
-                            <Text style={styles.modalLabel}>Goal Alignment</Text>
-                            <View style={styles.categoryRow}>
-                                {Object.entries(CATEGORY_COLORS).map(([cat, color]) => (
-                                    <TouchableOpacity
-                                        key={cat}
-                                        style={[
-                                            styles.categoryPill,
-                                            timelineEditTask?.category === cat && { borderColor: color, backgroundColor: color + '15' }
-                                        ]}
-                                        onPress={() => setTimelineEditTask(prev => prev ? { ...prev, category: cat, color } : null)}
-                                    >
-                                        <View style={[styles.categoryDot, { backgroundColor: color }]} />
-                                        <Text style={[styles.categoryText, timelineEditTask?.category === cat && { color, fontWeight: '700' }]}>
-                                            {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-
-                            <View style={styles.modalActions}>
-                                <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setTimelineEditTask(null)}>
-                                    <Text style={styles.modalCancelText}>Cancel</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.modalBtnSave} onPress={handleTimelineSaveTask}>
-                                    <Text style={styles.modalSaveText}>Save</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </KeyboardAvoidingView>
-                    </View>
-                </TouchableWithoutFeedback>
-            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
+    headerBar: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 85, // Reduced from 100 to block less
+        backgroundColor: '#F8FAFC', // Match container bg
+        zIndex: 90,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0,0,0,0.05)',
+    },
     backButton: {
         position: 'absolute',
-        top: 40,
+        top: 44, // Slightly higher up
         left: 20,
         zIndex: 100,
         flexDirection: 'row',
@@ -449,11 +381,14 @@ const styles = StyleSheet.create({
         marginLeft: -4,
     },
     listContent: {
-        paddingTop: 70,
+        paddingTop: 100, // Reduced from 120 to hit the sweet spot
         paddingHorizontal: 0,
         paddingBottom: 150
     },
-
+    flatListWrapper: {
+        flex: 1,
+        position: 'relative',
+    },
     // 2-Column Base
     rowContainer: {
         flexDirection: 'row',
@@ -582,6 +517,30 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         color: '#1E293B',
         lineHeight: 22,
+    },
+    expandedContent: {
+        marginTop: 12,
+    },
+    noteContainer: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 8,
+        borderLeftWidth: 2,
+        borderLeftColor: '#E2E8F0',
+    },
+    noteLabel: {
+        fontSize: 9,
+        fontWeight: '800',
+        color: '#94A3B8',
+        letterSpacing: 1,
+        marginBottom: 4,
+    },
+    noteText: {
+        fontSize: 13,
+        color: '#475569',
+        fontStyle: 'italic',
+        lineHeight: 18,
     },
     cardActionsFooter: {
         marginTop: 16,

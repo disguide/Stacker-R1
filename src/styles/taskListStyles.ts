@@ -20,8 +20,9 @@ export const styles = StyleSheet.create({
     toolbar: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginLeft: 6,
-        gap: 4,
+        marginLeft: 16,
+        gap: 16,
+        marginTop: 6,
     },
     toolbarButton: {
         width: 36,

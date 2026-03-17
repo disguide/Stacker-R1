@@ -281,9 +281,7 @@ export default function SprintSummaryScreen() {
         try {
             const primaryTask = getLongestTask();
             
-            // Calculate Intensity (Ratio of work to total time, normalized 0-100)
-            const total = workSeconds + breakSeconds;
-            const intensity = total > 0 ? Math.round((workSeconds / total) * 100) : 0;
+            // Calculate Intensity (Removed as requested)
 
             await StorageService.saveSavedSprint({
                 id: Date.now().toString(),
@@ -294,7 +292,6 @@ export default function SprintSummaryScreen() {
                 timelineEvents,
                 primaryTask,
                 taskCount: confirmedTaskIds.size,
-                intensity
             });
             Alert.alert("Success", "Sprint saved to Best Days!");
         } catch (error) {
@@ -438,8 +435,6 @@ export default function SprintSummaryScreen() {
 
             // Auto-save this sprint to history
             const primaryTask = getLongestTask();
-            const total = workSeconds + breakSeconds;
-            const intensity = total > 0 ? Math.round((workSeconds / total) * 100) : 0;
 
             const sprintRecord = {
                 id: `hist_${Date.now()}`,
@@ -450,7 +445,6 @@ export default function SprintSummaryScreen() {
                 timelineEvents: timelineEvents,
                 primaryTask,
                 taskCount: confirmedTaskIds.size,
-                intensity
             };
             await StorageService.addToSprintHistory(sprintRecord);
 

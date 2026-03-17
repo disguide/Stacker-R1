@@ -17,6 +17,7 @@ export default function ProfileScreen() {
     const [activeTab, setActiveTab] = useState<'goals' | 'antigoals'>('goals');
     const [quickAddText, setQuickAddText] = useState('');
     const [isAddingGoal, setIsAddingGoal] = useState(false);
+    const [expandedSprintId, setExpandedSprintId] = useState<string | null>(null);
     const { width: SCREEN_WIDTH } = useWindowDimensions();
     const horizontalPagerRef = useRef<ScrollView>(null);
     const profileScrollRef = useRef<ScrollView>(null);
@@ -24,6 +25,9 @@ export default function ProfileScreen() {
     const sprintsScrollRef = useRef<ScrollView>(null);
     const quickAddInputRef = useRef<TextInput>(null);
     const [selectedCategory, setSelectedCategory] = useState<GoalCategory>('outcomes');
+    const [isNoteModalVisible, setIsNoteModalVisible] = useState(false);
+    const [pendingGoalAction, setPendingGoalAction] = useState<{ id: string, listType: 'goals' | 'antigoals' } | null>(null);
+    const [goalNoteText, setGoalNoteText] = useState('');
 
     const [savedSprints, setSavedSprints] = useState<SavedSprint[]>([]);
     const [sprintHistory, setSprintHistory] = useState<SavedSprint[]>([]);
@@ -174,7 +178,7 @@ export default function ProfileScreen() {
             completed: false,
             createdAt: now,
             category: selectedCategory,
-            color: GOAL_PALETTE[Math.floor(Math.random() * GOAL_PALETTE.length)],
+            color: '#3B82F6', // Neutral default
             events: [{ id: newId, type: 'added' as const, date: now }]
         };
         if (activeTab === 'goals') {
@@ -188,17 +192,17 @@ export default function ProfileScreen() {
 
         // Auto-scroll to bottom after a small delay to allow item to render
         setTimeout(() => {
-            goalsScrollRef.current?.scrollToEnd({ animated: true });
+            profileScrollRef.current?.scrollToEnd({ animated: true });
         }, 150);
     };
 
-    const updateGoalItem = (id: string, newTitle: string) => {
+    const updateGoalItem = (id: string, newTitle: string, listType: 'goals' | 'antigoals') => {
         const now = new Date().toISOString();
         const updater = (g: any) => g.id === id && g.title !== newTitle
             ? { ...g, title: newTitle, events: [...(g.events || []), { id: Date.now().toString(), type: 'modified' as const, date: now }] }
             : g;
 
-        if (activeTab === 'goals') {
+        if (listType === 'goals') {
             const updated = (profile.goals || []).map(updater);
             updateProfile({ goals: updated });
         } else {
@@ -207,30 +211,23 @@ export default function ProfileScreen() {
         }
     };
 
-    const cycleGoalColor = (id: string) => {
-        const now = new Date().toISOString();
-        const updater = (g: any) => {
-            if (g.id !== id) return g;
-            const cIdx = GOAL_PALETTE.indexOf(g.color || '');
-            const nextColor = GOAL_PALETTE[(cIdx + 1) % GOAL_PALETTE.length];
-            return {
-                ...g,
-                color: nextColor,
-                events: [...(g.events || []), { id: Date.now().toString(), type: 'modified' as const, date: now }]
-            };
-        };
-
-        if (activeTab === 'goals') {
-            updateProfile({ goals: (profile.goals || []).map(updater) });
-        } else {
-            updateProfile({ antigoals: (profile.antigoals || []).map(updater) });
-        }
-    };
-
-    const toggleGoalCompletion = async (id: string, isCompleted: boolean) => {
+    const toggleGoalCompletion = async (id: string, isCompleted: boolean, listType: 'goals' | 'antigoals') => {
         // Can only check off in View Mode
         if (isEditing) return;
 
+        if (isCompleted) {
+            // Show note modal first
+            setPendingGoalAction({ id, listType });
+            setGoalNoteText('');
+            setIsNoteModalVisible(true);
+            return;
+        }
+
+        // Un-completing logic (direct)
+        performToggleCompletion(id, false, listType);
+    };
+
+    const performToggleCompletion = async (id: string, isCompleted: boolean, listType: 'goals' | 'antigoals', note?: string) => {
         let newProfile = { ...profile };
         const updater = (g: any) => {
             if (g.id !== id) return g;
@@ -244,11 +241,12 @@ export default function ProfileScreen() {
                 ...g,
                 completed: isCompleted,
                 completedAt: isCompleted ? now : undefined,
+                note: note || g.note,
                 events
             };
         };
 
-        if (activeTab === 'goals') {
+        if (listType === 'goals') {
             newProfile.goals = (newProfile.goals || []).map(updater);
         } else {
             newProfile.antigoals = (newProfile.antigoals || []).map(updater);
@@ -258,9 +256,9 @@ export default function ProfileScreen() {
         await StorageService.saveProfile(newProfile);
     };
 
-    const deleteGoalItem = (id: string) => {
+    const deleteGoalItem = (id: string, listType: 'goals' | 'antigoals') => {
         // Hard-delete the Goal
-        if (activeTab === 'goals') {
+        if (listType === 'goals') {
             const updated = (profile.goals || []).filter(g => g.id !== id);
             updateProfile({ goals: updated });
         } else {
@@ -269,27 +267,40 @@ export default function ProfileScreen() {
         }
     };
 
-    const cancelGoalItem = async (id: string) => {
-        let newProfile = { ...profile };
-        const now = new Date().toISOString();
-        const updater = (g: any) => {
-            if (g.id !== id) return g;
-            return {
-                ...g,
-                cancelled: true,
-                cancelledAt: now,
-                events: [...(g.events || []), { id: Date.now().toString(), type: 'cancelled' as const, date: now }]
-            };
-        };
+    const cancelGoalItem = async (id: string, listType: 'goals' | 'antigoals') => {
+        Alert.alert(
+            "Cancel Goal?",
+            "This will move the goal to your timeline as cancelled. Are you sure?",
+            [
+                { text: "No", style: "cancel" },
+                {
+                    text: "Yes, Cancel",
+                    style: "destructive",
+                    onPress: async () => {
+                        let newProfile = { ...profile };
+                        const now = new Date().toISOString();
+                        const updater = (g: any) => {
+                            if (g.id !== id) return g;
+                            return {
+                                ...g,
+                                cancelled: true,
+                                cancelledAt: now,
+                                events: [...(g.events || []), { id: Date.now().toString(), type: 'cancelled' as const, date: now }]
+                            };
+                        };
 
-        if (activeTab === 'goals') {
-            newProfile.goals = (newProfile.goals || []).map(updater);
-        } else {
-            newProfile.antigoals = (newProfile.antigoals || []).map(updater);
-        }
+                        if (listType === 'goals') {
+                            newProfile.goals = (newProfile.goals || []).map(updater);
+                        } else {
+                            newProfile.antigoals = (newProfile.antigoals || []).map(updater);
+                        }
 
-        setProfile(newProfile);
-        await StorageService.saveProfile(newProfile);
+                        setProfile(newProfile);
+                        await StorageService.saveProfile(newProfile);
+                    }
+                }
+            ]
+        );
     };
 
     // Split active tasks into pending and completed for the view mode
@@ -318,36 +329,6 @@ export default function ProfileScreen() {
         .filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i) // Unique IDs
         .slice(0, 3);
 
-    const handleResetEverything = () => {
-        Alert.alert(
-            "Clear All Data?",
-            "This will permanently delete your profile, career stats, goals, and history. This cannot be undone.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "YES, RESET ALL",
-                    style: "destructive",
-                    onPress: async () => {
-                        await StorageService.clearAllData();
-                        // Reset local states to trigger re-renders or just reload the app state
-                        setProfile({
-                            name: '',
-                            handle: '',
-                            goals: [],
-                            antigoals: [],
-                        });
-                        setSavedSprints([]);
-                        setSprintHistory([]);
-                        setTaskHistory([]);
-                        setActiveSection('profile');
-                        horizontalPagerRef.current?.scrollTo({ x: 0, animated: false });
-                        Alert.alert("Data Reset", "All statistics and settings have been cleared.");
-                    }
-                }
-            ]
-        );
-    };
-
     return (
         <SafeAreaView style={styles.container}>
             <KeyboardAvoidingView
@@ -359,7 +340,7 @@ export default function ProfileScreen() {
                 <View style={styles.topBar}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.exitBtn}>
                         <View style={styles.backCircle}>
-                            <Ionicons name="chevron-back" size={24} color="#007AFF" />
+                            <Ionicons name="chevron-back" size={20} color="#007AFF" />
                         </View>
                     </TouchableOpacity>
 
@@ -414,8 +395,8 @@ export default function ProfileScreen() {
                                 <Text style={styles.fillerTitle}>Personal overview</Text>
                                 <View style={styles.profileEditWrapper}>
                                     {isEditing ? (
-                                        <TouchableOpacity onPress={saveChanges} style={styles.exitEditBtn}>
-                                            <Ionicons name="close-circle" size={28} color="#007AFF" />
+                                        <TouchableOpacity onPress={saveChanges} style={styles.editProfileBtnInline}>
+                                            <Text style={[styles.editProfileText, { color: '#007AFF' }]}>Done</Text>
                                         </TouchableOpacity>
                                     ) : (
                                         <TouchableOpacity onPress={handleEditToggle} style={styles.editProfileBtnInline}>
@@ -480,6 +461,7 @@ export default function ProfileScreen() {
                                             <Text style={styles.userNameText}>{profile.name || "Add a name"}</Text>
                                         )}
                                         <Text style={styles.handleText}>@stacker</Text>
+                                    
                                     </View>
                                 </View>
 
@@ -552,63 +534,65 @@ export default function ProfileScreen() {
 
                             {/* --- COMBINED LISTS --- */}
                             <View style={styles.combinedListContainer}>
-                                <Text style={styles.sectionHeading}>🎯 GOALS</Text>
+                                <Text style={styles.sectionHeading}>GOALS</Text>
                                 {(profile.goals || []).filter(g => !g.completed && !g.cancelled).length === 0 ? (
                                     <Text style={styles.emptyText}>No active goals.</Text>
                                 ) : (
                                     (profile.goals || []).filter(g => !g.completed && !g.cancelled).map((item) => (
                                         <View key={item.id} style={styles.inlineEditRow}>
                                             <TouchableOpacity
-                                                onPress={() => isEditing ? cycleGoalColor(item.id) : toggleGoalCompletion(item.id, true)}
+                                                onPress={() => toggleGoalCompletion(item.id, true, 'goals')}
                                                 style={styles.inlineCheckbox}
                                             >
                                                 <Ionicons
                                                     name={item.completed ? "checkmark-circle" : "ellipse-outline"}
                                                     size={24}
-                                                    color={item.color || '#3B82F6'}
+                                                    color="#3B82F6"
                                                 />
                                             </TouchableOpacity>
 
-                                            {!isEditing && (
-                                                <View style={styles.tagWrapper}>
-                                                    <View style={[styles.listCategoryTag, { backgroundColor: (item.color || '#3B82F6') + '15' }]}>
-                                                        <Text style={[styles.listCategoryTagText, { color: item.color || '#3B82F6' }]}>
-                                                            {item.category ? item.category.toUpperCase() : 'GOAL'}
-                                                        </Text>
+                                            <View style={styles.inlineContentWrapper}>
+                                                <TextInput
+                                                    style={styles.inlineInput}
+                                                    value={item.title}
+                                                    onChangeText={(t) => updateGoalItem(item.id, t, 'goals')}
+                                                    onFocus={(e) => {
+                                                        setActiveTab('goals');
+                                                        if (!isEditing) handleEditToggle();
+                                                        e.target.measure((x, y, width, height, pageX, pageY) => {
+                                                            handleFieldFocus(pageY);
+                                                        });
+                                                    }}
+                                                    placeholder="Enter Goal..."
+                                                    placeholderTextColor="#94A3B8"
+                                                />
+
+                                                {!isEditing && (
+                                                    <View style={styles.tagWrapper}>
+                                                        <View style={[styles.listCategoryTag, { backgroundColor: '#3B82F615' }]}>
+                                                            <Text style={[styles.listCategoryTagText, { color: '#3B82F6' }]}>
+                                                                {item.category ? item.category.toUpperCase() : 'GOAL'}
+                                                            </Text>
+                                                        </View>
                                                     </View>
-                                                </View>
-                                            )}
-
-                                            <TextInput
-                                                style={styles.inlineInput}
-                                                value={item.title}
-                                                onChangeText={(t) => updateGoalItem(item.id, t)}
-                                                onFocus={(e) => {
-                                                    setActiveTab('goals');
-                                                    if (!isEditing) handleEditToggle();
-                                                    e.target.measure((x, y, width, height, pageX, pageY) => {
-                                                        handleFieldFocus(pageY);
-                                                    });
-                                                }}
-                                                placeholder="Enter Goal..."
-                                                placeholderTextColor="#94A3B8"
-                                            />
+                                                )}
+                                            </View>
 
                                             {!isEditing && (
-                                                <TouchableOpacity onPress={() => cancelGoalItem(item.id)} style={styles.inlineCancelBtn}>
+                                                <TouchableOpacity onPress={() => cancelGoalItem(item.id, 'goals')} style={styles.inlineCancelBtn}>
                                                     <Ionicons name="close-circle-outline" size={20} color="#94A3B8" />
                                                 </TouchableOpacity>
                                             )}
 
                                             {isEditing && (
-                                                <TouchableOpacity onPress={() => deleteGoalItem(item.id)} style={styles.inlineDeleteBtn}>
+                                                <TouchableOpacity onPress={() => deleteGoalItem(item.id, 'goals')} style={styles.inlineDeleteBtn}>
                                                     <Ionicons name="close" size={20} color="#94A3B8" />
                                                 </TouchableOpacity>
                                             )}
                                         </View>
                                     ))
                                 )}
-                                {(profile.goals || []).filter(g => !g.completed && !g.cancelled).length < 5 && (
+                                {(profile.goals || []).filter(g => !g.completed && !g.cancelled).length < 5 ? (
                                     <TouchableOpacity
                                         style={styles.addGoalBtnSmall}
                                         onPress={() => { setActiveTab('goals'); setIsAddingGoal(true); }}
@@ -616,72 +600,78 @@ export default function ProfileScreen() {
                                         <Ionicons name="add" size={18} color="#3B82F6" />
                                         <Text style={styles.addGoalTextSmall}>Add Goal</Text>
                                     </TouchableOpacity>
+                                ) : (
+                                    <Text style={styles.capMessage}>Goal limit reached (5)</Text>
                                 )}
 
-                                <Text style={[styles.sectionHeading, { marginTop: 32 }]}>🚫 ANTI-GOALS</Text>
+                                <Text style={[styles.sectionHeading, { marginTop: 32 }]}>ANTI-GOALS</Text>
                                 {(profile.antigoals || []).filter(g => !g.completed && !g.cancelled).length === 0 ? (
                                     <Text style={styles.emptyText}>No active anti-goals.</Text>
                                 ) : (
                                     (profile.antigoals || []).filter(g => !g.completed && !g.cancelled).map((item) => (
                                         <View key={item.id} style={styles.inlineEditRow}>
                                             <TouchableOpacity
-                                                onPress={() => isEditing ? cycleGoalColor(item.id) : toggleGoalCompletion(item.id, true)}
+                                                onPress={() => toggleGoalCompletion(item.id, true, 'antigoals')}
                                                 style={styles.inlineCheckbox}
                                             >
                                                 <Ionicons
                                                     name={item.completed ? "checkmark-circle" : "ellipse-outline"}
                                                     size={24}
-                                                    color={item.color || '#EC4899'}
+                                                    color="#EF4444"
                                                 />
                                             </TouchableOpacity>
 
-                                            {!isEditing && (
-                                                <View style={styles.tagWrapper}>
-                                                    <View style={[styles.listCategoryTag, { backgroundColor: (item.color || '#EC4899') + '15' }]}>
-                                                        <Text style={[styles.listCategoryTagText, { color: item.color || '#EC4899' }]}>
-                                                            {item.category ? item.category.toUpperCase() : 'ANTI-GOAL'}
-                                                        </Text>
+                                            <View style={styles.inlineContentWrapper}>
+                                                <TextInput
+                                                    style={styles.inlineInput}
+                                                    value={item.title}
+                                                    onChangeText={(t) => updateGoalItem(item.id, t, 'antigoals')}
+                                                    onFocus={(e) => {
+                                                        setActiveTab('antigoals');
+                                                        if (!isEditing) handleEditToggle();
+                                                        e.target.measure((x, y, width, height, pageX, pageY) => {
+                                                            handleFieldFocus(pageY);
+                                                        });
+                                                    }}
+                                                    placeholder="Enter Anti-Goal..."
+                                                    placeholderTextColor="#94A3B8"
+                                                />
+
+                                                {!isEditing && (
+                                                    <View style={styles.tagWrapper}>
+                                                        <View style={[styles.listCategoryTag, { backgroundColor: '#EF444415' }]}>
+                                                            <Text style={[styles.listCategoryTagText, { color: '#EF4444' }]}>
+                                                                {item.category ? item.category.toUpperCase() : 'ANTI-GOAL'}
+                                                            </Text>
+                                                        </View>
                                                     </View>
-                                                </View>
-                                            )}
-
-                                            <TextInput
-                                                style={styles.inlineInput}
-                                                value={item.title}
-                                                onChangeText={(t) => updateGoalItem(item.id, t)}
-                                                onFocus={(e) => {
-                                                    setActiveTab('antigoals');
-                                                    if (!isEditing) handleEditToggle();
-                                                    e.target.measure((x, y, width, height, pageX, pageY) => {
-                                                        handleFieldFocus(pageY);
-                                                    });
-                                                }}
-                                                placeholder="Enter Anti-Goal..."
-                                                placeholderTextColor="#94A3B8"
-                                            />
+                                                )}
+                                            </View>
 
                                             {!isEditing && (
-                                                <TouchableOpacity onPress={() => cancelGoalItem(item.id)} style={styles.inlineCancelBtn}>
+                                                <TouchableOpacity onPress={() => cancelGoalItem(item.id, 'antigoals')} style={styles.inlineCancelBtn}>
                                                     <Ionicons name="close-circle-outline" size={20} color="#94A3B8" />
                                                 </TouchableOpacity>
                                             )}
 
                                             {isEditing && (
-                                                <TouchableOpacity onPress={() => deleteGoalItem(item.id)} style={styles.inlineDeleteBtn}>
+                                                <TouchableOpacity onPress={() => deleteGoalItem(item.id, 'antigoals')} style={styles.inlineDeleteBtn}>
                                                     <Ionicons name="close" size={20} color="#94A3B8" />
                                                 </TouchableOpacity>
                                             )}
                                         </View>
                                     ))
                                 )}
-                                {(profile.antigoals || []).filter(g => !g.completed && !g.cancelled).length < 5 && (
+                                {(profile.antigoals || []).filter(g => !g.completed && !g.cancelled).length < 5 ? (
                                     <TouchableOpacity
                                         style={styles.addGoalBtnSmall}
                                         onPress={() => { setActiveTab('antigoals'); setIsAddingGoal(true); }}
                                     >
-                                        <Ionicons name="add" size={18} color="#EC4899" />
-                                        <Text style={[styles.addGoalTextSmall, { color: '#EC4899' }]}>Add Anti-Goal</Text>
+                                        <Ionicons name="add" size={18} color="#EF4444" />
+                                        <Text style={[styles.addGoalTextSmall, { color: '#EF4444' }]}>Add Anti-Goal</Text>
                                     </TouchableOpacity>
+                                ) : (
+                                    <Text style={styles.capMessage}>Anti-goal limit reached (5)</Text>
                                 )}
                             </View>
                         </View>
@@ -736,8 +726,8 @@ export default function ProfileScreen() {
 
                             <View style={styles.bestDaysContainer}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                    <Text style={styles.bestDaysTitle}>Focus Journal</Text>
-                                    {sprintHistory.length > 3 && (
+                                    <Text style={styles.bestDaysTitle}>Sprints History</Text>
+                                    {sprintHistory.length > 0 && (
                                         <TouchableOpacity onPress={() => router.push('/sprint-history')}>
                                             <Text style={{ color: '#3B82F6', fontWeight: '600', fontSize: 14 }}>View All</Text>
                                         </TouchableOpacity>
@@ -749,34 +739,72 @@ export default function ProfileScreen() {
                                     </View>
                                 ) : (
                                     <View style={styles.savedSprintsList}>
-                                        {recentSprints.map((sprint) => (
-                                            <TouchableOpacity
-                                                key={sprint.id}
-                                                style={styles.journalCard}
+                                        {recentSprints.slice(0, 3).map((sprint) => {
+                                            const isExpanded = expandedSprintId === sprint.id;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={sprint.id}
+                                                    style={[styles.journalCard, isExpanded && { borderColor: '#3B82F6', backgroundColor: '#FFF' }]}
+                                                    activeOpacity={0.8}
+                                                    onPress={() => setExpandedSprintId(isExpanded ? null : sprint.id)}
+                                                >
+                                                    
+                                                    <View style={styles.journalContent}>
+                                                        <View style={styles.journalHeader}>
+                                                            <Text style={styles.journalTitle} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
+                                                            <Text style={styles.journalDate}>
+                                                                {new Date(sprint.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                            </Text>
+                                                        </View>
+                                                        <View style={styles.journalStats}>
+                                                            <Text style={styles.journalDuration}>{formatDuration(sprint.durationSeconds)} Focus</Text>
+                                                            <View style={styles.statDot} />
+                                                            <Text style={styles.journalTaskCount}>{sprint.taskCount || 0} tasks</Text>
+                                                        </View>
+
+                                                        {isExpanded && (
+                                                            <View style={styles.expandedTimelineSection}>
+                                                                <View style={styles.expandedDivider} />
+                                                                <Text style={styles.timelineLabel}>TIMELINE</Text>
+                                                                {sprint.timelineEvents && sprint.timelineEvents.map((evt: any, idx: number, arr: any[]) => {
+                                                                    const isTask = evt.type === 'task';
+                                                                    const isBreak = evt.type === 'break';
+                                                                    return (
+                                                                        <View key={idx} style={styles.timelineListRow}>
+                                                                            <View style={styles.timelineIndicator}>
+                                                                                <View style={[
+                                                                                    styles.timelinePoint,
+                                                                                    { backgroundColor: isTask ? '#3B82F6' : (isBreak ? '#10B981' : '#94A3B8') }
+                                                                                ]} />
+                                                                                {idx < arr.length - 1 && <View style={styles.timelineConnector} />}
+                                                                            </View>
+                                                                            <View style={styles.timelineTextContent}>
+                                                                                <View style={styles.timelineInfoRow}>
+                                                                                    <Text style={styles.timelineTaskTitle} numberOfLines={1}>{evt.title}</Text>
+                                                                                    <Text style={styles.timelineTaskTime}>{formatDuration(evt.durationSeconds)}</Text>
+                                                                                </View>
+                                                                            </View>
+                                                                        </View>
+                                                                    );
+                                                                })}
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-forward"} size={18} color="#CBD5E1" />
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+
+                                        {/* View All History Button - Moved Outside the Loop */}
+                                        {([...sprintHistory, ...savedSprints].length > 3) && (
+                                            <TouchableOpacity 
+                                                style={styles.viewAllFooter} 
                                                 onPress={() => router.push('/sprint-history')}
                                             >
-                                                <View style={styles.journalIconBox}>
-                                                    <Ionicons name="flash" size={20} color="#3B82F6" />
-                                                </View>
-                                                <View style={styles.journalContent}>
-                                                    <View style={styles.journalHeader}>
-                                                        <Text style={styles.journalTitle} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
-                                                        <Text style={styles.journalDate}>
-                                                            {new Date(sprint.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                                        </Text>
-                                                    </View>
-                                                    <View style={styles.journalStats}>
-                                                        <Text style={styles.journalDuration}>{formatDuration(sprint.durationSeconds)} Focus</Text>
-                                                        <View style={styles.statDot} />
-                                                        <Text style={styles.journalTaskCount}>{sprint.taskCount || 0} tasks</Text>
-                                                    </View>
-                                                    <View style={styles.sparklineBackground}>
-                                                        <View style={[styles.sparklineFill, { width: `${sprint.intensity || 0}%` }]} />
-                                                    </View>
-                                                </View>
-                                                <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                                                <Text style={styles.viewAllFooterText}>View All History</Text>
+                                                <Ionicons name="arrow-forward" size={16} color="#3B82F6" />
                                             </TouchableOpacity>
-                                        ))}
+                                        )}
                                     </View>
                                 )}
                             </View>
@@ -784,13 +812,6 @@ export default function ProfileScreen() {
                             {!isEditing && (
                                 <>
                                     <View style={{ height: 1, backgroundColor: '#E2E8F0', marginVertical: 32 }} />
-                                    <View style={styles.resetContainer}>
-                                        <Text style={styles.resetHeader}>DANGER ZONE</Text>
-                                        <TouchableOpacity style={styles.resetFullBtn} onPress={handleResetEverything}>
-                                            <Ionicons name="trash-bin-outline" size={20} color="#EF4444" />
-                                            <Text style={styles.resetFullText}>Reset All Data & Statistics</Text>
-                                        </TouchableOpacity>
-                                    </View>
                                 </>
                             )}
                         </View>
@@ -847,6 +868,45 @@ export default function ProfileScreen() {
                         </View>
                     </>
                 )}
+
+                {/* GOAL COMPLETION NOTE MODAL */}
+                {isNoteModalVisible && (
+                    <>
+                        <TouchableOpacity
+                            style={styles.quickAddBackdrop}
+                            activeOpacity={1}
+                            onPress={() => {
+                                setIsNoteModalVisible(false);
+                                setPendingGoalAction(null);
+                            }}
+                        />
+                        <View style={styles.triggeredQuickAddBar}>
+                            <Text style={styles.noteModalHeader}>CONGRATS! ANY REFLECTIONS?</Text>
+                            <View style={styles.triggeredInputWrapper}>
+                                <TextInput
+                                    style={styles.triggeredInput}
+                                    placeholder="Add a result note (optional)..."
+                                    placeholderTextColor="#94A3B8"
+                                    value={goalNoteText}
+                                    onChangeText={setGoalNoteText}
+                                    autoFocus
+                                />
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        if (pendingGoalAction) {
+                                            performToggleCompletion(pendingGoalAction.id, true, pendingGoalAction.listType, goalNoteText);
+                                        }
+                                        setIsNoteModalVisible(false);
+                                        setPendingGoalAction(null);
+                                    }}
+                                    style={styles.triggeredSubmitBtn}
+                                >
+                                    <Text style={styles.triggeredSubmitText}>Done</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </>
+                )}
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -859,7 +919,7 @@ const styles = StyleSheet.create({
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingLeft: 8,
+        paddingLeft: 6, // Moved further left
         paddingRight: 16,
         paddingTop: 4,
         paddingBottom: 8,
@@ -870,20 +930,21 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: '#0F172A',
-        marginLeft: 16,
+        marginLeft: 8,
         marginBottom: 4,
         marginTop: 0,
     },
     exitBtn: {
-        width: 44,
-        height: 44,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    backCircle: {
         width: 36,
         height: 36,
-        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12, // More space to the selector
+    },
+    backCircle: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         backgroundColor: '#F1F5F9',
         justifyContent: 'center',
         alignItems: 'center',
@@ -907,7 +968,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingRight: 16,
-        marginBottom: 6,
+        marginBottom: 2,
     },
     profileEditWrapper: {
         marginTop: -8,
@@ -947,7 +1008,7 @@ const styles = StyleSheet.create({
     // Profile Identity Block
     profileBlock: {
         paddingHorizontal: 20,
-        paddingTop: 24, // Added padding so it starts well below the banner
+        paddingTop: 16, // Reduced padding to tighten vertical space below banner
     },
     identityRow: {
         flexDirection: 'row',
@@ -1075,10 +1136,10 @@ const styles = StyleSheet.create({
 
     // Combined List Styles
     profileTabContent: {
-        paddingTop: 20,
+        paddingTop: 12,
     },
     goalsTabContent: {
-        paddingTop: 20,
+        paddingTop: 12,
     },
     combinedListContainer: {
         paddingHorizontal: 20,
@@ -1105,7 +1166,7 @@ const styles = StyleSheet.create({
     },
 
     sprintsTabContent: {
-        paddingTop: 20,
+        paddingTop: 12,
     },
 
     // Lists
@@ -1117,6 +1178,13 @@ const styles = StyleSheet.create({
         color: '#94A3B8',
         fontStyle: 'italic',
         marginTop: 20,
+    },
+    capMessage: {
+        fontSize: 12,
+        color: '#94A3B8',
+        fontStyle: 'italic',
+        marginTop: 8,
+        textAlign: 'center',
     },
 
     // Archive Button
@@ -1151,7 +1219,7 @@ const styles = StyleSheet.create({
     tagWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginRight: 10,
+        marginTop: 2,
     },
     listCategoryTag: {
         paddingHorizontal: 6,
@@ -1164,11 +1232,14 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     inlineInput: {
-        flex: 1,
         fontSize: 16,
         color: '#1E293B',
         minHeight: 24,
         paddingTop: 0,
+    },
+    inlineContentWrapper: {
+        flex: 1,
+        flexDirection: 'column',
     },
     inlineDeleteBtn: {
         padding: 4,
@@ -1221,6 +1292,13 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         paddingHorizontal: 16,
         paddingVertical: 4,
+    },
+    noteModalHeader: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#64748B',
+        letterSpacing: 1,
+        marginBottom: 12,
     },
     triggeredInput: {
         flex: 1,
@@ -1277,7 +1355,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#1E293B',
         borderRadius: 24,
         padding: 28,
-        marginHorizontal: 16,
+        marginHorizontal: 8,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -1404,6 +1482,7 @@ const styles = StyleSheet.create({
     bestDaysContainer: {
         marginTop: 0,
         marginBottom: 20,
+        paddingHorizontal: 8,
     },
     bestDaysTitle: {
         fontSize: 18,
@@ -1431,7 +1510,7 @@ const styles = StyleSheet.create({
     heroCard: {
         borderRadius: 24,
         padding: 28,
-        marginHorizontal: 16,
+        marginHorizontal: 8,
         minHeight: 180,
         position: 'relative',
         overflow: 'hidden',
@@ -1504,15 +1583,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E2E8F0',
     },
-    journalIconBox: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        backgroundColor: '#EFF6FF',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 16,
-    },
     journalContent: {
         flex: 1,
     },
@@ -1527,6 +1597,19 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#0F172A',
         maxWidth: '70%',
+    },
+    viewAllFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        gap: 6,
+        marginTop: 8,
+    },
+    viewAllFooterText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#3B82F6',
     },
     journalDate: {
         fontSize: 12,
@@ -1555,17 +1638,64 @@ const styles = StyleSheet.create({
         backgroundColor: '#CBD5E1',
         marginHorizontal: 8,
     },
-    sparklineBackground: {
-        height: 4,
-        backgroundColor: '#E2E8F0',
-        borderRadius: 2,
-        width: '60%',
-        overflow: 'hidden',
+    expandedTimelineSection: {
+        marginTop: 16,
     },
-    sparklineFill: {
-        height: '100%',
-        backgroundColor: '#3B82F6',
-        borderRadius: 2,
+    expandedDivider: {
+        height: 1,
+        backgroundColor: '#E2E8F0',
+        marginBottom: 16,
+    },
+    timelineLabel: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#94A3B8',
+        letterSpacing: 1,
+        marginBottom: 12,
+    },
+    timelineListRow: {
+        flexDirection: 'row',
+        minHeight: 40,
+    },
+    timelineIndicator: {
+        width: 20,
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    timelinePoint: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginTop: 6,
+        zIndex: 2,
+    },
+    timelineConnector: {
+        width: 1.5,
+        flex: 1,
+        backgroundColor: '#E2E8F0',
+        marginTop: 2,
+        marginBottom: -6,
+        zIndex: 1,
+    },
+    timelineTextContent: {
+        flex: 1,
+        paddingBottom: 12,
+    },
+    timelineInfoRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    timelineTaskTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1E293B',
+        maxWidth: '80%',
+    },
+    timelineTaskTime: {
+        fontSize: 12,
+        color: '#64748B',
+        fontWeight: '700',
     },
     historyActions: {
         flexDirection: 'row',

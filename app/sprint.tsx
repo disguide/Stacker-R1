@@ -49,9 +49,22 @@ export default function SprintScreen() {
     const [settings, setSettings] = useState<SprintSettings>({ showTimer: true, allowPause: true });
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
+    const isPausedRef = useRef(false);
     const [breakPhase, setBreakPhase] = useState<'none' | 'claiming' | 'active'>('none');
+    const breakPhaseRef = useRef<'none' | 'claiming' | 'active'>('none');
     const [intervalsCompleted, setIntervalsCompleted] = useState(0);
     const [timerVisible, setTimerVisible] = useState(false);
+
+    const [breakDuration, setBreakDuration] = useState(0); // 0 = indefinite/count up
+    const breakDurationRef = useRef(0);
+    const [pauseElapsed, setPauseElapsed] = useState(0);
+    const pauseElapsedRef = useRef(0);
+
+    // Sync Refs
+    useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
+    useEffect(() => { breakPhaseRef.current = breakPhase; }, [breakPhase]);
+    useEffect(() => { breakDurationRef.current = breakDuration; }, [breakDuration]);
+    useEffect(() => { pauseElapsedRef.current = pauseElapsed; }, [pauseElapsed]);
 
     // Timing Refs (Buckets)
     const workSecondsRef = useRef<number>(0);
@@ -202,8 +215,8 @@ export default function SprintScreen() {
         }
 
         // 3. Schedule Break Over Notification (if currently in a break)
-        if (isPaused && breakPhase === 'active' && breakDuration > 0) {
-            const remainingSec = (breakDuration * 60) - pauseElapsed;
+        if (isPausedRef.current && breakPhaseRef.current === 'active' && breakDurationRef.current > 0) {
+            const remainingSec = (breakDurationRef.current * 60) - pauseElapsedRef.current;
             if (remainingSec > 0) {
                 await Notifications.scheduleNotificationAsync({
                     content: {
@@ -212,7 +225,7 @@ export default function SprintScreen() {
                         sound: true,
                     },
                     trigger: { 
-                        seconds: Math.floor(remainingSec),
+                        seconds: Math.max(1, Math.floor(remainingSec)),
                         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL 
                     },
                     identifier: 'break-end',
@@ -261,7 +274,7 @@ export default function SprintScreen() {
         }
 
         // 3. Sync Work/Break Buckets
-        if (!isPaused) {
+        if (!isPausedRef.current) {
             // WORK SYNC
             const workLimitSec = (settings.autoBreakWorkTime || 25) * 60;
             const remainingToBreak = workLimitSec - (intervalWorkSecondsRef.current % workLimitSec);
@@ -294,17 +307,17 @@ export default function SprintScreen() {
             setElapsedSeconds(workSecondsRef.current);
         } else {
             // BREAK SYNC
-            const totalBreakElapsed = pauseElapsed + gapSeconds;
-            const breakLimitSec = (breakDuration || 0) * 60;
+            const totalBreakElapsed = pauseElapsedRef.current + gapSeconds;
+            const breakLimitSec = (breakDurationRef.current || 0) * 60;
 
             if (breakLimitSec > 0 && totalBreakElapsed >= breakLimitSec) {
                 // Break ended while away!
-                const transitionTime = (backgroundTimeRef.current || now) + ((breakLimitSec - pauseElapsed) * 1000);
+                const transitionTime = (backgroundTimeRef.current || now) + ((breakLimitSec - pauseElapsedRef.current) * 1000);
                 
                 // 1. Record the Break part
                 recordCurrentSegment(transitionTime, "Break (Away)");
 
-                breakSecondsRef.current += (breakLimitSec - pauseElapsed);
+                breakSecondsRef.current += (breakLimitSec - pauseElapsedRef.current);
                 setPauseElapsed(breakLimitSec);
                 
                 // Add the leftover time back to work
@@ -327,10 +340,6 @@ export default function SprintScreen() {
         // Final catch-up: If we didn't end the sprint, the current segment start time needs to be updated to NOW
         currentSegmentStartTimeRef.current = now;
     };
-
-    // Timer state for pauses (Now simplified as counters handle the logic)
-    const [breakDuration, setBreakDuration] = useState(0); // 0 = indefinite/count up
-    const [pauseElapsed, setPauseElapsed] = useState(0);
 
     // Timer Effect (The Single Heartbeat)
     useEffect(() => {
@@ -357,15 +366,17 @@ export default function SprintScreen() {
                 } else {
                     // BREAK TICK
                     breakSecondsRef.current += 1;
-                    setPauseElapsed(prev => prev + 1);
+                    const nextPauseElapsed = pauseElapsedRef.current + 1;
+                    setPauseElapsed(nextPauseElapsed);
+                    pauseElapsedRef.current = nextPauseElapsed;
 
                     // Break Countdown Check
-                    // GUARD: only if phase active AND duration > 0
-                    if (breakPhase === 'active' && breakDuration && breakDuration > 0) {
-                        // Note: we use functional update or check against ref if we want to avoid dependency
-                        // But since we want to respond to pauseElapsed changes... 
-                        // Actually, we can check breakSecondsRef.current - segmentStartTime if we wanted to be dependency-free
-                        // But for now, we minimize dependencies.
+                    if (breakPhaseRef.current === 'active' && breakDurationRef.current > 0) {
+                        if (nextPauseElapsed >= breakDurationRef.current * 60) {
+                            handleResume();
+                            Vibration.vibrate([0, 500, 200, 500]);
+                            Alert.alert('Break Over', 'Your break time is up! Back to work.');
+                        }
                     }
                 }
 
@@ -399,10 +410,10 @@ export default function SprintScreen() {
         const duration = Math.floor((endTime - currentSegmentStartTimeRef.current) / 1000);
         if (duration > 0) { // Only log meaningful segments
             let type: 'task' | 'break' | 'pause' = 'task';
-            let title = explicitTitle || (tasks.length > 0 ? tasks[0].title : 'Unknown Task');
+            let title = explicitTitle || (tasksRef.current.length > 0 ? tasksRef.current[0].title : 'Unknown Task');
 
-            if (isPaused) {
-                type = breakPhase === 'active' ? 'break' : 'pause';
+            if (isPausedRef.current) {
+                type = breakPhaseRef.current === 'active' ? 'break' : 'pause';
                 title = type === 'break' ? 'Break' : 'Paused';
             }
 
@@ -444,10 +455,11 @@ export default function SprintScreen() {
         setBreakDuration(prev => {
             const newDuration = prev + minutes;
             // Guard: if elapsed already exceeds the new duration, auto-resume
-            if (newDuration > 0 && pauseElapsed >= newDuration * 60) {
+            if (newDuration > 0 && pauseElapsedRef.current >= newDuration * 60) {
                 // Schedule resume on next tick to avoid setState-in-setState
                 setTimeout(() => {
                     handleResume();
+                    Vibration.vibrate([0, 500, 200, 500]);
                     Alert.alert('Break Over', 'Your break time is up! Back to work.');
                 }, 0);
             }

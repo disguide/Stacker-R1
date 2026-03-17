@@ -10,6 +10,7 @@ import {
     Dimensions,
     ScrollView,
 } from 'react-native';
+import { StorageService } from '../services/storage';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -137,10 +138,13 @@ const WheelPicker = ({ items, selectedValue, onChange, formatLabel }: { items: (
     );
 };
 
-const OFFSETS = [0, 1, 2, 3, 5, 7, 14, 30]; // Expanded options
+const hours24 = Array.from({ length: 24 }, (_, i) => i);
+const hours12 = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const minutes = Array.from({ length: 60 }, (_, i) => i);
 
 export default function ReminderModal({ visible, onClose, onSelectReminder, initialOffset = 0, initialTime }: ReminderModalProps) {
-    const [offset, setOffset] = useState(initialOffset);
+    // Offset is now hardcoded to 0 (Same day)
+    const [offset] = useState(0);
 
     // Time State
     const [is24h, setIs24h] = useState(true);
@@ -149,10 +153,24 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
 
     const [prevVisible, setPrevVisible] = useState(visible);
 
+    useEffect(() => {
+        const loadPref = async () => {
+            const settings = await StorageService.loadSprintSettings();
+            setIs24h(!!settings.use24HourFormat);
+        };
+        loadPref();
+    }, []);
+
+    const toggle24h = async () => {
+        const newMode = !is24h;
+        setIs24h(newMode);
+        const settings = await StorageService.loadSprintSettings();
+        await StorageService.saveSprintSettings({ ...settings, use24HourFormat: newMode });
+    };
+
     if (visible !== prevVisible) {
         setPrevVisible(visible);
         if (visible) {
-            setOffset(initialOffset || 0);
             if (initialTime) {
                 const [h, m] = initialTime.split(':').map(Number);
                 setHour(h);
@@ -167,14 +185,11 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
 
     const handleSave = () => {
         const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        onSelectReminder(offset, timeStr);
+        onSelectReminder(0, timeStr); // Always 0 offset
         onClose();
     };
 
     // Time Helpers
-    const hours24 = Array.from({ length: 24 }, (_, i) => i);
-    const hours12 = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-    const minutes = Array.from({ length: 60 }, (_, i) => i);
     const isPm = hour >= 12;
     const current12hHour = hour % 12 || 12;
 
@@ -190,42 +205,23 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
         }
     };
 
-    const formatOffset = (val: number) => {
-        if (val === 0) return "On Day";
-        if (val === 1) return "1 Day Before";
-        return `${val} Days Before`;
-    };
-
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
                 <View style={styles.card} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.title}>Set Reminder</Text>
+                    <Text style={styles.title}>Set Reminder Time</Text>
 
                     <View style={styles.pickersRow}>
-                        {/* Offset Picker */}
-                        <View style={styles.column}>
-                            <Text style={styles.label}>When</Text>
-                            <WheelPicker
-                                items={OFFSETS}
-                                selectedValue={offset}
-                                onChange={setOffset}
-                                formatLabel={formatOffset}
-                            />
-                        </View>
-
-                        <View style={styles.divider} />
-
-                        {/* Time Picker */}
-                        <View style={styles.column}>
+                        {/* Time Picker - Now centered and full width */}
+                        <View style={[styles.column, { width: '100%' }]}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                                <Text style={styles.label}>Time</Text>
-                                <TouchableOpacity onPress={() => setIs24h(!is24h)} style={{ marginLeft: 8, padding: 2, borderWidth: 1, borderColor: '#CCC', borderRadius: 4 }}>
+                                <Text style={styles.label}>Select Time</Text>
+                                <TouchableOpacity onPress={toggle24h} style={{ marginLeft: 8, padding: 2, borderWidth: 1, borderColor: '#CCC', borderRadius: 4 }}>
                                     <Text style={{ fontSize: 10 }}>{is24h ? '24H' : '12H'}</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                                 {is24h ? (
                                     <>
                                         <WheelPicker items={hours24} selectedValue={hour} onChange={setHour} />

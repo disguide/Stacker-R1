@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,6 +59,24 @@ export default function SettingsScreen() {
             // Even if 0, we update but the logic in sprint.tsx will skip processing it
             handleUpdateSprintSetting(key, num);
         }
+    };
+
+    const handleResetEverything = async () => {
+        Alert.alert(
+            "RESET EVERYTHING?",
+            "This will delete ALL goals, anti-goals, sprint history, and statistics. This cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "RESET ALL DATA", 
+                    style: "destructive", 
+                    onPress: async () => {
+                        await StorageService.clearAllData();
+                        router.replace('/');
+                    }
+                }
+            ]
+        );
     };
 
     return (
@@ -186,6 +204,22 @@ export default function SettingsScreen() {
                 )}
 
                 <View style={styles.divider} />
+                
+                <Text style={styles.sectionHeader}>Time Preference</Text>
+                
+                <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
+                    <View style={styles.settingInfo}>
+                        <Text style={styles.settingLabel}>24-Hour Time Format</Text>
+                        <Text style={styles.settingSubLabel}>Use 24-hour clock (e.g. 14:00) instead of AM/PM</Text>
+                    </View>
+                    <Switch
+                        value={!!sprintSettings.use24HourFormat}
+                        onValueChange={() => handleToggleSprintSetting('use24HourFormat')}
+                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
+                    />
+                </View>
+
+                <View style={styles.divider} />
 
                 <Text style={styles.sectionHeader}>Tags & Categories</Text>
 
@@ -204,6 +238,19 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
 
                 {/* Placeholder for other settings */}
+                <View style={styles.divider} />
+                
+                <View style={styles.resetSection}>
+                    <Text style={styles.sectionHeaderRed}>DANGER ZONE</Text>
+                    <TouchableOpacity style={styles.resetFullBtn} onPress={handleResetEverything}>
+                        <Ionicons name="trash-bin-outline" size={20} color="#EF4444" />
+                        <Text style={styles.resetFullText}>Reset All Data & Statistics</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.resetSubtext}>
+                        This action is permanent and will clear your entire profile, including all goals and history.
+                    </Text>
+                </View>
+
                 <View style={styles.divider} />
                 <Text style={styles.versionText}>Version 1.1.0</Text>
 
@@ -340,5 +387,40 @@ const styles = StyleSheet.create({
         color: '#333',
         width: 60,
         textAlign: 'center',
-    }
+    },
+    // Reset Styles
+    resetSection: {
+        marginHorizontal: 16,
+        marginTop: 8,
+        marginBottom: 24,
+    },
+    sectionHeaderRed: {
+        fontSize: 12,
+        fontWeight: '900',
+        color: '#EF4444',
+        letterSpacing: 1.5,
+        marginBottom: 12,
+    },
+    resetFullBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: '#FEF2F2',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
+    },
+    resetFullText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#EF4444',
+    },
+    resetSubtext: {
+        fontSize: 12,
+        color: '#94A3B8',
+        marginTop: 10,
+        fontWeight: '500',
+        lineHeight: 18,
+    },
 });

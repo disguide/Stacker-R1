@@ -60,6 +60,7 @@ export class ActionService {
             id: newId,
             date: updates.date || task.date, // Use new date or keep original
             rrule: undefined, // Detached
+            recurrence: undefined, // Ensure full detachment
             seriesId: master.id, // Link back to parent
             originalTaskId: master.id,
             completedDates: [],

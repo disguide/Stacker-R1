@@ -23,6 +23,7 @@ export interface SprintSettings {
     autoBreakDuration?: number;
     maxDurationEnabled?: boolean;
     maxDurationMinutes?: number;
+    use24HourFormat?: boolean; // New: Persistent preference
 }
 
 export interface SavedSprint {
@@ -61,6 +62,7 @@ export interface GoalItem {
     cancelled?: boolean;
     cancelledAt?: string;
     events?: GoalEvent[];
+    note?: string;
 }
 
 export interface MailMessage {

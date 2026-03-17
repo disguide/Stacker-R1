@@ -7,6 +7,7 @@ export interface Task {
     rrule?: string; // e.g. "FREQ=DAILY;COUNT=90"
     completedDates?: string[]; // Array of ISO Date Strings ["2026-01-29", ...]
     exceptionDates?: string[]; // Array of ISO Date Strings ["2026-02-05"] (Deleted days)
+    recurrence?: any; // Recurrence UI configuration
 
     // Legacy/Optional fields we might still need for UI
     deadline?: string;

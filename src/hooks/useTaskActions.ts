@@ -138,6 +138,7 @@ export const useTaskActions = (tasks: Task[], params: { saveTasks: (tasks: Task[
                 id: `${masterTask.id}_detach_${Date.now()}`, // New ID
                 date: dateString,
                 rrule: undefined, // It is now single
+                recurrence: undefined, // Ensure full detachment
                 completedDates: [], // Start fresh
                 exceptionDates: [],
             };
