@@ -111,9 +111,9 @@ export const RecurrenceEngine = {
                 // Single tasks: Check if within lookback range OR future view range
                 if (task.date >= toISODateString(lookbackDate)) {
                     // Check Completion (handling both new array and legacy boolean)
-                    const isCompleted = task.completedDates
+                    const isCompleted = task.completedDates && task.completedDates.length > 0
                         ? task.completedDates.includes(task.date)
-                        : (task as any).completed || false;
+                        : (task.isCompleted || task.completed || false);
 
                     if (isCompleted) return;
 

@@ -42,9 +42,9 @@ export const RolloverSystem = {
             // 1. SINGLE TASKS (Non-Recurring)
             if (!task.rrule) {
                 // Check if it's in the past AND incomplete
-                const isCompleted = task.completedDates
+                const isCompleted = task.completedDates && task.completedDates.length > 0
                     ? task.completedDates.includes(task.date)
-                    : !!(task as any).completed;
+                    : (task.isCompleted || task.completed || false);
 
                 if (!isCompleted && task.date < todayStr && task.date >= lookbackStr) {
                     // IT NEEDS ROLLOVER
