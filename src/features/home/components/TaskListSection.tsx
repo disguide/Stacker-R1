@@ -1,8 +1,10 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, ScrollView, UIManager, Platform, Dimensions, Alert, Animated, PanResponder, LayoutAnimation } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, UIManager, Platform, Dimensions, Alert, Animated, PanResponder, LayoutAnimation } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import SwipeableTaskRow from '../../../components/SwipeableTaskRow';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { styles } from '../../../styles/taskListStyles';
+import { THEME } from '../../../constants/theme';
 import { toISODateString, isToday, getDayName, getDaysDifference, parseEstimatedTime, formatMinutesAsTime, formatDeadline } from '../../../utils/dateHelpers';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -523,12 +525,12 @@ const DraggableRow = React.memo(function DraggableRow({
                 isActive && {
                     transform: [{ translateY: activeTranslateY }, { scale: 1.02 }],
                     opacity: 0.9,
-                    borderColor: '#10B981',
+                    borderColor: THEME.success,
                     borderWidth: 2,
                     borderRadius: 12,
                     zIndex: 9999, // Massively elevated
                     elevation: 10,
-                    shadowColor: '#000',
+                    shadowColor: THEME.shadowColor,
                     shadowOffset: { width: 0, height: 10 },
                     shadowOpacity: 0.2,
                     shadowRadius: 15
@@ -539,7 +541,7 @@ const DraggableRow = React.memo(function DraggableRow({
                 id={task.id} recurrence={task.rrule} title={task.title}
                 completed={task.isCompleted} deadline={task.deadline}
                 estimatedTime={task.estimatedTime} progress={task.progress}
-                daysRolled={task.daysRolled || 0} menuIcon="dots-horizontal" menuColor="#94A3B8"
+                daysRolled={task.daysRolled || 0} menuIcon="dots-horizontal" menuColor={THEME.textSecondary}
                 onProgressUpdate={ops.updateTaskProgress}
                 onComplete={() => ops.handleListTaskToggle(task)}
                 isCompleting={ops.completingTaskIds.has(task.id)}
@@ -633,7 +635,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
         );
     }, [calendarItems]);
 
-    const renderItem = ({ item, index }: { item: any, index: number }) => {
+    const renderItem = useCallback(({ item, index }: { item: any, index: number }) => {
         const zIdx = listData.length - index;
         if (item.type === 'header') {
             return <View style={{ zIndex: zIdx, elevation: zIdx }}>{renderDateHeader(item.date)}</View>;
@@ -687,7 +689,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                     <SwipeableTaskRow
                         id={task.id} recurrence={task.rrule} title={task.title} completed={task.isCompleted}
                         deadline={task.deadline} estimatedTime={task.estimatedTime} progress={task.progress}
-                        daysRolled={task.daysRolled || 0} menuIcon="dots-horizontal" menuColor="#94A3B8"
+                        daysRolled={task.daysRolled || 0} menuIcon="dots-horizontal" menuColor={THEME.textSecondary}
                         onProgressUpdate={ops.updateTaskProgress} onComplete={() => ops.handleListTaskToggle(task)}
                         isCompleting={ops.completingTaskIds.has(task.id)} onEdit={() => ops.openEditDrawer(task)}
                         onMenu={() => ops.openMenu(task)} onMenuLongPress={() => ops.onStartMoveToDate?.(task)} formatDeadline={formatDeadline}
@@ -736,27 +738,27 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                                     placeholderTextColor="#999" value={form.newTaskTitle} onChangeText={form.setNewTaskTitle}
                                     onSubmitEditing={() => form.handleAddTask(dateString)} blurOnSubmit={false} />
                                 <TouchableOpacity onPress={form.cancelAddingTask}>
-                                    <Ionicons name="close-circle" size={24} color="#CCC" />
+                                    <Ionicons name="close-circle" size={24} color={THEME.textSecondary} />
                                 </TouchableOpacity>
                             </View>
                             <View style={styles.addTaskActions}>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                                     <TouchableOpacity style={[styles.addOptionChip, form.newTaskDeadline && styles.addOptionChipActive]}
                                         onPress={() => { form.setCalendarMode('new'); form.setIsCalendarVisible(true); }}>
-                                        <Ionicons name="calendar-outline" size={16} color={form.newTaskDeadline ? "#FFF" : "#666"} />
-                                        <Text style={[styles.addOptionText, form.newTaskDeadline && { color: "#FFF" }]}>
+                                        <Ionicons name="calendar-outline" size={16} color={form.newTaskDeadline ? THEME.bg : THEME.textSecondary} />
+                                        <Text style={[styles.addOptionText, form.newTaskDeadline && { color: THEME.bg }]}>
                                             {form.newTaskDeadline ? formatDeadline(form.newTaskDeadline) : "Date"}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={[styles.addOptionChip, form.newTaskEstimatedTime && styles.addOptionChipActive]}
                                         onPress={() => { form.setDurationMode('new'); form.setIsDurationPickerVisible(true); }}>
-                                        <Feather name="clock" size={16} color={form.newTaskEstimatedTime ? "#FFF" : "#666"} />
-                                        <Text style={[styles.addOptionText, form.newTaskEstimatedTime && { color: "#FFF" }]}>
+                                        <Feather name="clock" size={16} color={form.newTaskEstimatedTime ? THEME.bg : THEME.textSecondary} />
+                                        <Text style={[styles.addOptionText, form.newTaskEstimatedTime && { color: THEME.bg }]}>
                                             {form.newTaskEstimatedTime || "Duration"}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={[styles.addOptionChip, form.newTaskReminderTime && styles.addOptionChipActive]}
                                         onPress={() => form.setIsTimePickerVisible(true)}>
-                                        <Ionicons name="notifications-outline" size={16} color={form.newTaskReminderTime ? "#FFF" : "#666"} />
-                                        <Text style={[styles.addOptionText, form.newTaskReminderTime && { color: "#FFF" }]}>
+                                        <Ionicons name="notifications-outline" size={16} color={form.newTaskReminderTime ? THEME.bg : THEME.textSecondary} />
+                                        <Text style={[styles.addOptionText, form.newTaskReminderTime && { color: THEME.bg }]}>
                                             {form.newTaskReminderTime ? "Times" : "Remind"}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.addSaveButton} onPress={() => form.handleAddTask(dateString)}>
@@ -770,7 +772,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
             );
         }
         return null;
-    };
+    }, [listData, isClumped, sortOption, ops, form, renderDateHeader]);
 
     const handleDragStateChange = useCallback((isDragging: boolean) => {
         scrollRef.current?.setNativeProps({ scrollEnabled: !isDragging });
@@ -802,18 +804,26 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         setSortOption('manual');
                     }}
                     style={{
-                        position: 'absolute', bottom: 24, alignSelf: 'center', backgroundColor: '#10B981',
+                        position: 'absolute', bottom: 24, alignSelf: 'center', backgroundColor: THEME.success,
                         paddingHorizontal: 32, paddingVertical: 14, borderRadius: 28,
-                        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8
+                        shadowColor: THEME.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8
                     }}>
-                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold' }}>Done Reordering</Text>
+                    <Text style={{ color: THEME.bg, fontSize: 16, fontWeight: 'bold' }}>Done Reordering</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
     return (
-        <FlatList data={listData} keyExtractor={(item) => item.key} contentContainerStyle={styles.scrollContent}
-            renderItem={renderItem} removeClippedSubviews={false} />
+        <View style={{ flex: 1 }}>
+            <FlashList
+                data={listData}
+                keyExtractor={(item: any) => item.key}
+                contentContainerStyle={styles.scrollContent}
+                renderItem={renderItem}
+                // @ts-ignore
+                estimatedItemSize={70}
+            />
+        </View>
     );
 }
