@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,7 +18,7 @@ interface TaskListHeaderProps {
     showViewPicker: boolean;
     setShowViewPicker: (show: boolean) => void;
     onOpenReminders: () => void;
-    onOrganize: () => void;
+    onOrganize: (layout: { pageX: number; pageY: number; width: number; height: number }) => void;
 }
 
 export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
@@ -35,6 +35,13 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
 }) => {
     const router = useRouter();
     const { unreadCount } = useMail();
+    const organizeBtnRef = useRef<View>(null);
+
+    const handleOrganizePress = () => {
+        organizeBtnRef.current?.measure((x, y, width, height, pageX, pageY) => {
+            onOrganize({ pageX, pageY, width, height });
+        });
+    };
 
     return (
         <View>
@@ -135,12 +142,9 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                 <View style={{ flex: 1 }} />
 
                 <TouchableOpacity
-                    style={styles.toolbarButton} // Reusing toolbar button style for consistency or creating new one?
-                    // Actually, reusing organizeMethodButton style is maybe better but that was removed. 
-                    // Let's use toolbarButton style but in this row.
-                    // Wait, the user said "Put the organise button all the wayright inline with the date navigation."
-                    // I'll use a simple TouchableOpacity with the icon.
-                    onPress={onOrganize}
+                    ref={organizeBtnRef as any}
+                    style={styles.toolbarButton}
+                    onPress={handleOrganizePress}
                 >
                     <MaterialCommunityIcons name="sort-variant" size={24} color="#333" />
                 </TouchableOpacity>

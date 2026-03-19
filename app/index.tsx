@@ -171,7 +171,10 @@ export default function TaskListScreen() {
                 showViewPicker={homeState.showViewPicker}
                 setShowViewPicker={homeState.setShowViewPicker}
                 onOpenReminders={() => ui.setIsRemindersManagerVisible(true)}
-                onOrganize={() => homeState.setIsOrganizeMenuVisible(true)}
+                onOrganize={(anchor) => {
+                    homeState.setOrganizeMenuAnchor(anchor);
+                    homeState.setIsOrganizeMenuVisible(true);
+                }}
             />
 
             {/* View Picker Modal */}
@@ -406,6 +409,7 @@ export default function TaskListScreen() {
                 visible={homeState.isOrganizeMenuVisible}
                 onClose={() => homeState.setIsOrganizeMenuVisible(false)}
                 isClumped={homeState.isClumped}
+                anchor={homeState.organizeMenuAnchor}
                 onSelectFilter={(filter) => {
                     if (filter === 'manual_reorder') {
                         homeState.setIsReorderMode(true);

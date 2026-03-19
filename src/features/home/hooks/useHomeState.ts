@@ -15,6 +15,7 @@ export function useHomeState() {
     const [isSprintSelectionMode, setIsSprintSelectionMode] = useState(false);
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const [isOrganizeMenuVisible, setIsOrganizeMenuVisible] = useState(false);
+    const [organizeMenuAnchor, setOrganizeMenuAnchor] = useState<{ pageX: number; pageY: number; width: number; height: number } | null>(null);
 
     // Sort option state
     const [sortOption, setSortOption] = useState<string | null>(null);
@@ -43,6 +44,8 @@ export function useHomeState() {
         setIsMenuVisible,
         isOrganizeMenuVisible,
         setIsOrganizeMenuVisible,
+        organizeMenuAnchor,
+        setOrganizeMenuAnchor,
         sortOption,
         setSortOption
     };
