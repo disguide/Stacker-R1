@@ -472,7 +472,7 @@ const DraggableRow = React.memo(function DraggableRow({
     const pan = useRef(new Animated.ValueXY()).current;
 
     // Combine pan and scroll offset once so it doesn't break the animation graph on re-renders
-    const activeTranslateY = useRef(Animated.add(pan.y, scrollOffset)).current;
+    const activeTranslateY = useMemo(() => Animated.add(pan.y, scrollOffset), [pan.y, scrollOffset]);
 
     // Store latest callbacks and index so PanResponder doesn't trap old closures
     const handlersRef = useRef({ onDragStart, onDragMove, onDragEnd, index });
@@ -483,7 +483,7 @@ const DraggableRow = React.memo(function DraggableRow({
     // Note: because reorder mode covers the whole row, we trigger drag immediately
     // or upon slight movement/hold. By returning true onStartShouldSetPanResponder,
     // the whole row becomes a drag grip.
-    const panResponder = useRef(
+    const panResponder = useMemo(() =>
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: () => true,
@@ -509,8 +509,8 @@ const DraggableRow = React.memo(function DraggableRow({
                 pan.setValue({ x: 0, y: 0 });
                 handlersRef.current.onDragEnd(); // e.g., if scrolled away or cancelled
             }
-        })
-    ).current;
+        }), [pan]
+    );
 
     return (
         <Animated.View

@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "tsc": "tsc",
-    "lint": "eslint ."
+    "lint": "eslint -c eslint.config.mjs ."
   },
   "dependencies": {
     "@babel/runtime": "^7.28.6",
