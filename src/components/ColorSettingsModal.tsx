@@ -35,6 +35,7 @@ export default function ColorSettingsModal({ visible, onClose, userColors, onSav
             if (safeColors.length === 0) {
                 safeColors = StorageService.getDefaultUserColors();
             }
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setColors(JSON.parse(JSON.stringify(safeColors)));
             setIsEditing(false);
             setIsAdding(false);

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import React, { useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Animated, PanResponder, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,84 +34,52 @@ interface TaskEditCarouselProps {
 }
 
 export default function TaskEditCarousel({
+    task,
     activeFeature,
-    carouselPanY,
-    panY,
+    setActiveFeature,
     deadline,
     estimatedTime,
     recurrence,
-    color,
-    taskType,
-    importance,
-    reminderOffset,
-    reminderTime,
-    reminderEnabled,
-    userColors,
-    handleSaveRef,
-    activeFeatureRef,
-    setActiveFeature,
-    setDeadline,
-    setEstimatedTime,
-    setRecurrence,
-    setColor,
-    setTaskType,
-    setImportance,
-    updateReminder,
-    onRequestColorSettings,
+    onDeadlineChange,
+    onEstimatedTimeChange,
+    onRecurrenceChange,
+    onClose,
+    onDelete,
+    onTagIdsChange,
 }: TaskEditCarouselProps) {
-    const carouselPanResponder = useRef(
+
+    const carouselPanResponder = useState(() =>
         PanResponder.create({
             onStartShouldSetPanResponder: () => false,
-            // Only capture strong UPWARD movement logic (in bubbling phase to let wheels scroll)
-            onMoveShouldSetPanResponder: (_, gestureState) => {
-                 if (activeFeatureRef.current === 'reminder') {
-                     // Check if touch started near the horizontal center (where time wheels are)
-                     // and ignore the swipe gesture so wheels can scroll freely
-                     const isTouchingWheels = gestureState.x0 > SCREEN_WIDTH / 2 - 120 && gestureState.x0 < SCREEN_WIDTH / 2 + 120;
-                     if (isTouchingWheels) return false;
-                 }
-                 return gestureState.dy < -40 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
+            onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
+                return gestureState.dy > 20 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
             },
             onPanResponderGrant: () => {
                 carouselPanY.setOffset((carouselPanY as any)._value);
                 carouselPanY.setValue(0);
             },
-            onPanResponderMove: (_, gestureState) => {
-                // Only allow upward translation
-                if (gestureState.dy < 0) {
-                    carouselPanY.setValue(gestureState.dy);
-                }
-            },
-            onPanResponderRelease: (_, gestureState) => {
+            onPanResponderMove: Animated.event(
+                [null, { dy: carouselPanY }],
+                { useNativeDriver: false }
+            ),
+            onPanResponderRelease: (evt, gestureState) => {
                 carouselPanY.flattenOffset();
-                if (gestureState.dy < -60 || gestureState.vy < -0.8) {
-                    // Swiped up far enough -> save and close EVERYTHING simultaneously
-                    Animated.parallel([
-                        Animated.timing(carouselPanY, {
-                            toValue: -SCREEN_HEIGHT,
-                            duration: 200,
-                            useNativeDriver: true,
-                        }),
-                        Animated.timing(panY, {
-                            toValue: SCREEN_HEIGHT,
-                            duration: 200, // Sync the background dim fade and main drawer slide down perfectly
-                            useNativeDriver: true,
-                        })
-                    ]).start(() => {
-                        handleSaveRef.current(true); // Save and return to home WITHOUT second delay
-                    });
+                if (gestureState.dy > 150 || gestureState.vy > 1.5) {
+                    // Workaround to access latest closeAndSave
+                    closeAndSaveRef.current?.();
                 } else {
-                    // Snap back
                     Animated.spring(carouselPanY, {
                         toValue: 0,
-                        useNativeDriver: true,
+                        useNativeDriver: false,
+                        bounciness: 4
                     }).start();
                 }
             },
         })
-    ).current;
+    )[0];
 
     const closeAndSave = () => {
+
         Animated.parallel([
             Animated.timing(carouselPanY, {
                 toValue: -SCREEN_HEIGHT,
@@ -126,6 +95,10 @@ export default function TaskEditCarousel({
             handleSaveRef.current(true);
         });
     };
+
+    useEffect(() => {
+        closeAndSaveRef.current = closeAndSave;
+    });
 
     if (!activeFeature) return null;
 

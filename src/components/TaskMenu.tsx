@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import React, { useEffect, useRef } from 'react';
 import {
     View,
@@ -35,7 +36,7 @@ export interface TaskMenuProps {
 }
 
 export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, onMoveToDate, enableSubtasks = true }: TaskMenuProps) {
-    const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+    const [panY] = useState(() => new Animated.Value(SCREEN_HEIGHT));
 
     useEffect(() => {
         if (visible) {

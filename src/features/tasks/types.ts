@@ -21,8 +21,7 @@ export interface Task {
     reminderEnabled?: boolean; // Toggle for notification
     subtasks?: Subtask[];
     progress?: number;
-    completed?: boolean; // For single tasks (legacy)
-    isCompleted?: boolean; // For single tasks (preferred)
+    completed?: boolean; // For single tasks
     tagIds?: string[];
     instanceProgress?: Record<string, number>;
     instanceSubtasks?: Record<string, Subtask[]>;

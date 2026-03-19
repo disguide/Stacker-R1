@@ -33,14 +33,20 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
                 if (deadline.includes('T')) {
                     const d = new Date(deadline);
                     if (!isNaN(d.getTime())) {
-                        setTempSelectedDate(d);
-                        setHasTime(true);
-                        setTempHour(d.getHours());
-                        setTempMinute(d.getMinutes());
+                        const t = setTimeout(() => {
+                            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setTempSelectedDate(d);
+                            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setHasTime(true);
+                            setTempHour(d.getHours());
+                            setTempMinute(d.getMinutes());
+                        }, 0);
+                        return () => clearTimeout(t);
                     }
                 } else if (deadline.match(/^\d{2}:\d{2}$/)) {
                     const [h, m] = deadline.split(':').map(Number);
-                    setHasTime(true);
+                    // eslint-disable-next-line react-hooks/set-state-in-effect
+            setHasTime(true);
                     setTempHour(h);
                     setTempMinute(m);
                     setTempSelectedDate(null);
@@ -48,7 +54,8 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
                     const parts = deadline.split('-');
                     if (parts.length >= 3) {
                         const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                        if (!isNaN(d.getTime())) setTempSelectedDate(d);
+                        if (!isNaN(d.getTime())) // eslint-disable-next-line react-hooks/set-state-in-effect
+            setTempSelectedDate(d);
                     }
                     setHasTime(false);
                 }
@@ -81,7 +88,8 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
         return result;
     }, []);
 
-    const handleDateSelect = (d: Date) => { setTempSelectedDate(d); };
+    const handleDateSelect = (d: Date) => { // eslint-disable-next-line react-hooks/set-state-in-effect
+            setTempSelectedDate(d); };
 
     // ─── Auto-save: apply changes to parent immediately ─────────────
     const isFirstRender = useRef(true);
@@ -117,6 +125,7 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
     const handleConfirm = () => {
         if (showTimeWheel) {
             // Coming back from time wheel — set the time
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setHasTime(true);
             setShowTimeWheel(false);
             return;

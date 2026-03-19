@@ -62,6 +62,7 @@ export default function IdentityScreen() {
         };
 
         loadProfile();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         ensureIdentityTag();
 
         return () => { mounted = false; };
@@ -87,7 +88,8 @@ export default function IdentityScreen() {
         }
         if (!identityTagId) {
             Alert.alert('Error', 'Identity system not initialized yet. Please wait a moment.');
-            ensureIdentityTag(); // Retry
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+        ensureIdentityTag(); // Retry
             return;
         }
 

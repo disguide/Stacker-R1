@@ -151,17 +151,15 @@ export const NotificationService = {
             // We use a surgical loop because dismissAllNotificationsAsync often silently 
             // fails to delete old/stale notifications on certain OS builds
             const presented = await Notifications.getPresentedNotificationsAsync();
-            const dismissPromises = presented
-                .filter(notification => notification.request?.identifier)
-                .map(notification => Notifications.dismissNotificationAsync(notification.request.identifier));
-
-            await Promise.all(dismissPromises);
+            for (const notification of presented) {
+                if (notification.request?.identifier) {
+                    await Notifications.dismissNotificationAsync(notification.request.identifier);
+                }
+            }
 
             // Also politely request full wipes as a fallback
-            await Promise.all([
-                Notifications.dismissAllNotificationsAsync(),
-                Notifications.cancelAllScheduledNotificationsAsync()
-            ]);
+            await Notifications.dismissAllNotificationsAsync();
+            await Notifications.cancelAllScheduledNotificationsAsync();
 
             if (__DEV__) console.log(`[NotificationService] 🧹 Wiped all delivered and scheduled OS notifications.`);
 
@@ -169,7 +167,7 @@ export const NotificationService = {
             const now = new Date();
 
             // 2. Iterate only the tasks visible on this specific day's UI
-            const schedulePromises = items.map(async (item) => {
+            for (const item of items) {
                 // Skip headers, completed items, or items without time/reminders
                 // CalendarItem uses 'isCompleted'
                 if (
@@ -178,13 +176,13 @@ export const NotificationService = {
                     !item.reminderEnabled ||
                     !item.reminderTime
                 ) {
-                    return;
+                    continue;
                 }
 
                 // 3. Time-Only Trigger Logic: 
                 // We only care about the TIME it's supposed to ring Today.
                 const timeParts = item.reminderTime.split(':').map(Number);
-                if (timeParts.length !== 2) return;
+                if (timeParts.length !== 2) continue;
                 const [hours, minutes] = timeParts;
 
                 // Create a target date for TODAY at the specified reminder time
@@ -209,9 +207,7 @@ export const NotificationService = {
                     scheduledCount++;
                     if (__DEV__) console.log(`[NotificationService] 🎯 Synced reminder for "${item.title}" at ${targetDate.toLocaleTimeString()}`);
                 }
-            });
-
-            await Promise.all(schedulePromises);
+            }
 
             if (__DEV__) console.log(`[NotificationService] ✅ Sync Complete. ${scheduledCount} active notifications scheduled for today.`);
         } catch (e) {

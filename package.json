@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "tsc": "tsc",
-    "lint": "eslint -c eslint.config.mjs ."
+    "lint": "eslint ."
   },
   "dependencies": {
     "@babel/runtime": "^7.28.6",
@@ -16,7 +16,7 @@
     "@nozbe/watermelondb": "^0.28.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/slider": "^5.0.1",
-    "@shopify/flash-list": "^2.3.0",
+    "@shopify/flash-list": "^2.0.2",
     "expo": "~54.0.33",
     "expo-av": "~16.0.8",
     "expo-blur": "~15.0.8",
@@ -33,7 +33,7 @@
     "expo-status-bar": "~3.0.9",
     "lokijs": "^1.5.12",
     "react": "19.1.0",
-    "react-dom": "^19.1.0",
+    "react-dom": "^19.2.4",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-keyboard-controller": "^1.18.5",

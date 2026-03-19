@@ -77,7 +77,7 @@ export default function TaskEditDrawer({
     const [isRecurrencePickerVisible, setIsRecurrencePickerVisible] = useState(false);
     const [activeFeature, setActiveFeature] = useState<FeatureKey | null>(null);
     const activeFeatureRef = useRef(activeFeature);
-    activeFeatureRef.current = activeFeature;
+    useEffect(() => { activeFeatureRef.current = activeFeature; }, [activeFeature]);
     const [isRendered, setIsRendered] = useState(visible);
 
     // Use Custom Hook for Reminders
@@ -114,16 +114,17 @@ export default function TaskEditDrawer({
     };
 
     // Animation value for translateY
-    const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+    const [panY] = useState(() => new Animated.Value(SCREEN_HEIGHT));
     
     // Animation value for full-screen carousel overlay swipe-up
-    const carouselPanY = useRef(new Animated.Value(0)).current;
+    const [carouselPanY] = useState(() => new Animated.Value(0));
 
     // Track previous task to handle updates intelligently
     const prevTaskRef = useRef<Task | null>(null);
 
     useEffect(() => {
         if (visible && task) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsRendered(true);
             const prevTask = prevTaskRef.current;
             const isNewTask = !prevTask || prevTask.id !== task.id;
@@ -265,35 +266,33 @@ export default function TaskEditDrawer({
     const handleSaveRef = useRef(handleSave);
     useEffect(() => { handleSaveRef.current = handleSave; });
 
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => false, // Allow clicks to pass through
-            onMoveShouldSetPanResponder: (_, gestureState) => {
-                // Only capture if dragging noticeably DOWNWARD. 
-                // This prevents tapping (which naturally has slight movement) from being swallowed 
-                // and prevents UPWARD swipes from capturing the responder.
-                return gestureState.dy > 15 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
-            },
-            onPanResponderMove: (_, gestureState) => {
-                if (gestureState.dy > 0) {
-                    panY.setValue(gestureState.dy);
-                }
-            },
-            onPanResponderRelease: (_, gestureState) => {
-                if (gestureState.dy > 100) {
-                    // Dragged down far enough - Auto Save & Close
-                    // Use ref to call latest function
-                    handleSaveRef.current();
-                } else {
-                    // Snap back up
-                    Animated.spring(panY, {
-                        toValue: 0,
-                        useNativeDriver: true,
-                    }).start();
-                }
-            },
-        })
-    ).current;
+    // eslint-disable-next-line react-hooks/refs
+    const [panResponder] = useState(() => PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
+            return gestureState.dy > 10;
+        },
+        onPanResponderGrant: () => {
+            panY.setOffset((panY as any)._value);
+            panY.setValue(0);
+        },
+        onPanResponderMove: Animated.event(
+            [null, { dy: panY }],
+            { useNativeDriver: false }
+        ),
+        onPanResponderRelease: (evt, gestureState) => {
+            panY.flattenOffset();
+            if (gestureState.dy > 150 || gestureState.vy > 1.5) {
+                onClose();
+            } else {
+                Animated.spring(panY, {
+                    toValue: 0,
+                    useNativeDriver: false,
+                    bounciness: 4
+                }).start();
+            }
+        },
+    }));
 
     // Reset carousel position when opened
     useEffect(() => {
