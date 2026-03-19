@@ -70,7 +70,7 @@ export function flattenCalendarData(
             // or filter if strict "Calendar" view.
             // For now, let's include if >= startDate (simple optimization)
             if (task.date >= startDateStr) {
-                const isCompleted = task.completedDates ? task.completedDates.includes(task.date) : ((task as any).completed || false);
+                const isCompleted = task.completedDates ? task.completedDates.includes(task.date) : (task.isCompleted || task.completed || false);
 
                 // VANISH COMPLETED: If completed, do not add to items
                 if (isCompleted) {

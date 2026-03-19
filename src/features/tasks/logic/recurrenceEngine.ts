@@ -113,7 +113,7 @@ export const RecurrenceEngine = {
                     // Check Completion (handling both new array and legacy boolean)
                     const isCompleted = task.completedDates
                         ? task.completedDates.includes(task.date)
-                        : (task as any).completed || false;
+                        : (task.isCompleted || task.completed || false);
 
                     if (isCompleted) return;
 

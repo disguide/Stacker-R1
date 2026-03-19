@@ -62,7 +62,7 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
         const validTasks = tasks.filter(t => {
             // Hide completed tasks — check both legacy boolean AND completedDates array
             const isCompletedToday = Array.isArray(t.completedDates) && t.completedDates.includes(t.date || today);
-            const isCompletedLegacy = !!(t as any).completed;
+            const isCompletedLegacy = !!(t.isCompleted || t.completed);
             if (isCompletedToday || isCompletedLegacy) return false;
 
             // For recurring tasks, also check if completed TODAY specifically

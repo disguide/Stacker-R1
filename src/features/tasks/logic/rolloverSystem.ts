@@ -44,7 +44,7 @@ export const RolloverSystem = {
                 // Check if it's in the past AND incomplete
                 const isCompleted = task.completedDates
                     ? task.completedDates.includes(task.date)
-                    : !!(task as any).completed;
+                    : (task.isCompleted || task.completed || false);
 
                 if (!isCompleted && task.date < todayStr && task.date >= lookbackStr) {
                     // IT NEEDS ROLLOVER
