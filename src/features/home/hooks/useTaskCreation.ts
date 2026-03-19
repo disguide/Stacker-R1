@@ -124,7 +124,7 @@ export function useTaskCreation({
 
         addTask(newTask);
         cancelAddingTask();
-    }, [newTaskTitle, newTaskDeadline, newTaskEstimatedTime, newTaskRecurrence, newTaskReminderTime, tasks, addTask, updateTask, cancelAddingTask]);
+    }, [newTaskTitle, newTaskDeadline, newTaskEstimatedTime, newTaskRecurrence, newTaskReminderTime, tasks, addTask, updateTask, cancelAddingTask, setNewTaskTitle]);
 
     const saveEditedTask = useCallback((updatedTask: Task, shouldClose: boolean = true, editingTask: any) => {
         // 1. HANDLE NEW TASK CREATION

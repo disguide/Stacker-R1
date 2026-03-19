@@ -508,12 +508,12 @@ const DraggableRow = React.memo(function DraggableRow({
                 handlersRef.current.onDragEnd(); // e.g., if scrolled away or cancelled
             }
         })
-    ).current;
+    );
 
     return (
         <Animated.View
             onLayout={onLayout}
-            {...panResponder.panHandlers}
+            {...panResponder.current.panHandlers}
             style={[
                 styles.taskCard,
                 style,

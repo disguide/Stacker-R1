@@ -3,7 +3,7 @@ const { FlatCompat } = require("@eslint/eslintrc");
 const js = require("@eslint/js");
 
 const compat = new FlatCompat({
-    baseDirectory: __dirname,
+    baseDirectory: typeof __dirname !== 'undefined' ? __dirname : process.cwd(),
     recommendedConfig: js.configs.recommended,
 });
 

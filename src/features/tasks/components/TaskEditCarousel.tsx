@@ -108,7 +108,7 @@ export default function TaskEditCarousel({
                 }
             },
         })
-    ).current;
+    );
 
     const closeAndSave = () => {
         Animated.parallel([
@@ -136,7 +136,7 @@ export default function TaskEditCarousel({
                     styles.carouselSheet,
                     { transform: [{ translateY: carouselPanY }] }
                 ]}
-                {...carouselPanResponder.panHandlers}
+                {...carouselPanResponder.current.panHandlers}
             >
                 <View style={styles.carouselHeader}>
                     <TouchableOpacity onPress={() => setActiveFeature(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
