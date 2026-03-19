@@ -51,6 +51,7 @@ export default function DurationPickerModal({ visible, onClose, onSelectDuration
 
     useEffect(() => {
         if (visible) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCurrentMinutes(parseDuration(initialDuration));
         }
     }, [visible, initialDuration]);

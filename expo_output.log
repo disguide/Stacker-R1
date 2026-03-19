@@ -1,0 +1,9 @@
+Starting project at /app
+Starting Metro Bundler
+The following packages should be updated for best compatibility with the installed expo version:
+  @expo/metro-runtime@55.0.6 - expected version: ~6.1.2
+  react-dom@19.2.4 - expected version: 19.1.0
+  react-native-reanimated@3.16.7 - expected version: ~4.1.1
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8081
+Logs for your project will appear below.

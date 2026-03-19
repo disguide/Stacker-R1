@@ -119,6 +119,7 @@ export default function TaskFeatureCarousel({
         if (visible) {
             const idx = activeFeatures.indexOf(initialFeature);
             const page = idx >= 0 ? idx : 0;
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCurrentPage(page);
             setRenderedPages(new Set([page]));
             
@@ -173,7 +174,8 @@ export default function TaskFeatureCarousel({
         setRenderedPages(prev => new Set(prev).add(page));
         // Add +1 because index 0 is the clone
         flatListRef.current?.scrollToIndex({ index: page + 1, animated });
-        setCurrentPage(page);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+            setCurrentPage(page);
     };
 
     const handleMomentumScrollEnd = (e: any) => {

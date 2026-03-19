@@ -7,15 +7,10 @@ interface OrganizeMenuProps {
     onClose: () => void;
     onSelectFilter: (filterType: string) => void;
     isClumped: boolean;
-    anchor?: { pageX: number; pageY: number; width: number; height: number } | null;
 }
 
-export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped, anchor }: OrganizeMenuProps) => {
+export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped }: OrganizeMenuProps) => {
     if (!visible) return null;
-
-    // Default fallback position if measurement fails
-    const topPosition = anchor ? anchor.pageY + anchor.height + 8 : 142;
-    const rightPosition = anchor ? Dimensions.get('window').width - anchor.pageX - anchor.width : 16;
 
     return (
         <Modal
@@ -25,7 +20,7 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped, anch
             onRequestClose={onClose}
         >
             <TouchableOpacity style={styles.overlay} onPress={onClose} activeOpacity={1}>
-                <View style={[styles.menuContainer, { top: topPosition, right: rightPosition }]}>
+                <View style={styles.menuContainer}>
                     <Text style={styles.menuTitle}>Organize By</Text>
 
                     <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('auto_organise')}>
@@ -75,13 +70,16 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.3)',
+        justifyContent: 'flex-start', // Align to top
+        alignItems: 'flex-end',      // Align to right
     },
     menuContainer: {
-        position: 'absolute',
         backgroundColor: '#FFF',
         width: 250,
         borderRadius: 12,
         padding: 16,
+        marginTop: 142, // Adjusted to appear below the button (Organize button is in nav row)
+        marginRight: 16, // Align with the button on the right
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,

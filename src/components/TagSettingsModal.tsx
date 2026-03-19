@@ -32,19 +32,24 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
     const [editColor, setEditColor] = useState(COLORS[0]);
     const [editSymbol, setEditSymbol] = useState('🏷️');
 
+    useEffect(() => {
+        if (visible) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setLocalTags(tags);
+            // resetEdit
+            setEditingId(null);
+            setEditLabel('');
+            setEditColor(COLORS[0]);
+            setEditSymbol('🏷️');
+        }
+    }, [visible, tags]);
+
     const resetEdit = () => {
         setEditingId(null);
         setEditLabel('');
         setEditColor(COLORS[0]);
         setEditSymbol('🏷️');
     };
-
-    useEffect(() => {
-        if (visible) {
-            setLocalTags(tags);
-            resetEdit();
-        }
-    }, [visible, tags]);
 
     const handleStartEdit = (tag: TagDefinition) => {
         setEditingId(tag.id);

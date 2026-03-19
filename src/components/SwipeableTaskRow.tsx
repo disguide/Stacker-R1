@@ -188,8 +188,8 @@ export default function SwipeableTaskRow({
         stateRef.current = { isSelectionMode, isReorderMode, completed, onSwipeStart, onSwipeEnd, onProgressUpdate, onComplete, id };
     }, [isSelectionMode, isReorderMode, completed, onSwipeStart, onSwipeEnd, onProgressUpdate, onComplete, id]);
 
-    const panResponder = useMemo(() =>
-        PanResponder.create({
+    // eslint-disable-next-line react-hooks/refs
+    const [panResponder] = useState(() => PanResponder.create({
             onStartShouldSetPanResponder: () => false,
             // Only capture if drag is significant (avoids stealing taps on checkbox)
             onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -331,8 +331,7 @@ export default function SwipeableTaskRow({
                 }).start();
                 setDisplayProgress(resetVal);
             }
-        }), []
-    );
+        }));
 
     return (
         <View

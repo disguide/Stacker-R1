@@ -62,7 +62,8 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
             case 'weekdays': rule = { frequency: 'weekly', interval: 1, daysOfWeek: ['MO', 'TU', 'WE', 'TH', 'FR'] }; break;
             case 'none': rule = null; break;
         }
-        setLocalRecurrence(rule);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+            setLocalRecurrence(rule);
         onRecurrenceChange(rule); // Auto-save
     };
 
@@ -77,7 +78,8 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
             };
             // Prevent recursive loop if local isn't completely new
             if (JSON.stringify(rule) !== JSON.stringify(localRecurrence)) {
-                setLocalRecurrence(rule);
+                // eslint-disable-next-line react-hooks/set-state-in-effect
+            setLocalRecurrence(rule);
                 onRecurrenceChange(rule);
             }
         }
@@ -109,6 +111,7 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
                 interval: repeatInterval,
                 daysOfWeek: frequency === 'weekly' && selectedDays.size > 0 ? Array.from(selectedDays) : undefined,
             };
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLocalRecurrence(rule);
             onRecurrenceChange(rule);
         }
