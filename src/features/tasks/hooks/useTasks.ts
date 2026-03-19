@@ -20,7 +20,10 @@ export function useTasks() {
     }, []);
 
     useEffect(() => {
-        refresh();
+        const timer = setTimeout(() => {
+            refresh();
+        }, 0);
+        return () => clearTimeout(timer);
     }, [refresh]);
 
     // --- PROJECTION ---

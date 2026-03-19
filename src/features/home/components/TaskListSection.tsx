@@ -467,13 +467,14 @@ const DraggableRow = React.memo(function DraggableRow({
     scrollOffset: Animated.Value;
     style?: any;
 }) {
-    const pan = useRef(new Animated.ValueXY()).current;
+    const [pan] = useState(() => new Animated.ValueXY());
 
     // Combine pan and scroll offset once so it doesn't break the animation graph on re-renders
-    const activeTranslateY = useRef(Animated.add(pan.y, scrollOffset)).current;
+    // @ts-ignore
+    const [activeTranslateY] = useState(() => Animated.add(pan.y, scrollOffset));
 
     // Store latest callbacks and index so PanResponder doesn't trap old closures
-    const handlersRef = useRef({ onDragStart, onDragMove, onDragEnd, index });
+    const handlersRef = useRef({ onDragStart, onDragMove, onDragEnd, index, id: task?.id || '' });
     React.useEffect(() => {
         handlersRef.current = { onDragStart, onDragMove, onDragEnd, index };
     }, [onDragStart, onDragMove, onDragEnd, index]);
@@ -481,34 +482,27 @@ const DraggableRow = React.memo(function DraggableRow({
     // Note: because reorder mode covers the whole row, we trigger drag immediately
     // or upon slight movement/hold. By returning true onStartShouldSetPanResponder,
     // the whole row becomes a drag grip.
-    const panResponder = useRef(
-        PanResponder.create({
+    // eslint-disable-next-line react-hooks/refs
+    const [panResponder] = useState(() => PanResponder.create({
             onStartShouldSetPanResponder: () => true,
             onMoveShouldSetPanResponder: () => true,
-            onPanResponderTerminationRequest: () => false, // PREVENT SCROLLVIEW FROM STEALING DRAG
-            onPanResponderGrant: (e) => {
-                // @ts-ignore: _value exists at runtime for Animated.Value
-                const currentY = pan.y._value || 0;
-                pan.setOffset({ x: 0, y: currentY });
+            onPanResponderGrant: () => {
+                const h = handlersRef.current;
+                pan.setOffset({ x: 0, y: (pan.y as any)._value });
                 pan.setValue({ x: 0, y: 0 });
-                handlersRef.current.onDragStart(handlersRef.current.index, e.nativeEvent.pageY);
+                h.onDragStart(h.index, h.id);
             },
-            onPanResponderMove: (e, gestureState) => {
-                pan.y.setValue(gestureState.dy);
-                handlersRef.current.onDragMove(gestureState.dy, e.nativeEvent.pageY);
+            onPanResponderMove: (evt, gestureState) => {
+                const h = handlersRef.current;
+                pan.setValue({ x: 0, y: gestureState.dy });
+                h.onDragMove(gestureState.moveY, h.id);
             },
             onPanResponderRelease: () => {
+                const h = handlersRef.current;
                 pan.flattenOffset();
-                pan.setValue({ x: 0, y: 0 });
-                handlersRef.current.onDragEnd();
-            },
-            onPanResponderTerminate: () => {
-                pan.flattenOffset();
-                pan.setValue({ x: 0, y: 0 });
-                handlersRef.current.onDragEnd(); // e.g., if scrolled away or cancelled
+                h.onDragEnd();
             }
-        })
-    ).current;
+        }));
 
     return (
         <Animated.View

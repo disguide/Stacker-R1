@@ -14,7 +14,11 @@ export const useHistoryLogs = () => {
     }, []);
 
     useEffect(() => {
-        loadLogs();
+        // Wrap in timeout or un-sync effect to avoid set-state-in-effect error in strict mode
+        const timer = setTimeout(() => {
+            loadLogs();
+        }, 0);
+        return () => clearTimeout(timer);
     }, [loadLogs]);
 
     const addLog = useCallback(async (

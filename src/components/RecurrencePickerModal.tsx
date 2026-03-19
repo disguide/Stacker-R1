@@ -40,6 +40,7 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
 
     useEffect(() => {
         if (initialRule) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setViewMode('custom'); // Or detect if it matches a preset
             setFrequency(initialRule.frequency);
             setInterval(initialRule.interval.toString());

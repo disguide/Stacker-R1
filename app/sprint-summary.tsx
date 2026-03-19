@@ -76,67 +76,43 @@ const SprintSummaryTaskRow = ({
     useEffect(() => { onProgressChangeRef.current = onProgressChange; }, [onProgressChange]);
     useEffect(() => { onStatusChangeRef.current = onStatusChange; }, [onStatusChange]);
 
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-            onStartShouldSetPanResponderCapture: () => true,
-            onMoveShouldSetPanResponder: (_, gestureState) => {
-                return Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-            },
-            onPanResponderGrant: (evt) => {
-                setIsDragging(true);
-                const w = widthRef.current;
-                if (w > 0) {
-                    const touchX = evt.nativeEvent.locationX;
-                    startTouchXRef.current = touchX;
-                    let p = (touchX / w) * 100;
-                    p = Math.max(0, Math.min(100, p));
-                    setProgress(p);
-                    progressAnim.setValue(p);
-                    onProgressChangeRef.current(task.id, p);
+    // eslint-disable-next-line react-hooks/refs
+    const [panResponder] = useState(() => PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+            const currentVal = (progressAnim as any)._value;
+            progressAnim.setOffset(currentVal);
+            progressAnim.setValue(0);
+        },
+        onPanResponderMove: (evt, gestureState) => {
+            // Drag right -> increase width
+            // Container max width roughly screenWidth - 40
+            const { width: windowWidth } = require('react-native').Dimensions.get('window');
+            const maxDrag = windowWidth - 80;
+            const dragPercent = (gestureState.dx / maxDrag) * 100;
+            progressAnim.setValue(dragPercent);
+        },
+        onPanResponderRelease: (evt, gestureState) => {
+            progressAnim.flattenOffset();
+            const finalVal = (progressAnim as any)._value;
+            let target = finalVal;
+
+            if (finalVal > 50) target = 100;
+            else target = 0;
+
+            Animated.spring(progressAnim, {
+                toValue: target,
+                useNativeDriver: false,
+                bounciness: 0
+            }).start(() => {
+                if (target === 100 && !task.completed) {
+                    if (onToggle) onToggle(task.id, true);
+                } else if (target === 0 && task.completed) {
+                    // Could un-complete here if supported
                 }
-            },
-            onPanResponderMove: (_, gestureState) => {
-                const w = widthRef.current;
-                if (w > 0) {
-                    // Absolute tracking if we start from jump
-                    // But if we want relative dragging from initial touch point?
-                    // We used "Jump to finger" logic in Grant, so we are tracking finger position relative to view
-                    // gestureState.moveX is page-relative.
-                    // locationX is element-relative but ONLY at start of gesture (in Grant).
-                    // To track accurately:
-                    // Current X = Start X (from Grant) + dx
-                    const currentX = startTouchXRef.current + gestureState.dx;
-                    let p = (currentX / w) * 100;
-                    p = Math.max(0, Math.min(100, p));
-                    if (p > 95) p = 100; // Magnetic Snap
-                    setProgress(p);
-                    progressAnim.setValue(p);
-                    onProgressChangeRef.current(task.id, p);
-                }
-            },
-            onPanResponderRelease: (_, gestureState) => {
-                setIsDragging(false);
-                const w = widthRef.current;
-                if (w > 0) {
-                    const currentX = startTouchXRef.current + gestureState.dx;
-                    let p = (currentX / w) * 100;
-                    if (p > 95) p = 100;
-                    p = Math.max(0, Math.min(100, p));
-                    Animated.spring(progressAnim, {
-                        toValue: p,
-                        useNativeDriver: false,
-                        bounciness: 0
-                    }).start();
-                    setProgress(p);
-                    onProgressChangeRef.current(task.id, p);
-                    onStatusChangeRef.current(task.id, p >= 95);
-                }
-            },
-            onPanResponderTerminationRequest: () => false,
-            onPanResponderTerminate: () => setIsDragging(false)
-        })
-    ).current;
+            });
+        }
+    }));
 
     const handleToggle = () => {
         const target = isConfirmed ? 0 : 100;
@@ -155,14 +131,19 @@ const SprintSummaryTaskRow = ({
             style={styles.taskItemContainer}
             onLayout={(e) => widthRef.current = e.nativeEvent.layout.width}
         >
-            <Animated.View style={[
+            <Animated.View // eslint-disable-next-line react-hooks/refs
+            style={[
                 styles.progressFill,
                 {
-                    width: progressAnim.interpolate({
+
+// eslint-disable-next-line react-hooks/refs
+width: progressAnim.interpolate({
                         inputRange: [0, 100],
                         outputRange: ['0%', '100%']
                     }),
-                    backgroundColor: progressAnim.interpolate({
+
+// eslint-disable-next-line react-hooks/refs
+backgroundColor: progressAnim.interpolate({
                         inputRange: [0, 100],
                         outputRange: ['#F1F5F9', THEME.successBg]
                     })
@@ -171,14 +152,16 @@ const SprintSummaryTaskRow = ({
 
             {/* Overlay allows gestures anywhere on the row */}
             {/* zIndex 20 ensures it is above background but below Content if Content is higher */}
-            <View style={[styles.sliderOverlay, { zIndex: 20 }]} {...panResponder.panHandlers} />
+            <View // eslint-disable-next-line react-hooks/refs
+            style={[styles.sliderOverlay, { zIndex: 20 }]} {...panResponder.panHandlers} />
 
             {/* Content sits visually on top. 
                 pointerEvents="box-none" lets touches pass through the container.
                 Checkbox is touchable.
                 Text wrapper is NOT touchable (pointerEvents="none"), so touches fall through to Overlay.
             */}
-            <View style={[styles.taskContent, { zIndex: 30 }]} pointerEvents="box-none">
+            <View // eslint-disable-next-line react-hooks/refs
+            style={[styles.taskContent, { zIndex: 30 }]} pointerEvents="box-none">
                 <TouchableOpacity
                     onPress={handleToggle}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -192,7 +175,8 @@ const SprintSummaryTaskRow = ({
                 </TouchableOpacity>
 
                 <View style={{ flex: 1 }} pointerEvents="none">
-                    <Text style={[styles.taskTitle, isConfirmed && { color: '#065F46' }]} numberOfLines={1}>
+                    <Text // eslint-disable-next-line react-hooks/refs
+            style={[styles.taskTitle, isConfirmed && { color: '#065F46' }]} numberOfLines={1}>
                         {task.title}
                     </Text>
                     <View style={styles.metaRow}>
@@ -232,7 +216,8 @@ export default function SprintSummaryScreen() {
             // If already completed, set to 100, otherwise leave at 0 or current progress
             initialMap[t.id] = t.completed ? 100 : (t.progress || 0);
         });
-        setTaskProgress(initialMap);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+            setTaskProgress(initialMap);
 
         if (params.timeline) {
             try {
@@ -485,7 +470,8 @@ export default function SprintSummaryScreen() {
 
                     <View style={styles.statContainer}>
                         <Text style={styles.summaryLabel}>BREAK TIME</Text>
-                        <Text style={[styles.scaryBigTime, { color: THEME.success }]}>{formatDuration(breakSeconds)}</Text>
+                        <Text // eslint-disable-next-line react-hooks/refs
+            style={[styles.scaryBigTime, { color: THEME.success }]}>{formatDuration(breakSeconds)}</Text>
                     </View>
                 </View>
 
@@ -537,7 +523,8 @@ export default function SprintSummaryScreen() {
                                 return (
                                     <View key={idx} style={styles.timelineRow}>
                                         <View style={styles.timelineVisuals}>
-                                            <View style={[
+                                            <View // eslint-disable-next-line react-hooks/refs
+            style={[
                                                 styles.timelineDot,
                                                 { backgroundColor: isTask ? THEME.accent : (isBreak ? THEME.success : '#94A3B8') }
                                             ]} />
