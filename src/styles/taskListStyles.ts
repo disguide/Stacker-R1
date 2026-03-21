@@ -502,27 +502,27 @@ export const styles = StyleSheet.create({
     },
     startSprintContainer: {
         position: 'absolute',
-        bottom: 20, // Lower it a bit
-        left: 12, // Moved closer to left edge
+        bottom: 24,
+        left: 20,
         right: 20,
-        flexDirection: 'column', // Stack vertically
-        alignItems: 'center', // Center horizontally
-        justifyContent: 'flex-end', // Stick to bottom
+        flexDirection: 'row', // Horizontal
+        alignItems: 'center',
+        justifyContent: 'center', // Center the pair
         zIndex: 200,
         elevation: 200,
-        pointerEvents: 'box-none', // Allow clicking through empty space
+        pointerEvents: 'box-none',
     },
     startSprintButton: {
         backgroundColor: '#FFFFFF',
-        flexDirection: 'row',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
+        paddingVertical: 10,
         paddingHorizontal: 20,
         borderRadius: 12, // Rounded rectangle instead of pill
         // flex: 1, // Remove flex to let it size to content or specific width if needed, but flex:1 fills space
         // flex: 1, // Removed flex to let it size naturally next to organize button
-        gap: 12,
+        
         // Clicky/Tactile Shadow
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
@@ -542,7 +542,7 @@ export const styles = StyleSheet.create({
         color: '#000000', // Black
         fontSize: 16,
         fontWeight: '900', // Extra bold
-        letterSpacing: 1,
+        letterSpacing: 0.5,
         textTransform: 'uppercase',
     },
     organizeMethodButton: {

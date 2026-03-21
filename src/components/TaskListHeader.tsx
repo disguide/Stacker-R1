@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { styles } from '../styles/taskListStyles';
@@ -19,6 +19,7 @@ interface TaskListHeaderProps {
     setShowViewPicker: (show: boolean) => void;
     onOpenReminders: () => void;
     onOrganize: (layout: { pageX: number; pageY: number; width: number; height: number }) => void;
+    isOrganizeMenuVisible: boolean;
 }
 
 export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
@@ -31,8 +32,24 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
     showViewPicker,
     setShowViewPicker,
     onOpenReminders,
-    onOrganize
+    onOrganize,
+    isOrganizeMenuVisible
 }) => {
+    const rotateAnim = React.useRef(new Animated.Value(0)).current;
+
+    React.useEffect(() => {
+        Animated.spring(rotateAnim, {
+            toValue: isOrganizeMenuVisible ? 1 : 0,
+            useNativeDriver: true,
+            friction: 8,
+            tension: 40
+        }).start();
+    }, [isOrganizeMenuVisible]);
+
+    const rotation = rotateAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '180deg']
+    });
     const router = useRouter();
     const { unreadCount } = useMail();
     const organizeBtnRef = useRef<View>(null);
@@ -55,6 +72,13 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                         onPress={() => router.push('/friends')}
                     >
                         <Ionicons name="people-outline" size={26} color="#333" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.toolbarButton}
+                        onPress={() => router.push('/journal')}
+                    >
+                        <Ionicons name="book-outline" size={26} color="#333" />
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -116,6 +140,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                     <Ionicons name="chevron-down" size={16} color="#666" style={{ marginTop: 2 }} />
                 </TouchableOpacity>
 
+
                 <TouchableOpacity
                     style={styles.arrowButton}
                     onPress={() => onOffsetChange(offset + 1)}
@@ -146,7 +171,9 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                     style={styles.toolbarButton}
                     onPress={handleOrganizePress}
                 >
-                    <MaterialCommunityIcons name="sort-variant" size={24} color="#333" />
+                    <Animated.View style={{ transform: [{ rotate: rotation }] }}>
+                        <MaterialCommunityIcons name="sort-variant" size={24} color="#333" />
+                    </Animated.View>
                 </TouchableOpacity>
             </View>
         </View>

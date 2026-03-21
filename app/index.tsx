@@ -32,7 +32,7 @@ import { useTaskCreation } from '../src/features/home/hooks/useTaskCreation';
 // Services & Utils
 import { StorageService } from '../src/services/storage';
 import { RecurrenceEngine } from '../src/features/tasks/logic/recurrenceEngine';
-import { toISODateString } from '../src/utils/dateHelpers';
+import { toISODateString, parseEstimatedTime, formatMinutesAsTime } from '../src/utils/dateHelpers';
 import { VIEW_CONFIG } from '../src/constants/theme';
 import { styles } from '../src/styles/taskListStyles';
 
@@ -70,6 +70,47 @@ export default function TaskListScreen() {
     // Use calendarItems (which include ghost/recurring instances) for Sprint Mode
     // This ensures that if a user selects a recurring instance, useSprintMode finds it.
     const sprintMode = useSprintMode(calendarItems as any[]);
+
+    const sprintSummary = useMemo(() => {
+        if (!sprintMode.isSprintSelectionMode || sprintMode.selectedSprintTaskIds.size === 0) return '';
+        let totalMinutes = 0;
+        let tasksWithoutTimeCount = 0;
+
+        calendarItems.forEach((item: any) => {
+            if (item.type !== 'header' && sprintMode.selectedSprintTaskIds.has(item.id)) {
+                let taskHasTime = false;
+                if (item.estimatedTime) {
+                    const mins = parseEstimatedTime(item.estimatedTime);
+                    if (mins > 0) {
+                        totalMinutes += mins;
+                        taskHasTime = true;
+                    }
+                }
+                if (item.subtasks) {
+                    item.subtasks.forEach((sub: any) => {
+                        if (!sub.completed && sub.estimatedTime) {
+                            const mins = parseEstimatedTime(sub.estimatedTime);
+                            if (mins > 0) {
+                                totalMinutes += mins;
+                                taskHasTime = true;
+                            }
+                        }
+                    });
+                }
+                if (!taskHasTime) tasksWithoutTimeCount++;
+            }
+        });
+
+        const h = Math.floor(totalMinutes / 60);
+        const m = totalMinutes % 60;
+        let timePart = '';
+        if (h > 0) timePart = m > 0 ? `${h}h ${m}m` : `${h}h`;
+        else if (m > 0) timePart = `${m}m`;
+
+        if (timePart && tasksWithoutTimeCount > 0) return `${timePart} + ${tasksWithoutTimeCount} tasks`;
+        if (timePart) return timePart;
+        return `${tasksWithoutTimeCount} tasks`;
+    }, [sprintMode.isSprintSelectionMode, sprintMode.selectedSprintTaskIds, calendarItems]);
     const [userColors, setUserColors] = useState<any[]>([]); // Add userColors state
     const [userProfile, setUserProfile] = useState<any>(null); // Add userProfile state
 
@@ -175,6 +216,7 @@ export default function TaskListScreen() {
                     homeState.setOrganizeMenuAnchor(anchor);
                     homeState.setIsOrganizeMenuVisible(true);
                 }}
+                isOrganizeMenuVisible={homeState.isOrganizeMenuVisible}
             />
 
             {/* View Picker Modal */}
@@ -495,12 +537,12 @@ export default function TaskListScreen() {
                         disabled={sprintMode.selectedSprintTaskIds.size === 0}
                         activeOpacity={0.8}
                     >
-                        <MaterialCommunityIcons name="lightning-bolt" size={24} color={sprintMode.selectedSprintTaskIds.size === 0 ? "#94A3B8" : "#000"} />
-                        <Text style={[
-                            styles.startSprintText,
-                            sprintMode.selectedSprintTaskIds.size === 0 && { color: "#94A3B8" }
-                        ]}>
-                            START SPRINT ({sprintMode.selectedSprintTaskIds.size})
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                            <MaterialCommunityIcons name="lightning-bolt" size={22} color={sprintMode.selectedSprintTaskIds.size === 0 ? "#94A3B8" : "#000"} />
+                            <Text style={styles.startSprintText}>START SPRINT</Text>
+                        </View>
+                        <Text style={styles.startSprintText}>
+                            {sprintSummary || `${sprintMode.selectedSprintTaskIds.size} tasks`}
                         </Text>
                     </TouchableOpacity>
                 </View>

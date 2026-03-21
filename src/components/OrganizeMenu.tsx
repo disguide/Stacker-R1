@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, Animated, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 
 interface OrganizeMenuProps {
@@ -7,105 +7,203 @@ interface OrganizeMenuProps {
     onClose: () => void;
     onSelectFilter: (filterType: string) => void;
     isClumped: boolean;
-    anchor?: { pageX: number; pageY: number; width: number; height: number } | null;
+    anchor?: { pageX: number; pageY: number; width: number; height: number };
 }
 
 export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped, anchor }: OrganizeMenuProps) => {
-    if (!visible) return null;
+    const MENU_ITEMS = [
+        { id: 'auto_organise', label: 'Auto Organise', icon: 'auto-fix', iconLib: 'MaterialCommunityIcons', color: '#3B82F6', bold: true },
+        { id: 'importance', label: 'Importance', icon: 'alert-circle-outline', iconLib: 'MaterialCommunityIcons', color: '#333' },
+        { id: 'date', label: 'Due Date', icon: 'calendar-clock', iconLib: 'MaterialCommunityIcons', color: '#333' },
+        { id: 'estimatedTime', label: 'Estimated Time', icon: 'clock-outline', iconLib: 'MaterialCommunityIcons', color: '#333' },
+        { id: 'color', label: 'Color', icon: 'color-palette-outline', iconLib: 'Ionicons', color: '#333' },
+        { id: 'divider', type: 'divider' },
+        { id: 'manual_reorder', label: 'Manual Reorder', icon: 'drag', iconLib: 'MaterialCommunityIcons', color: '#10B981', bold: true },
+        { 
+            id: isClumped ? 'clump_off' : 'clump_on', 
+            label: isClumped ? 'Declump Tasks' : 'Clump Tasks', 
+            icon: isClumped ? 'format-line-spacing' : 'format-line-weight', 
+            iconLib: 'MaterialCommunityIcons', 
+            color: '#EF4444', 
+            bold: true 
+        },
+    ];
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(-20)).current;
+    const itemAnims = useRef(MENU_ITEMS.map(() => new Animated.Value(0))).current;
+    const [shouldRender, setShouldRender] = useState(visible);
 
-    // Default fallback position if measurement fails
-    const topPosition = anchor ? anchor.pageY + anchor.height + 8 : 142;
-    const rightPosition = anchor ? Dimensions.get('window').width - anchor.pageX - anchor.width : 16;
+    useEffect(() => {
+        if (visible) {
+            setShouldRender(true);
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 250,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(slideAnim, {
+                    toValue: 0,
+                    friction: 8,
+                    tension: 40,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+
+            const animations = itemAnims.map((anim, i) => 
+                Animated.spring(anim, {
+                    toValue: 1,
+                    delay: i * 40,
+                    friction: 7,
+                    tension: 50,
+                    useNativeDriver: true,
+                })
+            );
+            Animated.stagger(40, animations).start();
+        } else {
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                ...itemAnims.map(anim => Animated.timing(anim, {
+                    toValue: 0,
+                    duration: 150,
+                    useNativeDriver: true,
+                }))
+            ]).start(() => setShouldRender(false));
+        }
+    }, [visible]);
+
+    if (!shouldRender) return null;
+
+    const renderIcon = (item: any) => {
+        if (item.iconLib === 'MaterialCommunityIcons') {
+            return <MaterialCommunityIcons name={item.icon} size={20} color={item.color} />;
+        }
+        return <Ionicons name={item.icon} size={20} color={item.color} />;
+    };
 
     return (
-        <Modal
-            transparent
-            visible={visible}
-            animationType="fade"
-            onRequestClose={onClose}
+        <Pressable 
+            style={[StyleSheet.absoluteFill, { zIndex: 999 }]} 
+            onPress={onClose}
         >
-            <TouchableOpacity style={styles.overlay} onPress={onClose} activeOpacity={1}>
-                <View style={[styles.menuContainer, { top: topPosition, right: rightPosition }]}>
+            <Animated.View 
+                style={[
+                    styles.overlay, 
+                    { opacity: fadeAnim }
+                ]}
+            >
+                <Animated.View 
+                    style={[
+                        styles.menuContainer,
+                        anchor ? { marginTop: anchor.pageY + anchor.height + 8 } : {},
+                        { 
+                            transform: [{ translateY: slideAnim }],
+                            opacity: fadeAnim 
+                        }
+                    ]}
+                >
                     <Text style={styles.menuTitle}>Organize By</Text>
+                    
+                    {MENU_ITEMS.map((item, index) => {
+                        if (item.type === 'divider') {
+                            return (
+                                <Animated.View 
+                                    key={`divider-${index}`}
+                                    style={[styles.divider, { opacity: itemAnims[index] }]} 
+                                />
+                            );
+                        }
 
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('auto_organise')}>
-                        <MaterialCommunityIcons name="auto-fix" size={20} color="#3B82F6" />
-                        <Text style={[styles.menuText, { color: '#3B82F6', fontWeight: 'bold' }]}>Auto Organise</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('importance')}>
-                        <MaterialCommunityIcons name="alert-circle-outline" size={20} color="#333" />
-                        <Text style={styles.menuText}>Importance</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('date')}>
-                        <MaterialCommunityIcons name="calendar-clock" size={20} color="#333" />
-                        <Text style={styles.menuText}>Due Date</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('estimatedTime')}>
-                        <MaterialCommunityIcons name="clock-outline" size={20} color="#333" />
-                        <Text style={styles.menuText}>Estimated Time</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('color')}>
-                        <Ionicons name="color-palette-outline" size={20} color="#333" />
-                        <Text style={styles.menuText}>Color</Text>
-                    </TouchableOpacity>
-
-                    {/* Divider */}
-                    <View style={{ height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 }} />
-
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('manual_reorder')}>
-                        <MaterialCommunityIcons name="drag" size={20} color="#10B981" />
-                        <Text style={[styles.menuText, { color: '#10B981', fontWeight: 'bold' }]}>Manual Reorder</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.menuItem} onPress={() => onSelectFilter('clump_off')}>
-                        <MaterialCommunityIcons name="format-line-spacing" size={20} color="#EF4444" />
-                        <Text style={[styles.menuText, { color: '#EF4444', fontWeight: 'bold' }]}>Declump Tasks</Text>
-                    </TouchableOpacity>
-                </View>
-            </TouchableOpacity>
-        </Modal>
+                        return (
+                            <Animated.View
+                                key={item.id}
+                                style={{
+                                    opacity: itemAnims[index],
+                                    transform: [{
+                                        translateY: itemAnims[index].interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: [15, 0]
+                                        })
+                                    }]
+                                }}
+                            >
+                                <TouchableOpacity 
+                                    style={styles.menuItem} 
+                                    onPress={() => {
+                                        onSelectFilter(item.id as string);
+                                        onClose();
+                                    }}
+                                >
+                                    {renderIcon(item)}
+                                    <Text style={[
+                                        styles.menuText, 
+                                        item.bold && { color: item.color, fontWeight: '700' }
+                                    ]}>
+                                        {item.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            </Animated.View>
+                        );
+                    })}
+                </Animated.View>
+            </Animated.View>
+        </Pressable>
     );
 };
 
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.3)',
+        backgroundColor: 'rgba(15, 23, 42, 0.3)', 
+        justifyContent: 'flex-start',
+        alignItems: 'flex-end',
     },
     menuContainer: {
-        position: 'absolute',
-        backgroundColor: '#FFF',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
         width: 250,
-        borderRadius: 12,
-        padding: 16,
+        borderRadius: 24,
+        padding: 12,
+        marginTop: 154, 
+        marginRight: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.5)',
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.15,
-        shadowRadius: 8,
-        elevation: 10,
+        shadowRadius: 12,
+        elevation: 12,
     },
     menuTitle: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#999',
-        marginBottom: 12,
+        fontSize: 10,
+        fontWeight: '900',
+        color: '#64748B',
+        marginBottom: 8,
+        paddingHorizontal: 12,
+        paddingTop: 8,
         textTransform: 'uppercase',
+        letterSpacing: 1.5,
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F5F5F5',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 16,
         gap: 12,
     },
     menuText: {
-        fontSize: 16,
-        color: '#333',
-        fontWeight: '500',
+        fontSize: 15,
+        color: '#1E293B',
+        fontWeight: '600',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(226, 232, 240, 1)',
+        marginVertical: 8,
+        marginHorizontal: 12,
     },
 });

@@ -187,12 +187,12 @@ const SprintSummaryTaskRow = ({
                     <Ionicons
                         name={isConfirmed ? "checkmark-circle" : "ellipse-outline"}
                         size={24}
-                        color={isConfirmed ? THEME.success : THEME.textSecondary}
+                        color={isConfirmed ? '#4ADE80' : THEME.textSecondary}
                     />
                 </TouchableOpacity>
 
                 <View style={{ flex: 1 }} pointerEvents="none">
-                    <Text style={[styles.taskTitle, isConfirmed && { color: '#065F46' }]} numberOfLines={1}>
+                    <Text style={[styles.taskTitle, isConfirmed && { color: '#000' }]} numberOfLines={1}>
                         {task.title}
                     </Text>
                     <View style={styles.metaRow}>
@@ -225,7 +225,8 @@ export default function SprintSummaryScreen() {
     const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
     const [showTimeline, setShowTimeline] = useState(false);
 
-    // Initialize progress map
+    // Initializing progress map
+    const [savedSprintId, setSavedSprintId] = useState<string | null>(null);
     useEffect(() => {
         const initialMap: any = {};
         initialCompletedTasks.forEach(t => {
@@ -278,13 +279,22 @@ export default function SprintSummaryScreen() {
     };
 
     const handleSaveSprint = async () => {
+        if (savedSprintId) {
+            try {
+                await StorageService.deleteSavedSprint(savedSprintId);
+                setSavedSprintId(null);
+            } catch (err) {
+                console.error("Failed to unsave sprint:", err);
+            }
+            return;
+        }
+
         try {
             const primaryTask = getLongestTask();
-            
-            // Calculate Intensity (Removed as requested)
+            const newId = Date.now().toString();
 
             await StorageService.saveSavedSprint({
-                id: Date.now().toString(),
+                id: newId,
                 date: new Date().toISOString(),
                 durationSeconds: workSeconds,
                 breakDurationSeconds: breakSeconds,
@@ -293,7 +303,7 @@ export default function SprintSummaryScreen() {
                 primaryTask,
                 taskCount: confirmedTaskIds.size,
             });
-            Alert.alert("Success", "Sprint saved to Best Days!");
+            setSavedSprintId(newId);
         } catch (error) {
             console.error("Failed to save sprint:", error);
             Alert.alert("Error", "Could not save sprint. Please try again.");
@@ -458,19 +468,23 @@ export default function SprintSummaryScreen() {
     const formatDuration = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
-        if (h > 0) return `${h}h ${m}m`;
-        return `${m}m`;
+        const s = seconds % 60;
+        if (h > 0) return `${h}h ${m}m ${s}s`;
+        if (m > 0) return `${m}m ${s}s`;
+        return `${s}s`;
     };
 
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={handleFinish} style={styles.exitButton}>
-                    <Ionicons name="close" size={24} color={THEME.textPrimary} />
+                    <Ionicons name="close" size={20} color={THEME.textPrimary} />
                 </TouchableOpacity>
+                <Text style={styles.headerTitle}>Sprint Summary</Text>
                 <TouchableOpacity onPress={handleSaveSprint} style={styles.headerSaveButton}>
-                    <Ionicons name="bookmark-outline" size={20} color={THEME.accent} style={{ marginRight: 6 }} />
-                    <Text style={styles.headerSaveText}>Save</Text>
+                    <Text style={[styles.headerSaveText, !!savedSprintId && { color: THEME.success }]}>
+                        {savedSprintId ? 'Saved' : 'Save'}
+                    </Text>
                 </TouchableOpacity>
             </View>
 
@@ -478,26 +492,27 @@ export default function SprintSummaryScreen() {
                 <View style={styles.summaryHeader}>
                     <View style={styles.statContainer}>
                         <Text style={styles.summaryLabel}>FOCUS TIME</Text>
-                        <Text style={styles.scaryBigTime}>{formatDuration(workSeconds)}</Text>
+                        <Text style={[styles.scaryBigTime, { color: '#166534' }]}>{formatDuration(workSeconds)}</Text>
                     </View>
                     
                     <View style={styles.statDivider} />
 
                     <View style={styles.statContainer}>
                         <Text style={styles.summaryLabel}>BREAK TIME</Text>
-                        <Text style={[styles.scaryBigTime, { color: THEME.success }]}>{formatDuration(breakSeconds)}</Text>
+                        <Text style={[styles.scaryBigTime, { color: '#3B82F6' }]}>{formatDuration(breakSeconds)}</Text>
                     </View>
                 </View>
 
                 <Text style={styles.sectionHeader}>REVIEW PROGRESS</Text>
                 <View style={styles.taskListContainer}>
-                    {initialCompletedTasks.map((task) => (
-                        <SprintSummaryTaskRow
-                            key={task.id}
-                            task={task}
-                            onStatusChange={handleStatusChange}
-                            onProgressChange={handleProgressChange}
-                        />
+                    {initialCompletedTasks.map((task, index) => (
+                        <View key={task.id} style={{ borderBottomWidth: index === initialCompletedTasks.length - 1 ? 0 : 1, borderBottomColor: THEME.border }}>
+                            <SprintSummaryTaskRow
+                                task={task}
+                                onStatusChange={handleStatusChange}
+                                onProgressChange={handleProgressChange}
+                            />
+                        </View>
                     ))}
                 </View>
 
@@ -560,76 +575,90 @@ export default function SprintSummaryScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: THEME.bg },
-    header: { padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    exitButton: { padding: 8, backgroundColor: '#F1F5F9', borderRadius: 20 },
+    header: { padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: THEME.textPrimary },
+    exitButton: { padding: 6, backgroundColor: '#F1F5F9', borderRadius: 20 },
     headerSaveButton: { 
         flexDirection: 'row', 
         alignItems: 'center', 
-        backgroundColor: '#EFF6FF', 
-        paddingHorizontal: 16, 
-        paddingVertical: 8, 
-        borderRadius: 20 
+        backgroundColor: 'transparent',
+        paddingHorizontal: 8, 
+        paddingVertical: 6, 
     },
-    headerSaveText: { color: THEME.accent, fontWeight: 'bold', fontSize: 16 },
-    content: { padding: 24, paddingBottom: 100 },
+    headerSaveText: { color: THEME.accent, fontWeight: '600', fontSize: 14 },
+    content: { padding: 16, paddingBottom: 100 },
     summaryHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-around',
-        marginBottom: 32,
+        marginBottom: 24,
         backgroundColor: '#FFF',
-        paddingVertical: 24,
-        borderRadius: 20,
+        paddingVertical: 16,
+        borderRadius: 12,
         borderWidth: 1,
         borderColor: THEME.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     statContainer: {
         alignItems: 'center',
     },
     statDivider: {
         width: 1,
-        height: 48,
+        height: 40,
         backgroundColor: THEME.border,
     },
-    summaryLabel: { fontSize: 10, color: THEME.textSecondary, fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 },
-    scaryBigTime: { fontSize: 32, fontWeight: 'bold', color: THEME.textPrimary },
-    sectionHeader: { fontSize: 14, fontWeight: 'bold', color: THEME.textSecondary, marginBottom: 16, letterSpacing: 1 },
-    taskListContainer: { gap: 6 },
+    summaryLabel: { fontSize: 11, color: THEME.textSecondary, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
+    scaryBigTime: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+    sectionHeader: { fontSize: 12, fontWeight: '600', color: THEME.textSecondary, marginBottom: 8, letterSpacing: 0.5, marginLeft: 4 },
+    taskListContainer: { 
+        backgroundColor: '#FFF', 
+        borderRadius: 0, 
+        borderWidth: 1, 
+        borderColor: THEME.border,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 4,
+        elevation: 1,
+    },
     taskItemContainer: {
-        backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: THEME.border,
-        height: 56, justifyContent: 'center'
+        height: 52, justifyContent: 'center', backgroundColor: '#FFF'
     },
     progressFill: { position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 0 },
     taskContent: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, zIndex: 10 },
-    taskTitle: { fontSize: 16, fontWeight: '600', color: THEME.textPrimary, marginBottom: 2 },
+    taskTitle: { fontSize: 15, fontWeight: '500', color: THEME.textPrimary, marginBottom: 2 },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    metaText: { fontSize: 13, color: THEME.textSecondary },
-    footer: { padding: 24, position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(248, 250, 252, 0.9)' },
+    metaText: { fontSize: 12, color: THEME.textSecondary },
+    footer: { padding: 16, paddingBottom: 32, backgroundColor: THEME.bg },
     doneButton: {
-        backgroundColor: '#0F172A', borderRadius: 50, height: 56, alignItems: 'center', justifyContent: 'center',
-        shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6
+        backgroundColor: '#0B1B3D', borderRadius: 8, height: 48, alignItems: 'center', justifyContent: 'center',
     },
-    doneButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold', letterSpacing: 1 },
+    doneButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
     sliderOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 },
 
     // Timeline Styles
     timelineButton: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, marginTop: 24,
-        backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: THEME.border, gap: 8
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, marginTop: 16,
+        backgroundColor: '#FFF', borderRadius: 8, borderWidth: 1, borderColor: THEME.accent, gap: 8
     },
-    timelineButtonText: { fontSize: 15, fontWeight: '600', color: THEME.textSecondary },
+    timelineButtonText: { fontSize: 15, fontWeight: '500', color: THEME.accent },
 
     timelineModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    timelineModalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '70%', padding: 24 },
-    timelineModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-    timelineModalTitle: { fontSize: 20, fontWeight: 'bold', color: THEME.textPrimary },
+    timelineModalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '70%', padding: 20 },
+    timelineModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    timelineModalTitle: { fontSize: 18, fontWeight: 'bold', color: THEME.textPrimary },
     timelineCloseBtn: { padding: 4, backgroundColor: '#F1F5F9', borderRadius: 20 },
     timelineScroll: { flex: 1 },
-    timelineRow: { flexDirection: 'row', minHeight: 60 },
+    timelineRow: { flexDirection: 'row', minHeight: 50 },
     timelineVisuals: { width: 30, alignItems: 'center' },
-    timelineDot: { width: 12, height: 12, borderRadius: 6, zIndex: 2, marginTop: 4 },
+    timelineDot: { width: 10, height: 10, borderRadius: 5, zIndex: 2, marginTop: 4 },
     timelineLine: { width: 2, flex: 1, backgroundColor: '#E2E8F0', marginTop: 4, marginBottom: -4, zIndex: 1 },
-    timelineInfo: { flex: 1, paddingLeft: 12, paddingBottom: 24 },
-    timelineTitle: { fontSize: 16, fontWeight: '600', color: THEME.textPrimary, marginBottom: 4 },
-    timelineDuration: { fontSize: 14, color: THEME.textSecondary }
+    timelineInfo: { flex: 1, paddingLeft: 12, paddingBottom: 20 },
+    timelineTitle: { fontSize: 15, fontWeight: '500', color: THEME.textPrimary, marginBottom: 2 },
+    timelineDuration: { fontSize: 13, color: THEME.textSecondary }
 });

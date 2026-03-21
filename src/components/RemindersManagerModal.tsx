@@ -23,7 +23,7 @@ const ReminderRow = ({ task, onEdit, onDelete, onToggle }: { task: Task, onEdit:
                         {task.reminderDate === toISODateString(new Date()) ? 'Today' : formatDeadline(task.reminderDate || '')}
                     </Text>
                     <View style={styles.reminderTag}>
-                        <Ionicons name="notifications" size={10} color="#2563EB" />
+                        <Ionicons name="notifications" size={16} color="#3B82F6" />
                         <Text style={styles.reminderText}>{task.reminderTime}</Text>
                     </View>
                 </View>
@@ -31,19 +31,20 @@ const ReminderRow = ({ task, onEdit, onDelete, onToggle }: { task: Task, onEdit:
 
 
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 <Switch
                     value={task.reminderEnabled}
                     onValueChange={onToggle}
-                    trackColor={{ false: "#E2E8F0", true: "#BFDBFE" }}
-                    thumbColor={task.reminderEnabled ? "#2563EB" : "#F1F5F9"}
+                    trackColor={{ false: "#E2E8F0", true: "#3B82F6" }}
+                    thumbColor={"#FFFFFF"}
+                    ios_backgroundColor="#E2E8F0"
                 />
                 <TouchableOpacity
                     onPress={onDelete}
                     style={styles.deleteButton}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                    <Ionicons name="trash-outline" size={24} color="#EF4444" />
                 </TouchableOpacity>
             </View>
         </TouchableOpacity >
@@ -259,21 +260,19 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 24,
         paddingTop: 24,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)',
+        paddingBottom: 8,
     },
     headerTitle: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: THEME.textPrimary,
-        letterSpacing: -0.5,
+        fontSize: 32, // Huge like the image
+        fontWeight: '800',
+        color: '#000',
+        letterSpacing: -1,
     },
     closeButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(0,0,0,0.05)',
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: '#E2E8F0',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -287,12 +286,11 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         backgroundColor: '#FFF',
         padding: 16,
+        paddingVertical: 18,
         marginBottom: 12,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.03)',
+        borderRadius: 20, // highly rounded
         shadowColor: '#000',
-        shadowOpacity: 0.03,
+        shadowOpacity: 0.05,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 4 },
         elevation: 2,
@@ -302,10 +300,11 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     taskTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: THEME.textPrimary,
-        marginBottom: 6,
+        fontSize: 32, // Huge task titles
+        fontWeight: '400',
+        color: '#000',
+        marginBottom: 4,
+        letterSpacing: -0.5,
     },
     taskSubtext: {
         fontSize: 13,
@@ -316,27 +315,16 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     dateTag: {
-        fontSize: 12,
-        color: '#666',
-        backgroundColor: '#F3F4F6',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-        overflow: 'hidden',
-        marginRight: 8,
+        display: 'none', // Removed to perfectly match the image which only shows time
     },
     reminderTag: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#EFF6FF',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
     },
     reminderText: {
-        fontSize: 12,
-        color: '#2563EB',
-        fontWeight: '600',
+        fontSize: 14,
+        color: '#3B82F6',
+        fontWeight: '500',
         marginLeft: 4,
     },
     emptyContainer: {
@@ -357,22 +345,20 @@ const styles = StyleSheet.create({
         color: THEME.accent,
     },
     deleteButton: {
-        padding: 8,
-        backgroundColor: '#FEE2E2',
-        borderRadius: 8,
+        padding: 6,
         alignItems: 'center',
         justifyContent: 'center',
     },
     sectionHeader: {
-        paddingVertical: 8,
-        paddingHorizontal: 4,
-        marginTop: 8,
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        marginTop: 4,
         marginBottom: 8,
         backgroundColor: THEME.bg,
     },
     sectionHeaderText: {
         fontSize: 18,
-        fontWeight: '700',
-        color: THEME.textPrimary,
+        fontWeight: '500', // Medium weight to match subtitle look
+        color: '#000',
     },
 });

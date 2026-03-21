@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
     SAVED_SPRINTS: '@stacker_saved_sprints_v1',
     SPRINT_HISTORY: '@stacker_sprint_history_v1',
     MAIL: '@stacker_mail_v1',
+    DAILY_DATA: '@stacker_daily_data_v1', // New Key
 };
 
 export interface SprintSettings {
@@ -123,6 +124,13 @@ export interface TagDefinition {
     label: string;
     color: string;
     symbol: string; // Emoji
+}
+
+export interface DailyData {
+    date: string; // ISO Date YYYY-MM-DD
+    rating?: number;
+    reflection?: string;
+    updatedAt: string;
 }
 
 
@@ -456,6 +464,47 @@ export const StorageService = {
             await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_HISTORY, JSON.stringify(updated));
         } catch (e) {
             console.error('Failed to delete from sprint history', e);
+        }
+    },
+
+    async updateSprintHistory(history: SavedSprint[]) {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_HISTORY, JSON.stringify(history));
+        } catch (e) {
+            console.error('Failed to update sprint history array', e);
+        }
+    },
+
+    // --- Daily Data (Journal V2) --- //
+    async loadDailyData(date: string): Promise<DailyData | null> {
+        try {
+            const jsonValue = await AsyncStorage.getItem(`${STORAGE_KEYS.DAILY_DATA}_${date}`);
+            return jsonValue != null ? JSON.parse(jsonValue) : null;
+        } catch (e) {
+            console.error('Failed to load daily data', e);
+            return null;
+        }
+    },
+
+    async saveDailyData(date: string, data: DailyData) {
+        try {
+            await AsyncStorage.setItem(`${STORAGE_KEYS.DAILY_DATA}_${date}`, JSON.stringify(data));
+        } catch (e) {
+            console.error('Failed to save daily data', e);
+        }
+    },
+
+    async loadAllDailyData(): Promise<DailyData[]> {
+        try {
+            const keys = await AsyncStorage.getAllKeys();
+            const dailyKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.DAILY_DATA));
+            const pairs = await AsyncStorage.multiGet(dailyKeys);
+            return pairs
+                .map(([_, value]) => value ? JSON.parse(value) : null)
+                .filter(v => v !== null);
+        } catch (e) {
+            console.error('Failed to load all daily data', e);
+            return [];
         }
     },
 

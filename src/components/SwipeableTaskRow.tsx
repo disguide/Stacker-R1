@@ -406,7 +406,7 @@ export default function SwipeableTaskRow({
                             isSubtask && { paddingLeft: 44, paddingVertical: 4 }
                         ]}
                         onPress={isSelectionMode ? onSelect : undefined}
-                        disabled={isSelectionMode}
+                        disabled={!isSelectionMode}
                         activeOpacity={1} // No opacity change for row tap, checking box handles visual
                     >
 

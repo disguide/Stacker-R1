@@ -35,6 +35,7 @@ These skills define "How" we work to prevent bugs.
 | :--- | :--- | :--- |
 | **`systematic-debugging`** | Root-Cause Analysis | Solving crashes, tracing complex state bugs. |
 | **`test-driven-development`** | Reliability | Red-Green-Refactor, writing tests before logic. |
+| **`project-rules`** | Governance | Expo Go constraints, platform-specific rules. |
 
 ## 🤖 4. Meta-Skills (Agent Control)
 These skills control me (the Agent) and how I choose models.

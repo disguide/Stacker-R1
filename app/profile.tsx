@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform, Alert, useWindowDimensions, Animated, Easing } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { StorageService, UserProfile, GoalCategory, SavedSprint, Task } from '../src/services/storage';
+import { StorageService, UserProfile, GoalCategory, SavedSprint, Task, DailyData } from '../src/services/storage';
+import { toISODateString } from '../src/utils/dateHelpers';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +19,7 @@ export default function ProfileScreen() {
     const [quickAddText, setQuickAddText] = useState('');
     const [isAddingGoal, setIsAddingGoal] = useState(false);
     const [expandedSprintId, setExpandedSprintId] = useState<string | null>(null);
+    const [noteVisibleIds, setNoteVisibleIds] = useState<Set<string>>(new Set());
     const { width: SCREEN_WIDTH } = useWindowDimensions();
     const horizontalPagerRef = useRef<ScrollView>(null);
     const profileScrollRef = useRef<ScrollView>(null);
@@ -32,6 +34,8 @@ export default function ProfileScreen() {
     const [savedSprints, setSavedSprints] = useState<SavedSprint[]>([]);
     const [sprintHistory, setSprintHistory] = useState<SavedSprint[]>([]);
     const [taskHistory, setTaskHistory] = useState<Task[]>([]);
+    const [dailyData, setDailyData] = useState<DailyData | null>(null);
+    const [todayTasks, setTodayTasks] = useState<Task[]>([]);
 
     const formatDuration = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
@@ -43,6 +47,8 @@ export default function ProfileScreen() {
     useFocusEffect(
         useCallback(() => {
             let mounted = true;
+            const today = toISODateString(new Date());
+
             StorageService.loadSavedSprints().then(sprints => {
                 if (mounted) setSavedSprints(sprints);
             });
@@ -51,6 +57,15 @@ export default function ProfileScreen() {
             });
             StorageService.loadHistory().then(history => {
                 if (mounted) setTaskHistory(history);
+            });
+            StorageService.loadDailyData(today).then(data => {
+                if (mounted) setDailyData(data);
+            });
+            StorageService.loadActiveTasks().then(tasks => {
+                if (mounted) {
+                    const completedToday = tasks.filter(t => t.completed && t.date === today);
+                    setTodayTasks(completedToday);
+                }
             });
             return () => { mounted = false; };
         }, [])
@@ -321,6 +336,28 @@ export default function ProfileScreen() {
         await StorageService.deleteFromHistory(taskId);
         const history = await StorageService.loadHistory();
         setTaskHistory(history);
+    };
+
+    const toggleSprintNote = (id: string) => {
+        setNoteVisibleIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const handleUpdateHistorySprint = async (id: string, updates: Partial<SavedSprint>) => {
+        const isHistory = sprintHistory.some(s => s.id === id);
+        if (isHistory) {
+            const next = sprintHistory.map(s => s.id === id ? { ...s, ...updates } : s);
+            setSprintHistory(next);
+            await StorageService.updateSprintHistory(next);
+        } else {
+            const next = savedSprints.map(s => s.id === id ? { ...s, ...updates } : s);
+            setSavedSprints(next);
+            await StorageService.updateSavedSprints(next);
+        }
     };
 
     // Derived: Recent Sprints (History + Saved, sorted by date)
@@ -722,91 +759,57 @@ export default function ProfileScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={{ height: 1, backgroundColor: '#E2E8F0', marginVertical: 8, opacity: 0.5 }} />
+                            <View style={{ height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 8, marginVertical: 16 }} />
+
+                            <View style={{ height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 8, marginVertical: 16 }} />
 
                             <View style={styles.bestDaysContainer}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                    <Text style={styles.bestDaysTitle}>Sprints History</Text>
-                                    {sprintHistory.length > 0 && (
-                                        <TouchableOpacity onPress={() => router.push('/sprint-history')}>
-                                            <Text style={{ color: '#3B82F6', fontWeight: '600', fontSize: 14 }}>View All</Text>
-                                        </TouchableOpacity>
-                                    )}
+                                    <Text style={styles.bestDaysTitle}>Journal</Text>
+                                    <TouchableOpacity onPress={() => router.push('/journal')}>
+                                        <Text style={{ color: '#3B82F6', fontWeight: '700', fontSize: 14 }}>Full Log</Text>
+                                    </TouchableOpacity>
                                 </View>
-                                {recentSprints.length === 0 ? (
-                                    <View style={styles.bestDaysWindow}>
-                                        <Text style={styles.bestDaysPlaceholder}>No recent activity yet.</Text>
+
+                                <TouchableOpacity 
+                                    style={styles.journalPreviewCard}
+                                    activeOpacity={0.9}
+                                    onPress={() => router.push('/journal')}
+                                >
+                                    <View style={styles.journalPreviewHeader}>
+                                        <View style={styles.todayBadge}>
+                                            <Text style={styles.todayBadgeText}>TODAY</Text>
+                                        </View>
+                                        <View style={styles.ratingCircle}>
+                                            <Text style={styles.ratingText}>{dailyData?.rating || '-'}</Text>
+                                        </View>
                                     </View>
-                                ) : (
-                                    <View style={styles.savedSprintsList}>
-                                        {recentSprints.slice(0, 3).map((sprint) => {
-                                            const isExpanded = expandedSprintId === sprint.id;
-                                            return (
-                                                <TouchableOpacity
-                                                    key={sprint.id}
-                                                    style={[styles.journalCard, isExpanded && { borderColor: '#3B82F6', backgroundColor: '#FFF' }]}
-                                                    activeOpacity={0.8}
-                                                    onPress={() => setExpandedSprintId(isExpanded ? null : sprint.id)}
-                                                >
-                                                    
-                                                    <View style={styles.journalContent}>
-                                                        <View style={styles.journalHeader}>
-                                                            <Text style={styles.journalTitle} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
-                                                            <Text style={styles.journalDate}>
-                                                                {new Date(sprint.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                                            </Text>
-                                                        </View>
-                                                        <View style={styles.journalStats}>
-                                                            <Text style={styles.journalDuration}>{formatDuration(sprint.durationSeconds)} Focus</Text>
-                                                            <View style={styles.statDot} />
-                                                            <Text style={styles.journalTaskCount}>{sprint.taskCount || 0} tasks</Text>
-                                                        </View>
 
-                                                        {isExpanded && (
-                                                            <View style={styles.expandedTimelineSection}>
-                                                                <View style={styles.expandedDivider} />
-                                                                <Text style={styles.timelineLabel}>TIMELINE</Text>
-                                                                {sprint.timelineEvents && sprint.timelineEvents.map((evt: any, idx: number, arr: any[]) => {
-                                                                    const isTask = evt.type === 'task';
-                                                                    const isBreak = evt.type === 'break';
-                                                                    return (
-                                                                        <View key={idx} style={styles.timelineListRow}>
-                                                                            <View style={styles.timelineIndicator}>
-                                                                                <View style={[
-                                                                                    styles.timelinePoint,
-                                                                                    { backgroundColor: isTask ? '#3B82F6' : (isBreak ? '#10B981' : '#94A3B8') }
-                                                                                ]} />
-                                                                                {idx < arr.length - 1 && <View style={styles.timelineConnector} />}
-                                                                            </View>
-                                                                            <View style={styles.timelineTextContent}>
-                                                                                <View style={styles.timelineInfoRow}>
-                                                                                    <Text style={styles.timelineTaskTitle} numberOfLines={1}>{evt.title}</Text>
-                                                                                    <Text style={styles.timelineTaskTime}>{formatDuration(evt.durationSeconds)}</Text>
-                                                                                </View>
-                                                                            </View>
-                                                                        </View>
-                                                                    );
-                                                                })}
-                                                            </View>
-                                                        )}
-                                                    </View>
-                                                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-forward"} size={18} color="#CBD5E1" />
-                                                </TouchableOpacity>
-                                            );
-                                        })}
+                                    {dailyData?.reflection ? (
+                                        <Text style={styles.reflectionSnippet} numberOfLines={2}>
+                                            "{dailyData.reflection}"
+                                        </Text>
+                                    ) : (
+                                        <Text style={styles.reflectionPlaceholder}>No reflection written yet...</Text>
+                                    )}
 
-                                        {/* View All History Button - Moved Outside the Loop */}
-                                        {([...sprintHistory, ...savedSprints].length > 3) && (
-                                            <TouchableOpacity 
-                                                style={styles.viewAllFooter} 
-                                                onPress={() => router.push('/sprint-history')}
-                                            >
-                                                <Text style={styles.viewAllFooterText}>View All History</Text>
-                                                <Ionicons name="arrow-forward" size={16} color="#3B82F6" />
-                                            </TouchableOpacity>
+                                    <View style={styles.completedTasksPreview}>
+                                        <Text style={styles.completedTasksTitle}>COMPLETED TASKS</Text>
+                                        {todayTasks.length === 0 ? (
+                                            <Text style={styles.previewEmptyText}>No tasks completed today.</Text>
+                                        ) : (
+                                            todayTasks.slice(0, 3).map(task => (
+                                                <View key={task.id} style={styles.previewTaskItem}>
+                                                    <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                                                    <Text style={styles.previewTaskText} numberOfLines={1}>{task.title}</Text>
+                                                </View>
+                                            ))
+                                        )}
+                                        {todayTasks.length > 3 && (
+                                            <Text style={styles.moreTasksText}>+ {todayTasks.length - 3} more</Text>
                                         )}
                                     </View>
-                                )}
+                                </TouchableOpacity>
                             </View>
 
                             {!isEditing && (
@@ -1592,12 +1595,86 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 2,
     },
-    journalTitle: {
+    journalTitleInput: {
         fontSize: 16,
         fontWeight: '700',
         color: '#0F172A',
-        maxWidth: '70%',
+        maxWidth: '65%',
+        padding: 0,
+        margin: 0,
     },
+    journalActionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    journalActionBtn: {
+        padding: 4,
+    },
+    journalDate: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#64748B',
+    },
+    journalNoteContainer: {
+        marginTop: 8,
+        padding: 12,
+        backgroundColor: '#FFF',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+    },
+    journalNoteInput: {
+        fontSize: 13,
+        color: '#1E293B',
+        lineHeight: 18,
+        padding: 0,
+        margin: 0,
+        textAlignVertical: 'top',
+    },
+    journalStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 6,
+    },
+    journalDuration: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#3B82F6',
+    },
+    journalTaskCount: {
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: '500',
+    },
+    journalTimeline: {
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9',
+        gap: 8,
+    },
+    timelineItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    timelineDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    timelineText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#334155',
+    },
+    timelineTime: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#94A3B8',
+    },
+
     viewAllFooter: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1610,26 +1687,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         color: '#3B82F6',
-    },
-    journalDate: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#94A3B8',
-    },
-    journalStats: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    journalDuration: {
-        fontSize: 13,
-        color: '#64748B',
-        fontWeight: '500',
-    },
-    journalTaskCount: {
-        fontSize: 13,
-        color: '#64748B',
-        fontWeight: '500',
     },
     statDot: {
         width: 3,
@@ -1707,5 +1764,94 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: '#E2E8F0',
+    },
+    journalPreviewCard: {
+        backgroundColor: '#F8FAFC',
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    journalPreviewHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    todayBadge: {
+        backgroundColor: '#0F172A',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    todayBadgeText: {
+        color: '#FFF',
+        fontSize: 10,
+        fontWeight: '800',
+        letterSpacing: 1,
+    },
+    ratingCircle: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#FFF',
+        borderWidth: 2,
+        borderColor: '#0F172A',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    ratingText: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#0F172A',
+    },
+    reflectionSnippet: {
+        fontSize: 15,
+        color: '#475569',
+        fontStyle: 'italic',
+        lineHeight: 22,
+        marginBottom: 20,
+    },
+    reflectionPlaceholder: {
+        fontSize: 14,
+        color: '#94A3B8',
+        fontStyle: 'italic',
+        marginBottom: 20,
+    },
+    completedTasksPreview: {
+        backgroundColor: '#FFF',
+        borderRadius: 12,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+    },
+    completedTasksTitle: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#94A3B8',
+        letterSpacing: 1,
+        marginBottom: 8,
+    },
+    previewEmptyText: {
+        fontSize: 12,
+        color: '#94A3B8',
+        fontStyle: 'italic',
+    },
+    previewTaskItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    previewTaskText: {
+        fontSize: 13,
+        color: '#1E293B',
+        marginLeft: 8,
+        flex: 1,
+    },
+    moreTasksText: {
+        fontSize: 11,
+        color: '#3B82F6',
+        fontWeight: '700',
+        marginTop: 4,
     },
 });
