@@ -131,6 +131,7 @@ export interface DailyData {
     rating?: number;
     reflection?: string;
     updatedAt: string;
+    isStarred?: boolean;
 }
 
 
@@ -527,6 +528,70 @@ export const StorageService = {
             await AsyncStorage.setItem(STORAGE_KEYS.MAIL, JSON.stringify(messages));
         } catch (e) {
             console.error('[Storage] Error saving mail', e);
+        }
+    },
+
+    async autoDisposeOldData() {
+        try {
+            const oneYearAgo = new Date();
+            oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+            
+            // 1. Dispose old DailyData
+            const keys = await AsyncStorage.getAllKeys();
+            const dailyKeys = keys.filter(k => k.startsWith(STORAGE_KEYS.DAILY_DATA + '_'));
+            const keysToRemove: string[] = [];
+            
+            const pairs = await AsyncStorage.multiGet(dailyKeys);
+            pairs.forEach(([key, value]) => {
+                if (value) {
+                    const data: DailyData = JSON.parse(value);
+                    if (!data.isStarred && new Date(data.date) < oneYearAgo) {
+                        keysToRemove.push(key);
+                    }
+                }
+            });
+
+            if (keysToRemove.length > 0) {
+                await AsyncStorage.multiRemove(keysToRemove);
+                console.log(`[Storage] Auto-disposed ${keysToRemove.length} old daily log entries.`);
+            }
+            
+            // 2. Load all starred dates for exemption
+            const starredDates = new Set<string>();
+            const remainingDaily = await this.loadAllDailyData(); 
+            remainingDaily.forEach(d => {
+                if (d.isStarred) starredDates.add(d.date);
+            });
+            
+            // 3. Dispose old sprints
+            let sprintHistory = await this.loadSprintHistory();
+            const originalSprintCount = sprintHistory.length;
+            sprintHistory = sprintHistory.filter(s => {
+                const sDate = new Date(s.date);
+                if (sDate >= oneYearAgo) return true; // Keep recent
+                const [y, m, d] = s.date.split('-').map(Number);
+                const dateStr = new Date(y, m - 1, d).toISOString().split('T')[0];
+                return starredDates.has(dateStr); // Keep if day is starred
+            });
+            if (sprintHistory.length < originalSprintCount) {
+                await this.updateSprintHistory(sprintHistory);
+            }
+            
+            // 4. Dispose old task history
+            let taskHistory = await this.loadHistory();
+            const originalTaskCount = taskHistory.length;
+            taskHistory = taskHistory.filter(t => {
+                const tDateStr = t.completedAt ? t.completedAt.split('T')[0] : t.date;
+                const tDate = new Date(tDateStr);
+                if (tDate >= oneYearAgo) return true; // Keep recent
+                return starredDates.has(tDateStr); // Keep if day is starred
+            });
+            if (taskHistory.length < originalTaskCount) {
+                await AsyncStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(taskHistory));
+            }
+
+        } catch (e) {
+            console.error('[Storage] Failed to auto-dispose old data', e);
         }
     },
 

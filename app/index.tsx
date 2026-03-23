@@ -155,12 +155,15 @@ export default function TaskListScreen() {
         return () => clearTimeout(timer);
     }, [todayItems]);
 
-    // 4c. Splash Screen Disabling
+    // 4c. Splash Screen Disabling & Background Maintenance
     useEffect(() => {
         // Once taskController finishes its intense initial load (including RolloverSystem)
         // hide the splash screen to reveal the UI.
         if (!taskController.loading) {
             SplashScreen.hideAsync();
+            
+            // Run silent background auto-dispose of old unstarred journal entries
+            StorageService.autoDisposeOldData();
         }
     }, [taskController.loading]);
 

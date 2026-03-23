@@ -118,7 +118,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.spacer} />
+
                 <SettingsButton />
             </View>
 
