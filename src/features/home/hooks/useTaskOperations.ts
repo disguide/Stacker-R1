@@ -34,8 +34,9 @@ export function useTaskOperations(
             const item = pendingItems.current[itemId];
             if (item) {
                 // Fire and forget history add
-                const taskToSave = { id: item.id, title: item.title, date: item.date, completed: true };
-                StorageService.addToHistory(taskToSave).catch(e => console.error('[useTaskOperations] History add failed:', e));
+                const originalTask = tasks.find(t => t.id === item.originalTaskId) || item;
+                const taskToSave = { ...originalTask, id: item.id, title: item.title, date: item.date, completed: true, completedAt: new Date().toISOString() };
+                StorageService.addToHistory(taskToSave as Task).catch(e => console.error('[useTaskOperations] History add failed:', e));
 
                 toggleTask(item.originalTaskId, item.originalDate || item.date);
             }
@@ -84,8 +85,9 @@ export function useTaskOperations(
             completionTimeouts.current[itemId] = setTimeout(() => {
                 const pendingItem = pendingItems.current[itemId];
                 if (pendingItem) {
-                    const taskToSave = { id: pendingItem.id, title: pendingItem.title, date: pendingItem.date, completed: true };
-                    StorageService.addToHistory(taskToSave).catch(e => console.error('[useTaskOperations] History add failed:', e));
+                    const originalTask = tasks.find(t => t.id === pendingItem.originalTaskId) || pendingItem;
+                    const taskToSave = { ...originalTask, id: pendingItem.id, title: pendingItem.title, date: pendingItem.date, completed: true, completedAt: new Date().toISOString() };
+                    StorageService.addToHistory(taskToSave as Task).catch(e => console.error('[useTaskOperations] History add failed:', e));
                     toggleTask(pendingItem.originalTaskId, pendingItem.originalDate || pendingItem.date);
                 }
 

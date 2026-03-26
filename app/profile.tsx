@@ -10,6 +10,37 @@ import * as ImagePicker from 'expo-image-picker';
 
 const GOAL_PALETTE = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#06B6D4', '#F97316'];
 
+const getMoodColor = (rating: number) => {
+    if (rating === 0) return '#94A3B8';
+    if (rating >= 100) return '#A855F7';
+    if (rating > 10) return '#EAB308';
+    const gradient = ['#EF4444', '#F87171', '#F97316', '#FB923C', '#F59E0B', '#FBBF24', '#84CC16', '#A3E635', '#34D399', '#10B981'];
+    return gradient[rating - 1];
+};
+
+const MoodCounterButton = ({ rating, onPress }: { rating: number, onPress: () => void }) => {
+    const scale = useRef(new Animated.Value(1)).current;
+    const tilt = useRef(new Animated.Value(0)).current;
+    const rotation = tilt.interpolate({ inputRange: [-1, 0, 1], outputRange: ['-15deg', '0deg', '15deg'] });
+    const handlePress = () => {
+        scale.setValue(1.6);
+        tilt.setValue(Math.random() > 0.5 ? 1 : -1); 
+        Animated.parallel([
+            Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 150 }),
+            Animated.spring(tilt, { toValue: 0, useNativeDriver: true, friction: 4, tension: 150 })
+        ]).start();
+        onPress();
+    };
+    return (
+        <TouchableOpacity style={styles.moodPillSmall} onPress={handlePress} activeOpacity={0.7}>
+            <Text style={styles.moodLabelText}>MOOD</Text>
+            <Animated.View style={{ transform: [{ scale }, { rotate: rotation }] }}>
+                <Text style={[styles.moodNumberText, { color: getMoodColor(rating) }]}>{`${rating}/10`}</Text>
+            </Animated.View>
+        </TouchableOpacity>
+    );
+};
+
 export default function ProfileScreen() {
     const router = useRouter();
 
@@ -36,6 +67,30 @@ export default function ProfileScreen() {
     const [taskHistory, setTaskHistory] = useState<Task[]>([]);
     const [dailyData, setDailyData] = useState<DailyData | null>(null);
     const [todayTasks, setTodayTasks] = useState<Task[]>([]);
+
+    const handleRatingPress = async () => {
+        const todayStr = toISODateString(new Date());
+        const nextRating = (dailyData?.rating || 0) + 1;
+        const nextStarred = nextRating >= 10 ? true : (dailyData?.isStarred || false);
+        const newData = { ...(dailyData || { date: todayStr }), date: todayStr, rating: nextRating, isStarred: nextStarred, updatedAt: new Date().toISOString() } as DailyData;
+        setDailyData(newData);
+        await StorageService.saveDailyData(todayStr, newData);
+    };
+
+    const handleUpdateReflection = async (text: string) => {
+        const todayStr = toISODateString(new Date());
+        const newData = { ...(dailyData || { date: todayStr }), date: todayStr, reflection: text, updatedAt: new Date().toISOString() } as DailyData;
+        setDailyData(newData);
+        await StorageService.saveDailyData(todayStr, newData);
+    };
+
+    const handleToggleStarDay = async () => {
+        const todayStr = toISODateString(new Date());
+        const newStatus = !(dailyData?.isStarred);
+        const newData = { ...(dailyData || { date: todayStr }), date: todayStr, isStarred: newStatus, updatedAt: new Date().toISOString() } as DailyData;
+        setDailyData(newData);
+        await StorageService.saveDailyData(todayStr, newData);
+    };
 
     const formatDuration = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
@@ -325,7 +380,14 @@ export default function ProfileScreen() {
         const task = await StorageService.removeFromHistory(taskId);
         if (task) {
             const activeTasks = await StorageService.loadActiveTasks();
-            await StorageService.saveActiveTasks([{ ...task, completed: false, completedAt: undefined }, ...activeTasks]);
+            await StorageService.saveActiveTasks([{ 
+                ...task, 
+                completed: false, 
+                completedAt: undefined,
+                date: toISODateString(new Date()),
+                daysRolled: undefined,
+                originalDate: undefined
+            }, ...activeTasks]);
             // Refresh history
             const history = await StorageService.loadHistory();
             setTaskHistory(history);
@@ -571,7 +633,7 @@ export default function ProfileScreen() {
 
                             {/* --- COMBINED LISTS --- */}
                             <View style={styles.combinedListContainer}>
-                                <Text style={styles.sectionHeading}>GOALS</Text>
+                                <Text style={styles.journalSectionHeading}>GOALS</Text>
                                 {(profile.goals || []).filter(g => !g.completed && !g.cancelled).length === 0 ? (
                                     <Text style={styles.emptyText}>No active goals.</Text>
                                 ) : (
@@ -771,45 +833,103 @@ export default function ProfileScreen() {
                                     </TouchableOpacity>
                                 </View>
 
-                                <TouchableOpacity 
-                                    style={styles.journalPreviewCard}
-                                    activeOpacity={0.9}
-                                    onPress={() => router.push('/journal')}
-                                >
-                                    <View style={styles.journalPreviewHeader}>
-                                        <View style={styles.todayBadge}>
-                                            <Text style={styles.todayBadgeText}>TODAY</Text>
-                                        </View>
-                                        <View style={styles.ratingCircle}>
-                                            <Text style={styles.ratingText}>{dailyData?.rating || '-'}</Text>
-                                        </View>
+                                <View style={styles.logDayBlock}>
+                                    <View style={styles.dayHeaderRow}>
+                                        <Text style={styles.dayTitleText}>
+                                            {`${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} -0D`}
+                                        </Text>
+                                        <TouchableOpacity 
+                                            onPress={handleToggleStarDay}
+                                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                            style={styles.starCircleButton}
+                                        >
+                                            <Ionicons 
+                                                name={"star"} 
+                                                size={20} 
+                                                color={dailyData?.isStarred ? "#F59E0B" : "#CBD5E1"} 
+                                            />
+                                        </TouchableOpacity>
                                     </View>
 
-                                    {dailyData?.reflection ? (
-                                        <Text style={styles.reflectionSnippet} numberOfLines={2}>
-                                            "{dailyData.reflection}"
-                                        </Text>
-                                    ) : (
-                                        <Text style={styles.reflectionPlaceholder}>No reflection written yet...</Text>
+                                    <View style={[styles.reflectionCard, { marginTop: 0, marginBottom: 24 }]}>
+                                        <View style={styles.reflectionHeader}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <Text style={styles.reflectionTitle}>Reflection</Text>
+                                                {(dailyData?.rating || 0) > 0 && (
+                                                    <TouchableOpacity 
+                                                        onPress={async () => {
+                                                            const todayStr = toISODateString(new Date());
+                                                            const newData = { ...(dailyData || { date: todayStr }), rating: 0, updatedAt: new Date().toISOString() } as DailyData;
+                                                            setDailyData(newData);
+                                                            await StorageService.saveDailyData(todayStr, newData);
+                                                        }}
+                                                        style={{ padding: 4 }}
+                                                    >
+                                                        <Ionicons name="refresh-outline" size={16} color="#94A3B8" />
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                            <MoodCounterButton 
+                                                rating={dailyData?.rating || 0} 
+                                                onPress={handleRatingPress} 
+                                            />
+                                        </View>
+                                        <TextInput
+                                            style={styles.reflectionInput}
+                                            placeholder="Notes for yourself..."
+                                            placeholderTextColor="#ABB5C2"
+                                            multiline
+                                            scrollEnabled={false}
+                                            value={dailyData?.reflection || ''}
+                                            onChangeText={handleUpdateReflection}
+                                            onBlur={() => {
+                                                if (dailyData?.reflection && dailyData.reflection.trim() !== dailyData.reflection) {
+                                                    handleUpdateReflection(dailyData.reflection.trim());
+                                                }
+                                            }}
+                                        />
+                                    </View>
+
+                                    {todayTasks.length > 0 && (
+                                        <View style={styles.listSection}>
+                                            <Text style={styles.journalSectionHeading}>Tasks Completed</Text>
+                                            <View style={{ gap: 10 }}>
+                                                {todayTasks.map((task) => (
+                                                    <View key={task.id} style={styles.taskItemRow}>
+                                                        <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                                                        <Text style={[styles.taskItemText, { color: '#94A3B8' }]} numberOfLines={1}>
+                                                            {task.title}
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        </View>
                                     )}
 
-                                    <View style={styles.completedTasksPreview}>
-                                        <Text style={styles.completedTasksTitle}>COMPLETED TASKS</Text>
-                                        {todayTasks.length === 0 ? (
-                                            <Text style={styles.previewEmptyText}>No tasks completed today.</Text>
-                                        ) : (
-                                            todayTasks.slice(0, 3).map(task => (
-                                                <View key={task.id} style={styles.previewTaskItem}>
-                                                    <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                                                    <Text style={styles.previewTaskText} numberOfLines={1}>{task.title}</Text>
+                                    {sprintHistory.filter(s => s.date === toISODateString(new Date())).length > 0 && (
+                                        <View style={styles.listSection}>
+                                            <Text style={styles.journalSectionHeading}>Focus Sessions</Text>
+                                            <View style={{ gap: 8 }}>
+                                            {sprintHistory.filter(s => s.date === toISODateString(new Date())).map((sprint, sIdx) => (
+                                                <View key={sprint.id || sIdx} style={styles.sprintItemRow}>
+                                                    <View style={styles.sprintIconWrap}>
+                                                        <Ionicons name="flash-outline" size={16} color="#3B82F6" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
+                                                        {sprint.note && <Text style={styles.sprintLogNote}>"{sprint.note}"</Text>}
+                                                    </View>
+                                                    <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}m</Text>
                                                 </View>
-                                            ))
-                                        )}
-                                        {todayTasks.length > 3 && (
-                                            <Text style={styles.moreTasksText}>+ {todayTasks.length - 3} more</Text>
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
+                                            ))}
+                                            </View>
+                                        </View>
+                                    )}
+
+                                    {todayTasks.length === 0 && sprintHistory.filter(s => s.date === toISODateString(new Date())).length === 0 && !dailyData?.reflection && !dailyData?.rating && (
+                                        <View style={{ height: 40 }} />
+                                    )}
+                                </View>
                             </View>
 
                             {!isEditing && (
@@ -1765,93 +1885,24 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#E2E8F0',
     },
-    journalPreviewCard: {
-        backgroundColor: '#F8FAFC',
-        borderRadius: 20,
-        padding: 20,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-    },
-    journalPreviewHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    todayBadge: {
-        backgroundColor: '#0F172A',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    todayBadgeText: {
-        color: '#FFF',
-        fontSize: 10,
-        fontWeight: '800',
-        letterSpacing: 1,
-    },
-    ratingCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: '#FFF',
-        borderWidth: 2,
-        borderColor: '#0F172A',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    ratingText: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: '#0F172A',
-    },
-    reflectionSnippet: {
-        fontSize: 15,
-        color: '#475569',
-        fontStyle: 'italic',
-        lineHeight: 22,
-        marginBottom: 20,
-    },
-    reflectionPlaceholder: {
-        fontSize: 14,
-        color: '#94A3B8',
-        fontStyle: 'italic',
-        marginBottom: 20,
-    },
-    completedTasksPreview: {
-        backgroundColor: '#FFF',
-        borderRadius: 12,
-        padding: 12,
-        borderWidth: 1,
-        borderColor: '#F1F5F9',
-    },
-    completedTasksTitle: {
-        fontSize: 10,
-        fontWeight: '800',
-        color: '#94A3B8',
-        letterSpacing: 1,
-        marginBottom: 8,
-    },
-    previewEmptyText: {
-        fontSize: 12,
-        color: '#94A3B8',
-        fontStyle: 'italic',
-    },
-    previewTaskItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    previewTaskText: {
-        fontSize: 13,
-        color: '#1E293B',
-        marginLeft: 8,
-        flex: 1,
-    },
-    moreTasksText: {
-        fontSize: 11,
-        color: '#3B82F6',
-        fontWeight: '700',
-        marginTop: 4,
-    },
+    logDayBlock: { marginBottom: 40 },
+    dayHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 16 },
+    dayTitleText: { fontSize: 18, fontWeight: '700', fontFamily: 'Georgia', color: '#1E293B', letterSpacing: 0.5 },
+    starCircleButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+    listSection: { marginBottom: 24 },
+    journalSectionHeading: { fontSize: 14, fontWeight: '700', color: '#94A3B8', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 },
+    taskItemRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    taskItemText: { flex: 1, fontSize: 16, fontFamily: 'Times New Roman' },
+    sprintItemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, gap: 12 },
+    sprintIconWrap: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
+    sprintItemText: { fontSize: 15, fontWeight: '600', color: '#334155' },
+    completedSprintDuration: { fontSize: 14, fontWeight: '700', color: '#3B82F6' },
+    sprintLogNote: { fontSize: 13, color: '#94A3B8', marginTop: 2, fontStyle: 'italic' },
+    reflectionCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginTop: 8, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    reflectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    reflectionTitle: { fontSize: 16, fontWeight: 'bold', fontFamily: 'Georgia', color: '#64748B' },
+    moodPillSmall: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, gap: 6 },
+    moodLabelText: { fontSize: 10, fontWeight: '700', color: '#94A3B8', letterSpacing: 1 },
+    moodNumberText: { fontSize: 16, fontWeight: '600', color: '#333', fontFamily: 'Georgia' },
+    reflectionInput: { fontSize: 16, color: '#475569', lineHeight: 24, textAlignVertical: 'top', minHeight: 80, fontFamily: 'Times New Roman' },
 });

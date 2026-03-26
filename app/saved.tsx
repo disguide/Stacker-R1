@@ -9,7 +9,7 @@ import {
     Animated,
     Dimensions,
     ActivityIndicator,
-    Modal
+    Alert
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -82,7 +82,7 @@ const MoodCounterButton = ({ day, onPress }: { day: LogDay, onPress: () => void 
     );
 };
 
-export default function JournalScreen() {
+export default function SavedScreen() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [logDays, setLogDays] = useState<LogDay[]>([]);
@@ -173,8 +173,10 @@ export default function JournalScreen() {
 
         // 4. Sort and Set
         const sortedDays = Object.values(grouped).sort((a, b) => b.date.localeCompare(a.date));
-        setLogDays(sortedDays);
-        setTodayData(grouped[today] || null);
+        const vaultDays = sortedDays.filter(d => d.isStarred);
+        
+        setLogDays(vaultDays);
+        setTodayData(vaultDays.find(d => d.date === today) || null);
         
         setLoading(false);
     };
@@ -186,20 +188,27 @@ export default function JournalScreen() {
     );
 
     const toggleStar = async (dayDate: string, currentStatus: boolean) => {
-        const newStatus = !currentStatus;
-        
-        // Optimistic UI Update
-        setLogDays(prev => prev.map(d => d.date === dayDate ? { ...d, isStarred: newStatus } : d));
-        if (todayData?.date === dayDate) {
-            setTodayData(prev => prev ? { ...prev, isStarred: newStatus } : null);
-        }
-        
-        // Save to Storage
-        const extData = await StorageService.loadDailyData(dayDate);
-        const dataToSave = extData || { date: dayDate, updatedAt: new Date().toISOString() };
-        dataToSave.isStarred = newStatus;
-        dataToSave.updatedAt = new Date().toISOString();
-        await StorageService.saveDailyData(dayDate, dataToSave);
+        Alert.alert(
+            "Remove from Memories",
+            "Are you sure you want to remove this day from Memories?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Remove", 
+                    style: "destructive",
+                    onPress: async () => {
+                        setLogDays(prev => prev.filter(d => d.date !== dayDate));
+                        if (todayData?.date === dayDate) setTodayData(null);
+                        
+                        const extData = await StorageService.loadDailyData(dayDate);
+                        const dataToSave = extData || { date: dayDate, updatedAt: new Date().toISOString() };
+                        dataToSave.isStarred = false;
+                        dataToSave.updatedAt = new Date().toISOString();
+                        await StorageService.saveDailyData(dayDate, dataToSave);
+                    }
+                }
+            ]
+        );
     };
 
     const toggleTaskCompletion = async (taskId: string) => {
@@ -297,14 +306,9 @@ export default function JournalScreen() {
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <Ionicons name="chevron-back" size={28} color="#1E293B" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Journal</Text>
+                    <Text style={[styles.headerTitle, { marginLeft: 12 }]}>Memories</Text>
                 </View>
-                <TouchableOpacity 
-                    style={styles.vaultButton}
-                    onPress={() => router.push('/saved')}
-                >
-                    <Ionicons name="bookmark" size={24} color="#1E293B" />
-                </TouchableOpacity>
+                <View style={{ width: 44 }} />
             </View>
 
             <ScrollView 
@@ -432,7 +436,7 @@ export default function JournalScreen() {
                 })}
             </ScrollView>
 
-            {/* Vault moved to a dedicated active screen. */}
+            {/* Vault specific modal elements removed. */}
         </SafeAreaView>
     );
 }
