@@ -1,18 +1,13 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { THEME } from '../constants';
 import { ActionBar } from '../common/ActionBar';
 import { TimeWheelPanel } from '../common/TimeWheelPanel';
 
-const ROW_HEIGHT = 38;
-const HEADER_HEIGHT = 40;
+const ROW_HEIGHT = 36;
 
-interface CalendarMonthData {
-    date: Date;
-    height: number;
-    offset: number;
-}
+interface CalendarMonthData { date: Date; }
 
 export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
     width: number;
@@ -20,14 +15,19 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
     onDeadlineChange: (dl: string | null) => void;
     onClose: () => void;
 }) {
-    const calListRef = useRef<FlatList>(null);
+    const scrollRef = useRef<ScrollView>(null);
     const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
     const [hasTime, setHasTime] = useState(false);
     const [showTimeWheel, setShowTimeWheel] = useState(false);
     const [tempHour, setTempHour] = useState(9);
     const [tempMinute, setTempMinute] = useState(0);
+    const [is24h, setIs24h] = useState(false);
 
+    // ─── Initialize from prop ONCE on mount ─────────────────────────
+    const hasInitialized = useRef(false);
     useEffect(() => {
+        if (hasInitialized.current) return;
+        hasInitialized.current = true;
         if (deadline) {
             try {
                 if (deadline.includes('T')) {
@@ -43,67 +43,28 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
                     setHasTime(true);
                     setTempHour(h);
                     setTempMinute(m);
-                    setTempSelectedDate(null);
                 } else {
                     const parts = deadline.split('-');
                     if (parts.length >= 3) {
                         const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
                         if (!isNaN(d.getTime())) setTempSelectedDate(d);
                     }
-                    setHasTime(false);
                 }
-            } catch {
-                setTempSelectedDate(null);
-                setHasTime(false);
-            }
-        } else {
-            setTempSelectedDate(null);
-            setHasTime(false);
+            } catch { /* ignore */ }
         }
     }, [deadline]);
-
-    const colWidth = (width - 48) / 7;
 
     const months = useMemo(() => {
         const result: CalendarMonthData[] = [];
         const start = new Date();
         start.setDate(1);
-        let currentOffset = 0;
         for (let i = 0; i < 24; i++) {
-            const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-            const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-            const firstDay = (new Date(d.getFullYear(), d.getMonth(), 1).getDay() + 6) % 7;
-            const weeks = Math.ceil((daysInMonth + firstDay) / 7);
-            const height = HEADER_HEIGHT + (weeks * ROW_HEIGHT);
-            result.push({ date: d, height, offset: currentOffset });
-            currentOffset += height;
+            result.push({ date: new Date(start.getFullYear(), start.getMonth() + i, 1) });
         }
         return result;
     }, []);
 
     const handleDateSelect = (d: Date) => { setTempSelectedDate(d); };
-
-    // ─── Auto-save: apply changes to parent immediately ─────────────
-    const isFirstRender = useRef(true);
-    useEffect(() => {
-        if (isFirstRender.current) { isFirstRender.current = false; return; }
-        if (tempSelectedDate) {
-            const yyyy = tempSelectedDate.getFullYear();
-            const mm = String(tempSelectedDate.getMonth() + 1).padStart(2, '0');
-            const dd = String(tempSelectedDate.getDate()).padStart(2, '0');
-            if (hasTime) {
-                const hh = String(tempHour).padStart(2, '0');
-                const min = String(tempMinute).padStart(2, '0');
-                onDeadlineChange(`${yyyy}-${mm}-${dd}T${hh}:${min}`);
-            } else {
-                onDeadlineChange(`${yyyy}-${mm}-${dd}`);
-            }
-        } else if (hasTime) {
-            const hh = String(tempHour).padStart(2, '0');
-            const min = String(tempMinute).padStart(2, '0');
-            onDeadlineChange(`${hh}:${min}`);
-        }
-    }, [tempSelectedDate, hasTime, tempHour, tempMinute]);
 
     const handleReset = () => {
         setTempSelectedDate(null);
@@ -116,41 +77,113 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
 
     const handleConfirm = () => {
         if (showTimeWheel) {
-            // Coming back from time wheel — set the time
+            // Auto-apply the time and go back to calendar
             setHasTime(true);
             setShowTimeWheel(false);
             return;
         }
+        // Build final deadline string and send to parent
+        if (tempSelectedDate) {
+            const yyyy = tempSelectedDate.getFullYear();
+            const mm = String(tempSelectedDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(tempSelectedDate.getDate()).padStart(2, '0');
+            if (hasTime) {
+                onDeadlineChange(`${yyyy}-${mm}-${dd}T${String(tempHour).padStart(2, '0')}:${String(tempMinute).padStart(2, '0')}`);
+            } else {
+                onDeadlineChange(`${yyyy}-${mm}-${dd}`);
+            }
+        } else if (hasTime) {
+            onDeadlineChange(`${String(tempHour).padStart(2, '0')}:${String(tempMinute).padStart(2, '0')}`);
+        }
         onClose();
     };
 
-    const formatTimeStr = () => {
+    const formatTime = () => {
+        if (is24h) {
+            return `${String(tempHour).padStart(2, '0')}:${String(tempMinute).padStart(2, '0')}`;
+        }
         const h12 = tempHour % 12 || 12;
         const period = tempHour >= 12 ? 'PM' : 'AM';
         return `${h12}:${String(tempMinute).padStart(2, '0')} ${period}`;
     };
 
-    const renderMonth = useCallback(({ item }: { item: CalendarMonthData }) => {
-        return (
-            <MemoizedMonth
-                item={item}
-                colWidth={colWidth}
-                tempSelectedDate={tempSelectedDate}
-                onDateSelect={handleDateSelect}
-            />
-        );
-    }, [tempSelectedDate, colWidth]);
+    const formatDateShort = () => {
+        if (!tempSelectedDate) return null;
+        const today = new Date();
+        const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+        if (isSameDay(tempSelectedDate, today)) return 'Today';
+        if (isSameDay(tempSelectedDate, tomorrow)) return 'Tomorrow';
+        return tempSelectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    };
 
-    // ─── TIME WHEEL OVERLAY ─────────────────────────────────────────────
+    // ─── Shared chips row (used in both views) ──────────────────────
+    const renderChips = () => (
+        <View style={st.chipRow}>
+            {/* Date chip */}
+            {tempSelectedDate ? (
+                <View style={st.chipActive}>
+                    <Ionicons name="calendar" size={14} color={THEME.green} />
+                    <Text style={st.chipActiveText}>{formatDateShort()}</Text>
+                    <TouchableOpacity onPress={() => setTempSelectedDate(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="close-circle" size={15} color="#94A3B8" />
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <View style={st.chipEmpty}>
+                    <Ionicons name="calendar-outline" size={14} color={THEME.textSecondary} />
+                    <Text style={st.chipEmptyText}>No date</Text>
+                </View>
+            )}
+            {/* Time chip */}
+            {hasTime ? (
+                <TouchableOpacity style={[st.chipActive, { backgroundColor: '#EEF2FF', borderColor: '#818CF8' }]} onPress={() => setShowTimeWheel(true)}>
+                    <MaterialCommunityIcons name="clock-outline" size={14} color="#6366F1" />
+                    <Text style={[st.chipActiveText, { color: '#6366F1' }]}>{formatTime()}</Text>
+                    <TouchableOpacity onPress={() => { setHasTime(false); setTempHour(9); setTempMinute(0); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="close-circle" size={15} color="#94A3B8" />
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity style={st.chipEmpty} onPress={() => setShowTimeWheel(true)}>
+                    <MaterialCommunityIcons name="clock-plus-outline" size={14} color={THEME.textSecondary} />
+                    <Text style={st.chipEmptyText}>Add time</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+
+    // ─── TIME PICKER VIEW ───────────────────────────────────────────
     if (showTimeWheel) {
         return (
             <View style={{ width, flex: 1 }}>
+                {/* Header */}
+                <View style={st.timeHeader}>
+                    <TouchableOpacity onPress={() => { setHasTime(true); setShowTimeWheel(false); }} style={st.backBtn}>
+                        <Ionicons name="chevron-back" size={22} color={THEME.accent} />
+                        <Text style={st.backText}>Date</Text>
+                    </TouchableOpacity>
+                    <Text style={st.timeHeaderTitle}>Due Time</Text>
+                    {/* 24h toggle */}
+                    <TouchableOpacity onPress={() => setIs24h(!is24h)} style={st.formatToggle}>
+                        <Text style={[st.formatToggleText, is24h && { color: THEME.accent, fontWeight: '700' }]}>
+                            {is24h ? '24h' : '12h'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Time wheel */}
                 <TimeWheelPanel
                     hour={tempHour}
                     minute={tempMinute}
                     onHourChange={setTempHour}
                     onMinuteChange={setTempMinute}
+                    is24h={is24h}
                 />
+
+                {/* Chips at bottom */}
+                {renderChips()}
+
+                {/* Action bar */}
                 <ActionBar
                     onReset={() => { setHasTime(false); setShowTimeWheel(false); setTempHour(9); setTempMinute(0); }}
                     onConfirm={handleConfirm}
@@ -160,79 +193,41 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
         );
     }
 
-    // ─── CALENDAR VIEW ──────────────────────────────────────────────────
+    // ─── CALENDAR VIEW ──────────────────────────────────────────────
     return (
         <View style={{ width, flex: 1 }}>
-            {/* Weekday header */}
-            <View style={{ flexDirection: 'row', paddingHorizontal: 24, paddingTop: 10, paddingBottom: 6 }}>
+            {/* Weekday columns */}
+            <View style={st.weekdayRow}>
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-                    <Text key={i} style={{ width: colWidth, textAlign: 'center', fontSize: 12, color: THEME.textSecondary, fontWeight: '600' }}>
-                        {day}
-                    </Text>
+                    <Text key={i} style={st.weekdayText}>{day}</Text>
                 ))}
             </View>
-            <View style={{ height: 1, backgroundColor: THEME.border, marginHorizontal: 24 }} />
+            <View style={{ height: 1, backgroundColor: '#E5E7EB', marginHorizontal: 20 }} />
 
-            <FlatList
-                ref={calListRef}
-                data={months}
-                renderItem={renderMonth}
-                keyExtractor={item => item.date.toISOString()}
-                initialNumToRender={3}
-                maxToRenderPerBatch={5}
-                windowSize={7}
-                getItemLayout={(data, index) => ({
-                    length: data?.[index]?.height || 0,
-                    offset: data?.[index]?.offset || 0,
-                    index,
-                })}
+            {/* Scrollable Calendar */}
+            <ScrollView
+                ref={scrollRef as any}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
                 keyboardShouldPersistTaps="always"
                 bounces={false}
-                style={{ flex: 1, paddingHorizontal: 12 }}
-            />
-
-            {/* Due Time toggle bar */}
-            <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderTopWidth: 1, borderTopColor: THEME.border, backgroundColor: '#FAFBFC' }}
-                onPress={() => setShowTimeWheel(true)}
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 16 }}
             >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <MaterialCommunityIcons name="clock-outline" size={18} color={hasTime ? THEME.green : THEME.textSecondary} />
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: hasTime ? THEME.textPrimary : THEME.textSecondary }}>
-                        Due Time
-                    </Text>
-                </View>
-                {hasTime ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={{ fontSize: 14, fontWeight: 'bold', color: THEME.green }}>{formatTimeStr()}</Text>
-                        <TouchableOpacity onPress={() => { setHasTime(false); setTempHour(9); setTempMinute(0); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text style={{ fontSize: 12, color: THEME.textSecondary }}>Tap to set</Text>
-                        <Ionicons name="chevron-forward" size={14} color={THEME.textSecondary} />
-                    </View>
-                )}
-            </TouchableOpacity>
+                {months.map((item) => (
+                    <MemoizedMonth
+                        key={item.date.toISOString()}
+                        item={item}
+                        tempSelectedDate={tempSelectedDate}
+                        onDateSelect={handleDateSelect}
+                    />
+                ))}
+            </ScrollView>
 
-            {/* Selection indicator */}
-            {(tempSelectedDate || hasTime) && (
-                <View style={p.selectionBar}>
-                    <Ionicons name="checkmark-circle" size={18} color={THEME.green} />
-                    <Text style={p.selectionText}>
-                        {tempSelectedDate
-                            ? tempSelectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                            : ''}
-                        {tempSelectedDate && hasTime ? ', ' : ''}
-                        {hasTime ? formatTimeStr() : ''}
-                    </Text>
-                </View>
-            )}
+            {/* Chips at bottom (above action bar) */}
+            {renderChips()}
 
+            {/* Action bar */}
             <ActionBar onReset={handleReset} onConfirm={handleConfirm} hasValue={!!tempSelectedDate || hasTime} />
         </View>
     );
@@ -240,13 +235,13 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
 
 export default React.memo(DeadlinePage);
 
-// --- Extracted Memoized Month Component ---
+// ─── Helpers ────────────────────────────────────────────────────────
 const monthNames = ["January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"];
 
 const isToday = (d: Date) => {
-    const today = new Date();
-    return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+    const now = new Date();
+    return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 };
 
 const isSameDay = (d1: Date, d2: Date | null) => {
@@ -254,14 +249,11 @@ const isSameDay = (d1: Date, d2: Date | null) => {
     return d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
 };
 
-const MemoizedMonth = React.memo(({ item, colWidth, tempSelectedDate, onDateSelect }: {
-    item: CalendarMonthData;
-    colWidth: number;
-    tempSelectedDate: Date | null;
-    onDateSelect: (d: Date) => void;
+// ─── Memoized Month ─────────────────────────────────────────────────
+const MemoizedMonth = React.memo(({ item, tempSelectedDate, onDateSelect }: {
+    item: CalendarMonthData; tempSelectedDate: Date | null; onDateSelect: (d: Date) => void;
 }) => {
     const monthDate = item.date;
-
     const days = useMemo(() => {
         const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
         const firstDay = (new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).getDay() + 6) % 7;
@@ -271,37 +263,21 @@ const MemoizedMonth = React.memo(({ item, colWidth, tempSelectedDate, onDateSele
         return arr;
     }, [monthDate]);
 
-    // Fast check: Is the selected date even in this month?
-    // If not, we don't need to re-render the days when the selection changes,
-    // EXCEPT if it WAS in this month and moved out. React.memo handles this if props strictly match,
-    // but the object reference `tempSelectedDate` changes on every select. 
-    // We pass it down anyway and let the fast map handle it.
-
     return (
-        <View style={{ paddingHorizontal: 12, paddingBottom: 10 }}>
-            <Text style={p.monthTitle}>
-                {monthNames[monthDate.getMonth()]} {monthDate.getFullYear()}
-            </Text>
+        <View style={{ paddingHorizontal: 8, paddingBottom: 6 }}>
+            <Text style={st.monthTitle}>{monthNames[monthDate.getMonth()]} {monthDate.getFullYear()}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                 {days.map((date, index) => {
-                    if (!date) return <View key={index} style={{ width: colWidth, height: ROW_HEIGHT }} />;
+                    if (!date) return <View key={index} style={{ width: '14.28%', height: ROW_HEIGHT }} />;
                     const selected = isSameDay(date, tempSelectedDate);
                     const today = isToday(date);
                     return (
-                        <View key={index} style={{ width: colWidth, height: ROW_HEIGHT, justifyContent: 'center', alignItems: 'center' }}>
+                        <View key={index} style={{ width: '14.28%', height: ROW_HEIGHT, justifyContent: 'center', alignItems: 'center' }}>
                             <TouchableOpacity
-                                style={[
-                                    { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
-                                    selected && { backgroundColor: THEME.green },
-                                    !selected && today && { backgroundColor: '#333' },
-                                ]}
+                                style={[st.dayCell, selected && { backgroundColor: THEME.green }, !selected && today && { backgroundColor: '#333' }]}
                                 onPress={() => onDateSelect(date)}
                             >
-                                <Text style={[
-                                    { fontSize: 14, fontWeight: '500', color: THEME.textPrimary },
-                                    selected && { color: '#FFF', fontWeight: 'bold' },
-                                    !selected && today && { color: '#FFF', fontWeight: '700' },
-                                ]}>
+                                <Text style={[st.dayText, selected && { color: '#FFF', fontWeight: 'bold' }, !selected && today && { color: '#FFF', fontWeight: '700' }]}>
                                     {date.getDate()}
                                 </Text>
                             </TouchableOpacity>
@@ -311,43 +287,74 @@ const MemoizedMonth = React.memo(({ item, colWidth, tempSelectedDate, onDateSele
             </View>
         </View>
     );
-}, (prevProps, nextProps) => {
-    // Custom exact equality check for memoization speed
-    // If the selected date hasn't changed relative to this specific month, we don't re-render.
-    const wasSelected = prevProps.tempSelectedDate && prevProps.tempSelectedDate.getMonth() === prevProps.item.date.getMonth() && prevProps.tempSelectedDate.getFullYear() === prevProps.item.date.getFullYear();
-    const isSelected = nextProps.tempSelectedDate && nextProps.tempSelectedDate.getMonth() === nextProps.item.date.getMonth() && nextProps.tempSelectedDate.getFullYear() === nextProps.item.date.getFullYear();
-
-    // If neither was selected, safely skip
-    if (!wasSelected && !isSelected) return true;
-
-    // If it moved completely out of this month, re-render it once to clear it.
-    // If it was selected inside this month and moved somewhere else in this month, re-render.
-    // Safe fallback: standard prop equality if any selection happens in this month
-    return prevProps.tempSelectedDate?.getTime() === nextProps.tempSelectedDate?.getTime();
+}, (prev, next) => {
+    const wasIn = prev.tempSelectedDate && prev.tempSelectedDate.getMonth() === prev.item.date.getMonth() && prev.tempSelectedDate.getFullYear() === prev.item.date.getFullYear();
+    const isIn = next.tempSelectedDate && next.tempSelectedDate.getMonth() === next.item.date.getMonth() && next.tempSelectedDate.getFullYear() === next.item.date.getFullYear();
+    if (!wasIn && !isIn) return true;
+    return prev.tempSelectedDate?.getTime() === next.tempSelectedDate?.getTime();
 });
 
-const p = StyleSheet.create({
-    monthTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: THEME.textPrimary,
-        marginBottom: 12,
-        marginLeft: 8,
-        paddingTop: 12,
-    },
-    selectionBar: {
+// ─── Styles ─────────────────────────────────────────────────────────
+const st = StyleSheet.create({
+    chipRow: {
         flexDirection: 'row',
-        alignItems: 'center',
         gap: 8,
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
         paddingVertical: 10,
         borderTopWidth: 1,
-        borderTopColor: THEME.border,
-        backgroundColor: '#F8FFF8',
+        borderTopColor: '#E5E7EB',
+        backgroundColor: '#FAFBFC',
     },
-    selectionText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: THEME.textPrimary,
+    chipActive: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+        backgroundColor: '#ECFDF5',
+        borderWidth: 1,
+        borderColor: THEME.green,
     },
+    chipActiveText: { fontSize: 13, fontWeight: '600', color: THEME.green },
+    chipEmpty: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    chipEmptyText: { fontSize: 13, fontWeight: '500', color: THEME.textSecondary },
+    weekdayRow: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 6 },
+    weekdayText: { width: '14.28%', textAlign: 'center', fontSize: 12, color: THEME.textSecondary, fontWeight: '600' },
+    monthTitle: { fontSize: 15, fontWeight: '700', color: THEME.textPrimary, marginBottom: 8, marginLeft: 4, paddingTop: 12 },
+    dayCell: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
+    dayText: { fontSize: 14, fontWeight: '500', color: THEME.textPrimary },
+    timeHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+    },
+    timeHeaderTitle: { fontSize: 16, fontWeight: '700', color: THEME.textPrimary },
+    backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 60 },
+    backText: { fontSize: 15, fontWeight: '600', color: THEME.accent },
+    formatToggle: {
+        width: 42,
+        alignItems: 'center',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    formatToggleText: { fontSize: 13, fontWeight: '600', color: THEME.textSecondary },
 });

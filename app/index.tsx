@@ -1,5 +1,5 @@
 import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
-import { View, Modal, TouchableOpacity, Text } from 'react-native';
+import { View, Modal, TouchableOpacity, Text, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -43,6 +43,7 @@ const formatDateShort = (dateStr: string) => {
 
 export default function TaskListScreen() {
     const flashListRef = useRef<any>(null);
+
 
     // 1. Core Data & Logic Hooks
     const taskController = useTaskController();
@@ -407,8 +408,8 @@ export default function TaskListScreen() {
             <CalendarModal
                 visible={ui.isCalendarVisible}
                 onClose={() => ui.setIsCalendarVisible(false)}
-                showTimePicker={ui.calendarMode !== 'pre-add' && ui.calendarMode !== 'move'}
-                autoConfirm={ui.calendarMode === 'pre-add' || ui.calendarMode === 'move'}
+                showTimePicker={ui.calendarMode !== 'move'}
+                autoConfirm={ui.calendarMode === 'move'}
                 onSelectDate={(date: any, hasTime?: boolean) => {
                     let dateStr: string | null = null;
                     if (date) {
@@ -551,13 +552,14 @@ export default function TaskListScreen() {
                 </View>
             ) : (
                 <TouchableOpacity
-                    style={styles.fab}
+                    activeOpacity={0.8}
                     onPress={() => {
                         ui.setCalendarInitialPage(0);
                         ui.setCalendarMode('pre-add');
                         ui.setCalendarTempDate(toISODateString(new Date()));
                         ui.setIsCalendarVisible(true);
                     }}
+                    style={styles.fab}
                 >
                     <Ionicons name="add" size={30} color="#FFF" />
                 </TouchableOpacity>

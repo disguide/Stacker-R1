@@ -3,6 +3,20 @@ import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated, Platf
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { TagDefinition } from '../services/storage'; // Import type
 
+// Calculate urgency color for deadline tag based on days remaining
+const getDeadlineUrgencyColor = (deadline?: string): string | null => {
+    if (!deadline) return null;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const due = new Date(deadline);
+    due.setHours(0, 0, 0, 0);
+    const daysUntil = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysUntil <= 1) return '#EF4444'; // Red — 1D or less / overdue
+    if (daysUntil === 2) return '#F59E0B'; // Orange — 2D
+    if (daysUntil === 3) return '#EAB308'; // Yellow — 3D
+    return null;
+};
+
 // Theme - mirroring the one in index.tsx
 const THEME = {
     bg: '#FAFAF6',
@@ -381,17 +395,17 @@ export default function SwipeableTaskRow({
                     isSubtask && { minHeight: 40 }
                 ]}
             >
-                {/* Color Stripe - Always present, defaults to soft gray, rendering on ROOT container edge */}
+                {/* Color Stripe - Static */}
                 <View style={{
                     position: 'absolute',
                     left: 0,
                     top: 0,
                     bottom: 0,
                     width: 4,
-                    borderTopLeftRadius: touchingTop || isSubtask ? 0 : 6, // Matches inner curvature of the 6px top boundary (12 - 6 = 6)
-                    borderBottomLeftRadius: touchingBottom || isSubtask ? 0 : 10, // Matches inner curvature of 1px bottom boundary (12 - 1 = 11, visually 10 is smooth)
+                    borderTopLeftRadius: touchingTop || isSubtask ? 0 : 6,
+                    borderBottomLeftRadius: touchingBottom || isSubtask ? 0 : 10,
                     backgroundColor: props.color || '#CBD5E0',
-                    zIndex: 2, // Ensure it sits above the progress fill
+                    zIndex: 2,
                 }} />
 
                 {/* Slider Zone */}
@@ -461,7 +475,7 @@ export default function SwipeableTaskRow({
                             <Text style={[
                                 styles.taskTitle,
                                 (completed || isCompleting) && styles.taskTitleCompleted,
-                                isSubtask && { fontSize: 14 }
+                                isSubtask && { fontSize: 14 },
                             ]}>
                                 {title}
                             </Text>
@@ -469,8 +483,8 @@ export default function SwipeableTaskRow({
                             <View style={styles.taskMetaRow}>
                                 {deadline && (
                                     <View style={styles.metaItem}>
-                                        <Ionicons name="calendar-outline" size={14} color={THEME.textSecondary} />
-                                        <Text style={styles.metaText}>
+                                        <Ionicons name="calendar-outline" size={14} color={getDeadlineUrgencyColor(deadline) || THEME.textSecondary} />
+                                        <Text style={[styles.metaText, getDeadlineUrgencyColor(deadline) && { color: getDeadlineUrgencyColor(deadline), fontWeight: 'bold' }]}>
                                             {(() => {
                                                 try {
                                                     return formatDeadline(deadline);

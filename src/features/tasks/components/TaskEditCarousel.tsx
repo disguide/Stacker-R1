@@ -61,11 +61,23 @@ export default function TaskEditCarousel({
     const carouselPanResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => false,
-            // Only capture strong UPWARD movement logic (in bubbling phase to let wheels scroll)
+            onStartShouldSetPanResponderCapture: () => false,
+            // Capture phase: for scrollable pages, grab swipe from bottom zone BEFORE children
+            onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+                 const feature = activeFeatureRef.current;
+                 if (feature === 'deadline' || feature === 'estimate') {
+                     const sheetBottom = SCREEN_HEIGHT * 0.9;
+                     if (gestureState.y0 > sheetBottom - 100) {
+                         return gestureState.dy < -30 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
+                     }
+                 }
+                 return false;
+            },
+            // Bubbling phase: normal pages
             onMoveShouldSetPanResponder: (_, gestureState) => {
-                 if (activeFeatureRef.current === 'reminder') {
-                     // Check if touch started near the horizontal center (where time wheels are)
-                     // and ignore the swipe gesture so wheels can scroll freely
+                 const feature = activeFeatureRef.current;
+                 if (feature === 'deadline' || feature === 'estimate') return false;
+                 if (feature === 'reminder') {
                      const isTouchingWheels = gestureState.x0 > SCREEN_WIDTH / 2 - 120 && gestureState.x0 < SCREEN_WIDTH / 2 + 120;
                      if (isTouchingWheels) return false;
                  }

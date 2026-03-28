@@ -20,14 +20,13 @@ export interface TimelineEvent {
 
 // Theme - consistent with index.tsx
 const THEME = {
-    bg: '#F8FAFC',
-    textPrimary: '#1E293B',
+    bg: '#F0F9FF', // Clean pale blue background
+    textPrimary: '#0F172A', // Navy/Slate
     textSecondary: '#64748B',
-    accent: '#3B82F6', // Blue like the sprint button
-    success: '#10B981',
-    border: '#E2E8F0',
-    timerBg: '#FFFFFF',
-    cardBg: '#FFFFFF',
+    accent: '#0EA5E9', // Sky Blue
+    success: '#0EA5E9',
+    border: 'rgba(255, 255, 255, 0.5)', 
+    cardBg: 'rgba(255, 255, 255, 0.98)',
 };
 
 export default function SprintScreen() {
@@ -59,6 +58,15 @@ export default function SprintScreen() {
     const breakDurationRef = useRef(0);
     const [pauseElapsed, setPauseElapsed] = useState(0);
     const pauseElapsedRef = useRef(0);
+
+    const MODAL_THEME = {
+        bg: '#F0F9FF', // Very light blue
+        accent: '#0EA5E9', // Sky blue
+        itemBg: '#FFFFFF',
+        circleBorder: 'rgba(14, 165, 233, 0.08)',
+        smallCircleBg: '#FFFFFF',
+        highlight: '#E0F2FE', // Light blue tint for +5
+    };
 
     // Sync Refs
     useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
@@ -591,10 +599,10 @@ export default function SprintScreen() {
                 {/* PAUSE BUTTON */}
                 {settings.allowPause ? (
                     <TouchableOpacity onPress={handlePause} style={styles.pauseButton}>
-                        <Ionicons name="pause" size={20} color="#333" />
+                        <Ionicons name="pause" size={20} color={MODAL_THEME.accent} />
                     </TouchableOpacity>
                 ) : (
-                    <View style={{ width: 24 }} />
+                    <View style={{ width: 44 }} />
                 )}
             </View>
 
@@ -602,7 +610,7 @@ export default function SprintScreen() {
             <View style={styles.contentContainer}>
 
                 {/* Current Task Card */}
-                <View style={styles.cardContainer}>
+                <View style={styles.frostedCard}>
                     {currentTask ? (
                         <>
                             <View style={styles.taskInfo}>
@@ -643,11 +651,14 @@ export default function SprintScreen() {
                 <View style={styles.nextUpContainer}>
                     <Text style={styles.nextUpLabel}>NEXT UP</Text>
                     <ScrollView style={styles.nextScroll} showsVerticalScrollIndicator={false}>
-                        {tasks.slice(1).map((t, i) => (
-                            <View key={t.id} style={styles.nextItem}>
-                                <Text style={styles.nextTitle} numberOfLines={1}>{t.title}</Text>
-                            </View>
-                        ))}
+                        {tasks.slice(1).map((t, i) => {
+                            const opacity = Math.max(0, 1 - (i * 0.35));
+                            return (
+                                <View key={t.id} style={[styles.nextItem, { opacity }]}>
+                                    <Text style={styles.nextTitle} numberOfLines={1}>{t.title}</Text>
+                                </View>
+                            );
+                        })}
                         {tasks.length <= 1 && (
                             <Text style={styles.noNextText}>Last task!</Text>
                         )}
@@ -656,60 +667,79 @@ export default function SprintScreen() {
 
             </View>
 
-            {/* PAUSE MODAL OVERLAY */}
-            <Modal visible={isPaused} transparent={false} animationType="fade">
-                <SafeAreaView style={styles.pauseOverlay}>
-                    {/* Top Left Exit Button */}
-                    <TouchableOpacity style={styles.modalExitButton} onPress={handleResume}>
-                        <Ionicons name="close" size={32} color="#94A3B8" />
-                    </TouchableOpacity>
+            {/* PAUSE MODAL OVERLAY (BLUE CIRCLES) */}
+            <Modal visible={isPaused} transparent={true} animationType="fade">
+                <View style={[styles.pauseBackdrop, { backgroundColor: MODAL_THEME.bg }]}>
+                    <SafeAreaView style={styles.pauseOverlay}>
+                        {/* Top Left Exit Button */}
+                        <TouchableOpacity style={styles.modalExitButton} onPress={handleResume}>
+                            <Ionicons name="close-outline" size={28} color={MODAL_THEME.accent} />
+                        </TouchableOpacity>
 
-                    {breakPhase === 'claiming' ? (
-                        <View style={styles.pauseContentCenter}>
-                            <View style={styles.timerPreview}>
-                                <Text style={styles.timerPreviewText}>
-                                    {formatCountdown(breakDuration * 60)}
+                        <View style={styles.forestContent}>
+                            {/* Big Timer Circle */}
+                            <View style={styles.bigCircle}>
+                                {breakPhase === 'claiming' && breakDuration === 0 ? (
+                                    <Ionicons name="flash-outline" size={60} color="rgba(14, 165, 233, 0.15)" />
+                                ) : (
+                                    <>
+                                        <Text style={styles.forestTimerText}>
+                                            {breakPhase === 'claiming' ? (
+                                                formatCountdown(breakDuration * 60)
+                                            ) : (
+                                                breakDuration > 0
+                                                    ? formatCountdown(Math.max(0, (breakDuration * 60) - pauseElapsed))
+                                                    : formatCountdown(pauseElapsed)
+                                            )}
+                                        </Text>
+                                        <Text style={styles.forestTimerLabel}>REMAINING</Text>
+                                    </>
+                                )}
+                            </View>
+
+                            {breakPhase === 'claiming' && (
+                                <View style={styles.forestSmallCirclesRow}>
+                                    <View style={styles.forestSmallCircleContainer}>
+                                        <TouchableOpacity style={styles.smallCircle} onPress={() => addBreakTime(1)}>
+                                            <Text style={styles.smallCircleText}>+1</Text>
+                                        </TouchableOpacity>
+                                        <Text style={styles.smallCircleLabel}>MIN</Text>
+                                    </View>
+
+                                    <View style={styles.forestSmallCircleContainer}>
+                                        <TouchableOpacity style={styles.smallCircle} onPress={() => addBreakTime(5)}>
+                                            <Text style={styles.smallCircleText}>+5</Text>
+                                        </TouchableOpacity>
+                                        <Text style={styles.smallCircleLabel}>MIN</Text>
+                                    </View>
+
+                                    <View style={styles.forestSmallCircleContainer}>
+                                        <TouchableOpacity style={styles.smallCircle} onPress={() => addBreakTime(15)}>
+                                            <Text style={styles.smallCircleText}>+15</Text>
+                                        </TouchableOpacity>
+                                        <Text style={styles.smallCircleLabel}>MIN</Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Consistently styled Forest Button */}
+                            <TouchableOpacity 
+                                style={styles.forestPillButton} 
+                                onPress={breakPhase === 'claiming' ? handleStartBreak : handleResume}
+                            >
+                                <Text style={styles.forestPillText}>
+                                    {breakPhase === 'claiming' ? 'Start' : 'Back to Work'}
                                 </Text>
-                            </View>
-
-                            {/* Accumulation Buttons */}
-                            <View style={styles.limitButtonsRow}>
-                                <TouchableOpacity style={styles.limitBtn} onPress={() => addBreakTime(1)}>
-                                    <Text style={styles.limitBtnText}>+1</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.limitBtn} onPress={() => addBreakTime(5)}>
-                                    <Text style={styles.limitBtnText}>+5</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.limitBtn} onPress={() => addBreakTime(15)}>
-                                    <Text style={styles.limitBtnText}>+15</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <TouchableOpacity onPress={() => setBreakDuration(0)} style={{ marginBottom: 40, padding: 10 }}>
-                                <Text style={styles.cancelLimitText}>Reset</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.resumeButton} onPress={handleStartBreak}>
-                                <Text style={styles.resumeButtonText}>Start</Text>
+                                <Ionicons 
+                                    name="arrow-forward" 
+                                    size={20} 
+                                    color="#FFF" 
+                                    style={{ marginLeft: 10 }} 
+                                />
                             </TouchableOpacity>
                         </View>
-                    ) : (
-                        <View style={styles.pauseContentCenter}>
-                            <View style={styles.timerPreview}>
-                                <Text style={styles.timerPreviewText}>
-                                    {breakDuration > 0
-                                        ? formatCountdown(Math.max(0, (breakDuration * 60) - pauseElapsed))
-                                        : formatCountdown(pauseElapsed)
-                                    }
-                                </Text>
-                            </View>
-
-                            <TouchableOpacity style={styles.resumeButton} onPress={handleResume}>
-                                <Text style={styles.resumeButtonText}>End break</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </SafeAreaView>
+                    </SafeAreaView>
+                </View>
             </Modal>
         </SafeAreaView>
     );
@@ -725,31 +755,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 10,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: THEME.textPrimary,
+        height: 80, // Fixed height to prevent layout jumps
     },
     headerCenter: {
         flex: 1,
         alignItems: 'center',
-        paddingVertical: 8,
-    },
-    headerTimerText: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: THEME.textPrimary,
-        fontVariant: ['tabular-nums'],
-    },
-    headerElapsedText: {
-        fontSize: 11,
-        color: THEME.textSecondary,
-        fontWeight: '600',
-        marginTop: -2,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        justifyContent: 'center',
     },
     dashboardContainer: {
         flexDirection: 'row',
@@ -767,9 +778,9 @@ const styles = StyleSheet.create({
     },
     dashboardLabel: {
         fontSize: 8,
-        fontWeight: '800',
+        fontWeight: '900',
         color: THEME.textSecondary,
-        letterSpacing: 0.5,
+        letterSpacing: 1.5,
         marginBottom: 2,
     },
     dashboardValue: {
@@ -783,114 +794,60 @@ const styles = StyleSheet.create({
         height: 20,
         backgroundColor: '#E2E8F0',
     },
-    closeButton: {
-        padding: 8,
-    },
     pauseButton: {
-        padding: 8,
-        backgroundColor: '#E2E8F0',
-        borderRadius: 12,
-    },
-    timerPill: {
-        flexDirection: 'row',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#E0F2FE', // Light blue highlight
+        justifyContent: 'center',
         alignItems: 'center',
-        gap: 6,
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-    },
-    timerText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: THEME.textPrimary,
-        fontVariant: ['tabular-nums'],
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     contentContainer: {
         flex: 1,
         paddingTop: 20,
     },
-    cardContainer: {
+    frostedCard: {
+        backgroundColor: THEME.cardBg,
         marginHorizontal: 20,
         padding: 24,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.6)', // Glass shine
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.12,
+        shadowRadius: 18,
+        elevation: 12,
         alignItems: 'center',
-        justifyContent: 'space-between',
-        minHeight: 320, // Taller card
-        marginBottom: 30,
     },
     taskInfo: {
         alignItems: 'center',
         width: '100%',
-        flex: 1,
-        justifyContent: 'center',
-    },
-    currentLabel: {
-        fontSize: 12,
-        color: THEME.accent,
-        fontWeight: 'bold',
-        marginBottom: 16,
-        letterSpacing: 1,
+        paddingVertical: 32,
     },
     taskTitle: {
-        fontSize: 28, // Bigger title
-        fontWeight: 'bold',
+        fontSize: 26,
+        fontWeight: '700',
         color: THEME.textPrimary,
         textAlign: 'center',
-        marginBottom: 12,
-        lineHeight: 34,
-    },
-    taskEstimate: {
-        fontSize: 18,
-        color: THEME.textSecondary,
-        fontWeight: '500',
     },
     emptyText: {
         textAlign: 'center',
         color: THEME.textSecondary,
         fontSize: 16,
     },
-
-    // Pomodoro Styles
-    hugeTimer: {
-        fontSize: 48,
-        fontWeight: '900',
-        color: '#EF4444',
-        fontVariant: ['tabular-nums'],
-        marginBottom: -4,
-    },
-    pomodoroPhaseLabel: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#EF4444',
-        letterSpacing: 2,
-        marginBottom: 24,
-    },
-    standardHugeTimer: {
-        fontSize: 48,
-        fontWeight: '900',
-        color: THEME.textPrimary,
-        fontVariant: ['tabular-nums'],
-        marginBottom: -4,
-    },
-    standardPhaseLabel: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: THEME.textSecondary,
-        letterSpacing: 2,
-        marginBottom: 24,
-    },
-
-    // Split Pill Styles
     splitPillContainer: {
         flexDirection: 'row',
         width: '100%',
-        height: 72, // Big touch target
-        backgroundColor: '#F1F5F9', // Light Slate for the Switch side
-        borderRadius: 12, // Fully rounded pill -> rounded rectangle
+        height: 60,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 16,
         overflow: 'hidden',
-        marginTop: 20,
         borderWidth: 1,
         borderColor: '#E2E8F0',
     },
@@ -900,7 +857,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: '#F8FAFC', // Slightly lighter than container
+        backgroundColor: '#FFF',
     },
     pillRight: {
         flex: 1,
@@ -908,124 +865,106 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: THEME.success, // Green
+        backgroundColor: THEME.success,
     },
     pillDivider: {
         width: 1,
         backgroundColor: '#E2E8F0',
     },
     pillTextLeft: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '600',
-        color: '#64748B', // Slate text
+        color: '#64748B',
     },
     pillTextRight: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#FFFFFF', // White text
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#FFFFFF',
     },
-
     nextUpContainer: {
         flex: 1,
-        paddingHorizontal: 30,
-        backgroundColor: 'rgba(255,255,255,0.5)', // Subtle backdrop?
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        paddingTop: 30,
+        paddingHorizontal: 32,
+        paddingTop: 32,
     },
     nextUpLabel: {
-        fontSize: 12,
+        fontSize: 10,
+        fontWeight: '900',
         color: THEME.textSecondary,
-        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1.5,
         marginBottom: 16,
-        letterSpacing: 1,
     },
     nextScroll: {
         flex: 1,
     },
     nextItem: {
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E2E8F0',
+        paddingVertical: 14,
     },
     nextTitle: {
         fontSize: 16,
         color: '#64748B',
+        fontWeight: '500',
     },
     noNextText: {
         fontStyle: 'italic',
         color: '#94A3B8',
-        marginTop: 10,
     },
-
-    // Pause Modal
-    pauseOverlay: {
-        flex: 1,
-        backgroundColor: '#F8FAFC', // Relaxed, full screen cover
-    },
-    modalExitButton: {
-        position: 'absolute',
-        top: 20,
-        left: 20,
-        zIndex: 10,
-        padding: 12, // Larger touch target
-    },
-    pauseContentCenter: {
-        flex: 1,
-        alignItems: 'center',
+    pauseBackdrop: { flex: 1 },
+    pauseOverlay: { flex: 1 },
+    modalExitButton: { position: 'absolute', top: 20, left: 20, zIndex: 10, padding: 12 },
+    forestContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 60, paddingBottom: 40 },
+    bigCircle: {
+        width: 280,
+        height: 280,
+        borderRadius: 140,
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
-        paddingHorizontal: 30,
-        width: '100%',
-    },
-    timerPreview: {
-        marginBottom: 50,
         alignItems: 'center',
+        borderWidth: 15,
+        borderColor: 'rgba(26, 59, 26, 0.05)',
+        shadowColor: "#1A3B1A",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 8,
     },
-    timerPreviewText: {
-        fontSize: 80, // Even bigger
-        fontWeight: '300', // Relaxed, thin font
-        color: '#334155', // Softer
-        fontVariant: ['tabular-nums'],
+    forestTimerText: { fontSize: 80, fontWeight: '400', color: '#1A3B1A', fontVariant: ['tabular-nums'] },
+    forestTimerLabel: { fontSize: 13, color: '#1A3B1A', letterSpacing: 3, fontWeight: '600', marginTop: -5 },
+    
+    forestSmallCirclesRow: { flexDirection: 'row', gap: 20, alignItems: 'center' },
+    forestSmallCircleContainer: { alignItems: 'center', gap: 8 },
+    smallCircle: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.02)',
     },
-    limitButtonsRow: {
+    smallCircleText: { fontSize: 18, fontWeight: '700', color: '#1A3B1A' },
+    smallCircleLabel: { fontSize: 10, color: '#1A3B1A', fontWeight: '800', opacity: 0.6, letterSpacing: 1 },
+    
+    forestPillButton: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 16,
-        marginBottom: 20,
-    },
-    limitBtn: {
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        backgroundColor: 'transparent',
-        borderWidth: 1,
-        borderColor: '#CBD5E0',
-        minWidth: 70,
-        alignItems: 'center'
-    },
-    limitBtnText: {
-        fontSize: 18,
-        fontWeight: '400',
-        color: '#64748B'
-    },
-    cancelLimitText: {
-        fontSize: 16,
-        color: '#94A3B8',
-        fontWeight: '400',
-    },
-    resumeButton: {
-        width: '100%',
-        maxWidth: 240, // Keeps it comfortably sized
-        backgroundColor: 'transparent', 
-        borderWidth: 1,
-        borderColor: '#94A3B8',
-        paddingVertical: 18,
-        borderRadius: 12, // Rounded rectangle
+        backgroundColor: '#0EA5E9',
+        paddingVertical: 20,
+        paddingHorizontal: 40,
+        borderRadius: 40,
         alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 20,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 15,
+        elevation: 10,
     },
-    resumeButtonText: {
-        fontSize: 18,
-        fontWeight: '400',
-        color: '#475569',
-    },
+    forestPillText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
 });

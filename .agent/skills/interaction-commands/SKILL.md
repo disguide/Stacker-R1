@@ -20,6 +20,7 @@ This skill defines a set of trigger words that you (the USER) can use to control
 
 | **`test-first`** / **`/tdd`** | I will outline the exact unit/integration tests I plan to write before implementing the fix. | For critical business logic like recurrence engines or storage services. |
 | **`clean`** / **`/simple`** | I will invoke the **`code-simplifier`** skill to ensure my proposed solution is as elegant and readable as possible. | When you want to prevent future technical debt. |
+| **`nc`** | I will activate the **No Coding Protocol**. I will NOT change any code. I will repeat your request back to you in my own words to confirm 100% understanding, then brainstorm solutions. | When you want to discuss ideas or brainstorm without me touching your files. |
 
 ---
 

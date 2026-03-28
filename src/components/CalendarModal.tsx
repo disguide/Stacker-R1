@@ -14,11 +14,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const MODAL_WIDTH = 340;
+const MODAL_WIDTH = 350; // Increased slightly for better spacing
 const CONTENT_WIDTH = MODAL_WIDTH - 24; // paddingHorizontal 12 * 2
 const COL_WIDTH = CONTENT_WIDTH / 7;
-const ROW_HEIGHT = 38;
-const HEADER_HEIGHT = 40;
+const ROW_HEIGHT = 40; // 38 cell + 2 margin
+const HEADER_HEIGHT = 54; // 12 paddingTop + 20 font + 12 marginBottom + 10 paddingBottom
 
 // Theme Constants
 const THEME = {
@@ -655,12 +655,12 @@ const styles = StyleSheet.create({
     headerContainer: { paddingVertical: 10, borderBottomWidth: 1, borderColor: THEME.border, backgroundColor: THEME.surface },
     monthContainer: { paddingHorizontal: 12, paddingBottom: 10 },
     monthTitle: { fontSize: 16, fontWeight: 'bold', color: THEME.textPrimary, marginBottom: 12, marginLeft: 8, paddingTop: 12 },
-    weekRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 8 },
-    weekdayLabel: { width: COL_WIDTH, textAlign: 'center', fontSize: 12, color: THEME.textSecondary, fontWeight: '600' },
+    weekRow: { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 8 },
+    weekdayLabel: { width: '14.28%', textAlign: 'center', fontSize: 12, color: THEME.textSecondary, fontWeight: '600' },
     divider: { height: 1, backgroundColor: THEME.border },
-    daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+    daysGrid: { flexDirection: 'row', flexWrap: 'wrap', width: '100%' },
 
-    dayCell: { width: COL_WIDTH, height: ROW_HEIGHT, justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
+    dayCell: { width: '14.28%', height: ROW_HEIGHT, justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
     dayButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', borderRadius: 16 },
     dayText: { fontSize: 14, color: THEME.textPrimary, fontWeight: '500' },
     currentDayHighlight: { backgroundColor: '#334155' }, // Slate 700 for Today

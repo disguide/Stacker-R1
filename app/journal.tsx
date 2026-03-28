@@ -88,6 +88,11 @@ export default function JournalScreen() {
     const [logDays, setLogDays] = useState<LogDay[]>([]);
     const [todayData, setTodayData] = useState<LogDay | null>(null);
 
+    // Shared Element Entry Animation
+    const entryTranslateY = useRef(new Animated.Value(-25)).current;
+    const entryOpacity = useRef(new Animated.Value(0)).current;
+    const hasAnimatedEntry = useRef(false);
+
     const loadData = async (showSpinner = false) => {
         if (showSpinner) setLoading(true);
         const today = toISODateString(new Date());
@@ -312,15 +317,30 @@ export default function JournalScreen() {
                 contentContainerStyle={{ paddingBottom: 220 }}
                 showsVerticalScrollIndicator={false}
             >
-                {logDays.map((day) => {
+                {logDays.map((day, dayIndex) => {
                     const isToday = day.date === toISODateString(new Date());
                     const [y, m, d] = day.date.split('-').map(Number);
                     const dateObj = new Date(y, m - 1, d);
                     const dateParts = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
                     const formattedTitle = `${dateParts} ${getDayCounter(day.date).toUpperCase()}`;
 
+                    // Entry animation only for the first day block
+                    const isFirstBlock = dayIndex === 0;
+                    if (isFirstBlock && !hasAnimatedEntry.current) {
+                        hasAnimatedEntry.current = true;
+                        Animated.parallel([
+                            Animated.spring(entryTranslateY, { toValue: 0, useNativeDriver: true, friction: 8, tension: 50 }),
+                            Animated.timing(entryOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+                        ]).start();
+                    }
+
+                    const DayWrapper = isFirstBlock ? Animated.View : View;
+                    const dayWrapperStyle = isFirstBlock
+                        ? [styles.logDayBlock, { transform: [{ translateY: entryTranslateY }], opacity: entryOpacity }]
+                        : [styles.logDayBlock];
+
                     return (
-                        <View key={day.date} style={styles.logDayBlock}>
+                        <DayWrapper key={day.date} style={dayWrapperStyle}>
                             {/* 1. Day Header */}
                             <View style={styles.dayHeaderRow}>
                                 <Text style={styles.dayTitleText}>{formattedTitle}</Text>
@@ -427,7 +447,7 @@ export default function JournalScreen() {
                             {day.tasks.length === 0 && day.sprints.length === 0 && !day.reflection && !day.rating && (
                                 <View style={{ height: 40 }} />
                             )}
-                        </View>
+                        </DayWrapper>
                     );
                 })}
             </ScrollView>

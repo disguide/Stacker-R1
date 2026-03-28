@@ -5,14 +5,14 @@ import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Task, StorageService } from '../src/services/storage';
 
 const THEME = {
-    bg: '#F8FAFC',
-    textPrimary: '#1E293B',
+    bg: '#F0F9FF', // Clean pale blue background
+    textPrimary: '#0F172A', // Navy/Slate
     textSecondary: '#64748B',
-    success: '#10B981',
-    successBg: '#F0FFF4', // Light green background for completion
-    accent: '#3B82F6', // Blue like the sprint button
-    cardBg: '#FFFFFF',
-    border: '#E2E8F0',
+    success: '#0EA5E9',
+    successBg: '#F0F9FF', // Light blue background for completion
+    accent: '#0EA5E9', 
+    border: 'rgba(255, 255, 255, 0.5)', 
+    cardBg: 'rgba(255, 255, 255, 0.98)',
 };
 
 // Helper for remaining time display
@@ -592,16 +592,16 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-around',
         marginBottom: 24,
-        backgroundColor: '#FFF',
-        paddingVertical: 16,
-        borderRadius: 12,
+        backgroundColor: THEME.cardBg,
+        paddingVertical: 20,
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: THEME.border,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        borderColor: 'rgba(255, 255, 255, 0.6)',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 8,
     },
     statContainer: {
         alignItems: 'center',
@@ -609,36 +609,55 @@ const styles = StyleSheet.create({
     statDivider: {
         width: 1,
         height: 40,
-        backgroundColor: THEME.border,
+        backgroundColor: 'rgba(226, 232, 240, 0.8)',
     },
-    summaryLabel: { fontSize: 11, color: THEME.textSecondary, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 },
+    summaryLabel: { 
+        fontSize: 10, 
+        color: THEME.textSecondary, 
+        fontWeight: '900', 
+        letterSpacing: 1.5, 
+        marginBottom: 4,
+        textTransform: 'uppercase',
+    },
     scaryBigTime: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-    sectionHeader: { fontSize: 12, fontWeight: '600', color: THEME.textSecondary, marginBottom: 8, letterSpacing: 0.5, marginLeft: 4 },
+    sectionHeader: { 
+        fontSize: 10, 
+        fontWeight: '900', 
+        color: THEME.textSecondary, 
+        marginBottom: 12, 
+        letterSpacing: 1.5, 
+        marginLeft: 8,
+        textTransform: 'uppercase',
+    },
     taskListContainer: { 
-        backgroundColor: '#FFF', 
-        borderRadius: 0, 
+        backgroundColor: THEME.cardBg, 
+        borderRadius: 24, 
         borderWidth: 1, 
         borderColor: THEME.border,
         overflow: 'hidden',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.03,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
         shadowRadius: 4,
-        elevation: 1,
+        elevation: 4,
     },
     taskItemContainer: {
-        height: 52, justifyContent: 'center', backgroundColor: '#FFF'
+        height: 60, justifyContent: 'center', backgroundColor: 'transparent'
     },
     progressFill: { position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 0 },
     taskContent: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, zIndex: 10 },
-    taskTitle: { fontSize: 15, fontWeight: '500', color: THEME.textPrimary, marginBottom: 2 },
+    taskTitle: { fontSize: 16, fontWeight: '600', color: THEME.textPrimary, marginBottom: 2 },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     metaText: { fontSize: 12, color: THEME.textSecondary },
     footer: { padding: 16, paddingBottom: 32, backgroundColor: THEME.bg },
     doneButton: {
-        backgroundColor: '#0B1B3D', borderRadius: 8, height: 48, alignItems: 'center', justifyContent: 'center',
+        backgroundColor: '#0F172A', 
+        borderRadius: 16, 
+        height: 56, 
+        alignItems: 'center', 
+        justifyContent: 'center',
     },
-    doneButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+    doneButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
     sliderOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 },
 
     // Timeline Styles

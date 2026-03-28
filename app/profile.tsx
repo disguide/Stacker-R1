@@ -10,6 +10,10 @@ import * as ImagePicker from 'expo-image-picker';
 
 const GOAL_PALETTE = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#06B6D4', '#F97316'];
 
+// Shared Element Animation refs (module-level for cross-screen coordination)
+const journalCardTranslateY = new Animated.Value(0);
+const journalCardOpacity = new Animated.Value(1);
+
 const getMoodColor = (rating: number) => {
     if (rating === 0) return '#94A3B8';
     if (rating >= 100) return '#A855F7';
@@ -828,12 +832,25 @@ export default function ProfileScreen() {
                             <View style={styles.bestDaysContainer}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                                     <Text style={styles.bestDaysTitle}>Journal</Text>
-                                    <TouchableOpacity onPress={() => router.push('/journal')}>
+                                    <TouchableOpacity onPress={() => {
+                                        // Exit animation: slide up + fade out
+                                        Animated.parallel([
+                                            Animated.timing(journalCardTranslateY, { toValue: -30, duration: 250, useNativeDriver: true }),
+                                            Animated.timing(journalCardOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+                                        ]).start(() => {
+                                            router.push('/journal');
+                                            // Reset after navigation
+                                            setTimeout(() => {
+                                                journalCardTranslateY.setValue(0);
+                                                journalCardOpacity.setValue(1);
+                                            }, 500);
+                                        });
+                                    }}>
                                         <Text style={{ color: '#3B82F6', fontWeight: '700', fontSize: 14 }}>Full Log</Text>
                                     </TouchableOpacity>
                                 </View>
 
-                                <View style={styles.logDayBlock}>
+                                <Animated.View style={[styles.logDayBlock, { transform: [{ translateY: journalCardTranslateY }], opacity: journalCardOpacity }]}>
                                     <View style={styles.dayHeaderRow}>
                                         <Text style={styles.dayTitleText}>
                                             {`${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} -0D`}
@@ -929,7 +946,7 @@ export default function ProfileScreen() {
                                     {todayTasks.length === 0 && sprintHistory.filter(s => s.date === toISODateString(new Date())).length === 0 && !dailyData?.reflection && !dailyData?.rating && (
                                         <View style={{ height: 40 }} />
                                     )}
-                                </View>
+                                </Animated.View>
                             </View>
 
                             {!isEditing && (
