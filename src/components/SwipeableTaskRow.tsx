@@ -137,7 +137,7 @@ const calculateRemainingTime = (estimatedTime: string, progress: number) => {
     }
 };
 
-export default function SwipeableTaskRow({
+function SwipeableTaskRow({
     id,
     title,
     completed,
@@ -716,4 +716,31 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         backgroundColor: '#FFFFFF',
     }
+});
+
+
+// Add a custom comparison function to prevent unnecessary re-renders in FlashList
+export default React.memo(SwipeableTaskRow, (prevProps, nextProps) => {
+    return (
+        prevProps.id === nextProps.id &&
+        prevProps.title === nextProps.title &&
+        prevProps.completed === nextProps.completed &&
+        prevProps.deadline === nextProps.deadline &&
+        prevProps.estimatedTime === nextProps.estimatedTime &&
+        prevProps.progress === nextProps.progress &&
+        prevProps.daysRolled === nextProps.daysRolled &&
+        prevProps.color === nextProps.color &&
+        prevProps.taskType === nextProps.taskType &&
+        prevProps.importance === nextProps.importance &&
+        prevProps.reminderEnabled === nextProps.reminderEnabled &&
+        prevProps.reminderTime === nextProps.reminderTime &&
+        prevProps.reminderDate === nextProps.reminderDate &&
+        prevProps.isSelectionMode === nextProps.isSelectionMode &&
+        prevProps.isSelected === nextProps.isSelected &&
+        prevProps.isCompleting === nextProps.isCompleting &&
+        prevProps.isReorderMode === nextProps.isReorderMode &&
+        prevProps.touchingTop === nextProps.touchingTop &&
+        prevProps.touchingBottom === nextProps.touchingBottom
+        // Note: we ignore function props like onProgressUpdate as they might be redefined but shouldn't trigger re-renders
+    );
 });

@@ -1,0 +1,3 @@
+## 2025-02-19 - [React.memo Optimization]
+**Learning:** For components inside lists that are rendered frequently (like `SwipeableTaskRow` inside `FlashList`), wrapping them in `React.memo` with a custom props comparison function yields measurable performance gains by completely avoiding unnecessary virtual DOM diffing. FlashList recycles views but React still re-renders them if props change referentially. By strictly comparing primitive/data props, we bypass re-renders triggered by recreated inline functions (like event handlers) from the parent.
+**Action:** Always wrap heavy list items in `React.memo` and, when passing complex objects or inline functions, implement a custom comparison function that checks only the data props that actually dictate visual changes.
