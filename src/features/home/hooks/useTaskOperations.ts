@@ -158,7 +158,7 @@ export function useTaskOperations(
             addTask(newTask);
             setHistoryTasks(prev => prev.filter(t => t.id !== taskId));
         }
-    }, [addTask]);
+    }, [addTask, setHistoryTasks]);
 
     const sortTasks = useCallback((tasksToSort: any[], criteria: string | null) => {
         const sorted = [...tasksToSort];
