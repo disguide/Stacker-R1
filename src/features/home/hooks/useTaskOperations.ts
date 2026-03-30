@@ -17,6 +17,10 @@ export function useTaskOperations(
 ) {
     const { toggleTask, deleteTask, addTask, updateTask, updateSubtask, toggleSubtask } = actions;
 
+    const tasksRef = useRef(tasks);
+    tasksRef.current = tasks; // Update ref immediately during render for safely capturing latest state in callbacks
+
+
     // Task Completion Cooldown State
     const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
     const completionTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
@@ -34,7 +38,7 @@ export function useTaskOperations(
             const item = pendingItems.current[itemId];
             if (item) {
                 // Fire and forget history add
-                const originalTask = tasks.find(t => t.id === item.originalTaskId) || item;
+                const originalTask = tasksRef.current.find(t => t.id === item.originalTaskId) || item;
                 const taskToSave = { ...originalTask, id: item.id, title: item.title, date: item.date, completed: true, completedAt: new Date().toISOString() };
                 StorageService.addToHistory(taskToSave as Task).catch(e => console.error('[useTaskOperations] History add failed:', e));
 
@@ -85,7 +89,7 @@ export function useTaskOperations(
             completionTimeouts.current[itemId] = setTimeout(() => {
                 const pendingItem = pendingItems.current[itemId];
                 if (pendingItem) {
-                    const originalTask = tasks.find(t => t.id === pendingItem.originalTaskId) || pendingItem;
+                    const originalTask = tasksRef.current.find(t => t.id === pendingItem.originalTaskId) || pendingItem;
                     const taskToSave = { ...originalTask, id: pendingItem.id, title: pendingItem.title, date: pendingItem.date, completed: true, completedAt: new Date().toISOString() };
                     StorageService.addToHistory(taskToSave as Task).catch(e => console.error('[useTaskOperations] History add failed:', e));
                     toggleTask(pendingItem.originalTaskId, pendingItem.originalDate || pendingItem.date);
@@ -115,7 +119,7 @@ export function useTaskOperations(
             realTaskId = masterId;
             isRecurrenceInstance = true;
         } else {
-            const task = tasks.find(t => t.id === taskId);
+            const task = tasksRef.current.find(t => t.id === taskId);
             if (task) {
                 dateString = task.date;
                 if (task.rrule) isRecurrenceInstance = true;
@@ -141,7 +145,7 @@ export function useTaskOperations(
             deleteTask(realTaskId, dateString, 'all');
             onSuccess();
         }
-    }, [tasks, deleteTask]);
+    }, [deleteTask]);
 
     const handleRestoreTask = useCallback(async (taskId: string, todayString: string) => {
         const restoredTask = await StorageService.removeFromHistory(taskId);
@@ -248,7 +252,7 @@ export function useTaskOperations(
     const updateTaskProgress = useCallback((taskId: string, value: number) => {
         const { masterId, date, isInstance } = resolveId(taskId);
         if (isInstance && date) {
-            const masterTask = tasks.find(t => t.id === masterId);
+            const masterTask = tasksRef.current.find(t => t.id === masterId);
             if (masterTask) {
                 const newInstanceProgress = { ...(masterTask.instanceProgress || {}) };
                 newInstanceProgress[date] = value;
@@ -257,7 +261,7 @@ export function useTaskOperations(
         } else {
             updateTask(taskId, { progress: value });
         }
-    }, [tasks, updateTask]);
+    }, [updateTask]);
 
     const handleSubtaskProgress = useCallback((taskId: string, subtaskId: string, progress: number, dateContext: string) => {
         updateSubtask(taskId, subtaskId, progress, dateContext);

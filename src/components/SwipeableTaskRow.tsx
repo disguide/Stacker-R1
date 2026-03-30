@@ -719,28 +719,9 @@ const styles = StyleSheet.create({
 });
 
 
-// Add a custom comparison function to prevent unnecessary re-renders in FlashList
-export default React.memo(SwipeableTaskRow, (prevProps, nextProps) => {
-    return (
-        prevProps.id === nextProps.id &&
-        prevProps.title === nextProps.title &&
-        prevProps.completed === nextProps.completed &&
-        prevProps.deadline === nextProps.deadline &&
-        prevProps.estimatedTime === nextProps.estimatedTime &&
-        prevProps.progress === nextProps.progress &&
-        prevProps.daysRolled === nextProps.daysRolled &&
-        prevProps.color === nextProps.color &&
-        prevProps.taskType === nextProps.taskType &&
-        prevProps.importance === nextProps.importance &&
-        prevProps.reminderEnabled === nextProps.reminderEnabled &&
-        prevProps.reminderTime === nextProps.reminderTime &&
-        prevProps.reminderDate === nextProps.reminderDate &&
-        prevProps.isSelectionMode === nextProps.isSelectionMode &&
-        prevProps.isSelected === nextProps.isSelected &&
-        prevProps.isCompleting === nextProps.isCompleting &&
-        prevProps.isReorderMode === nextProps.isReorderMode &&
-        prevProps.touchingTop === nextProps.touchingTop &&
-        prevProps.touchingBottom === nextProps.touchingBottom
-        // Note: we ignore function props like onProgressUpdate as they might be redefined but shouldn't trigger re-renders
-    );
-});
+// By removing the custom comparator, React.memo relies on shallow equality.
+// However, since we've now stabilized the parent callbacks in `useTaskOperations`
+// (or rather, we shouldn't intentionally drop function references otherwise we cause stale closures),
+// we will export React.memo(SwipeableTaskRow).
+// But actually, FlashList provides its own optimizations and React.memo alone (with reference updates on functions) is safe.
+export default React.memo(SwipeableTaskRow);
