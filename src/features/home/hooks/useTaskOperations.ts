@@ -44,7 +44,7 @@ export function useTaskOperations(
         completionTimeouts.current = {};
         pendingItems.current = {};
         setCompletingTaskIds(new Set());
-    }, [tasks, toggleTask]);
+    }, [toggleTask]);
 
     useEffect(() => {
         return () => {
@@ -99,7 +99,7 @@ export function useTaskOperations(
                 });
             }, 2000);
         }
-    }, [tasks, completingTaskIds, toggleTask]);
+    }, [completingTaskIds, toggleTask]);
 
     const handleConfirmDelete = useCallback((taskId: string, todayString: string, onSuccess: () => void) => {
         let dateString = todayString;
