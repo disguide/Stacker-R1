@@ -72,29 +72,29 @@ export default function ProfileScreen() {
     const [dailyData, setDailyData] = useState<DailyData | null>(null);
     const [todayTasks, setTodayTasks] = useState<Task[]>([]);
 
-    const handleRatingPress = async () => {
+    const handleRatingPress = useCallback(async () => {
         const todayStr = toISODateString(new Date());
         const nextRating = (dailyData?.rating || 0) + 1;
         const nextStarred = nextRating >= 10 ? true : (dailyData?.isStarred || false);
         const newData = { ...(dailyData || { date: todayStr }), date: todayStr, rating: nextRating, isStarred: nextStarred, updatedAt: new Date().toISOString() } as DailyData;
         setDailyData(newData);
         await StorageService.saveDailyData(todayStr, newData);
-    };
+    }, [dailyData, setDailyData]);
 
-    const handleUpdateReflection = async (text: string) => {
+    const handleUpdateReflection = useCallback(async (text: string) => {
         const todayStr = toISODateString(new Date());
         const newData = { ...(dailyData || { date: todayStr }), date: todayStr, reflection: text, updatedAt: new Date().toISOString() } as DailyData;
         setDailyData(newData);
         await StorageService.saveDailyData(todayStr, newData);
-    };
+    }, [dailyData, setDailyData]);
 
-    const handleToggleStarDay = async () => {
+    const handleToggleStarDay = useCallback(async () => {
         const todayStr = toISODateString(new Date());
         const newStatus = !(dailyData?.isStarred);
         const newData = { ...(dailyData || { date: todayStr }), date: todayStr, isStarred: newStatus, updatedAt: new Date().toISOString() } as DailyData;
         setDailyData(newData);
         await StorageService.saveDailyData(todayStr, newData);
-    };
+    }, [dailyData, setDailyData]);
 
     const formatDuration = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
@@ -127,7 +127,7 @@ export default function ProfileScreen() {
                 }
             });
             return () => { mounted = false; };
-        }, [])
+        }, [setDailyData])
     );
 
     // Career Stats Calculation

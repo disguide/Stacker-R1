@@ -1,5 +1,5 @@
 import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
-import { View, Modal, TouchableOpacity, Text, Animated, Dimensions } from 'react-native';
+import { View, Modal, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -32,7 +32,7 @@ import { useTaskCreation } from '../src/features/home/hooks/useTaskCreation';
 // Services & Utils
 import { StorageService } from '../src/services/storage';
 import { RecurrenceEngine } from '../src/features/tasks/logic/recurrenceEngine';
-import { toISODateString, parseEstimatedTime, formatMinutesAsTime } from '../src/utils/dateHelpers';
+import { toISODateString, parseEstimatedTime } from '../src/utils/dateHelpers';
 import { VIEW_CONFIG } from '../src/constants/theme';
 import { styles } from '../src/styles/taskListStyles';
 
