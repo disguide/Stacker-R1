@@ -821,6 +821,8 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                 keyExtractor={(item: any) => item.key}
                 contentContainerStyle={styles.scrollContent}
                 renderItem={renderItem}
+                // ⚡ Bolt Optimization: Using getItemType allows FlashList to efficiently pool and recycle different view types (headers vs tasks), drastically reducing React unmounts/remounts during scroll.
+                getItemType={(item: any) => item.type}
                 // @ts-ignore
                 estimatedItemSize={70}
             />
