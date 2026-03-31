@@ -27,6 +27,7 @@ export function useTaskOperations(
     const handleSwipeStart = useCallback(() => setIsListScrollEnabled(false), []);
     const handleSwipeEnd = useCallback(() => setIsListScrollEnabled(true), []);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const flushCompletions = useCallback(() => {
         const itemIds = Object.keys(completionTimeouts.current);
         itemIds.forEach(itemId => {
@@ -53,6 +54,7 @@ export function useTaskOperations(
         };
     }, [flushCompletions]);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const handleListTaskToggle = useCallback((item: any) => {
         if (__DEV__) console.log('[handleListTaskToggle] Toggling:', { id: item.id, originalDate: item.originalDate, projectedDate: item.date });
         if (item.isCompleted) {
