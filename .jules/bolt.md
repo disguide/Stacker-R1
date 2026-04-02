@@ -1,0 +1,3 @@
+## 2024-04-02 - FlashList View Recycling
+**Learning:** When optimizing large lists, manually wrapping list items in `React.memo` using custom comparators that stringify objects (`JSON.stringify`) or explicitly ignore function props introduces massive performance anti-patterns and extremely dangerous stale closure bugs. The AI must never try to "force" memoization by ignoring lexical scopes or using expensive deep comparison loops inside render.
+**Action:** When `FlashList` renders varying item types (e.g., `header`, `task`, `footer`), immediately provide the `getItemType` prop. This unlocks the library's native view recycling engine safely, delivering the greatest performance boost without touching component logic or risking closures.
