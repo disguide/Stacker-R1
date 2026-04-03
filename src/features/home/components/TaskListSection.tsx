@@ -823,6 +823,11 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                 renderItem={renderItem}
                 // @ts-ignore
                 estimatedItemSize={70}
+                // ⚡ Bolt Performance Optimization
+                // What: Added getItemType to map items to their specific types ('header', 'task', 'footer').
+                // Why: FlashList needs to know which view type an item corresponds to for correct recycling. Without this, it attempts to recycle headers into tasks and vice versa, leading to "blank" items, visual glitches, and heavy unmounting/remounting.
+                // Impact: Dramatically reduces re-renders and eliminates frame drops when scrolling over date boundaries in large lists.
+                getItemType={(item: any) => item.type}
             />
         </View>
     );
