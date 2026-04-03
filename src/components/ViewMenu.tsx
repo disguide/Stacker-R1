@@ -1,32 +1,28 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet, Pressable } from 'react-native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import { VIEW_CONFIG, ViewMode, THEME } from '../constants/theme';
 
-interface OrganizeMenuProps {
+interface ViewMenuProps {
     visible: boolean;
     onClose: () => void;
-    onSelectFilter: (filterType: string) => void;
-    isClumped: boolean;
+    onSelectView: (viewMode: ViewMode) => void;
+    currentView: ViewMode;
     anchor?: { pageX: number; pageY: number; width: number; height: number };
 }
 
-export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped, anchor }: OrganizeMenuProps) => {
-    const MENU_ITEMS = [
-        { id: 'auto_organise', label: 'Auto Organise', icon: 'auto-fix', iconLib: 'MaterialCommunityIcons', color: '#3B82F6', bold: true },
-        { id: 'importance', label: 'Importance', icon: 'alert-circle-outline', iconLib: 'MaterialCommunityIcons', color: '#333' },
-        { id: 'date', label: 'Due Date', icon: 'calendar-clock', iconLib: 'MaterialCommunityIcons', color: '#333' },
-        { id: 'estimatedTime', label: 'Estimated Time', icon: 'clock-outline', iconLib: 'MaterialCommunityIcons', color: '#333' },
-        { id: 'divider', type: 'divider' },
-        { id: 'manual_reorder', label: 'Manual Reorder', icon: 'drag', iconLib: 'MaterialCommunityIcons', color: '#10B981', bold: true },
-        { 
-            id: isClumped ? 'clump_off' : 'clump_on', 
-            label: isClumped ? 'Declump Tasks' : 'Clump Tasks', 
-            icon: isClumped ? 'format-line-spacing' : 'format-line-weight', 
-            iconLib: 'MaterialCommunityIcons', 
-            color: '#8B5CF6', 
-            bold: true 
-        },
-    ];
+export const ViewMenu = ({ visible, onClose, onSelectView, currentView, anchor }: ViewMenuProps) => {
+    const MENU_ITEMS = Object.keys(VIEW_CONFIG).map((mode) => ({
+        id: mode as ViewMode,
+        label: VIEW_CONFIG[mode as ViewMode].label,
+        icon: mode === 'day' ? 'today-outline' :
+              mode === '3days' ? 'calendar-outline' :
+              mode === 'week' ? 'calendar-clear-outline' :
+              mode === 'month' ? 'calendar-number-outline' : 'albums-outline',
+        color: currentView === mode ? THEME.accent : THEME.textPrimary,
+        bold: currentView === mode,
+    }));
+
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(-20)).current;
     const itemAnims = useRef(MENU_ITEMS.map(() => new Animated.Value(0))).current;
@@ -77,13 +73,8 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped, anch
 
     if (!shouldRender) return null;
 
-    const renderIcon = (item: any) => {
-        if (item.iconLib === 'MaterialCommunityIcons') {
-            return <MaterialCommunityIcons name={item.icon} size={20} color={item.color} />;
-        }
-        return <Ionicons name={item.icon} size={20} color={item.color} />;
-    };
-
+    // Default positioning if anchor is missing for whatever reason
+    // Based on the organize menu style
     return (
         <Pressable 
             style={[StyleSheet.absoluteFill, { zIndex: 999 }]} 
@@ -98,25 +89,23 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped, anch
                 <Animated.View 
                     style={[
                         styles.menuContainer,
-                        anchor ? { marginTop: anchor.pageY + anchor.height + 8 } : {},
+                        // Center under the button usually, or anchor slightly offset
+                        anchor ? { 
+                            marginTop: anchor.pageY + anchor.height + 8,
+                            marginLeft: anchor.pageX - 90 + (anchor.width / 2) // Perfectly center the 180px wide menu
+                        } : {
+                            marginTop: 130, // Fallback
+                            alignSelf: 'center',
+                        },
                         { 
                             transform: [{ translateY: slideAnim }],
                             opacity: fadeAnim 
                         }
                     ]}
                 >
-                    <Text style={styles.menuTitle}>Organize By</Text>
+                    <Text style={styles.menuTitle}>View Timeline</Text>
                     
                     {MENU_ITEMS.map((item, index) => {
-                        if (item.type === 'divider') {
-                            return (
-                                <Animated.View 
-                                    key={`divider-${index}`}
-                                    style={[styles.divider, { opacity: itemAnims[index] }]} 
-                                />
-                            );
-                        }
-
                         return (
                             <Animated.View
                                 key={item.id}
@@ -131,19 +120,24 @@ export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped, anch
                                 }}
                             >
                                 <TouchableOpacity 
-                                    style={styles.menuItem} 
+                                    style={[styles.menuItem, item.bold && styles.menuItemActive]} 
                                     onPress={() => {
-                                        onSelectFilter(item.id as string);
+                                        onSelectView(item.id);
                                         onClose();
                                     }}
                                 >
-                                    {renderIcon(item)}
+                                    <Ionicons name={item.icon as any} size={20} color={item.color} />
                                     <Text style={[
                                         styles.menuText, 
                                         item.bold && { color: item.color, fontWeight: '700' }
                                     ]}>
                                         {item.label}
                                     </Text>
+                                    {item.bold && (
+                                        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                                            <Ionicons name="checkmark" size={18} color={item.color} />
+                                        </View>
+                                    )}
                                 </TouchableOpacity>
                             </Animated.View>
                         );
@@ -158,16 +152,14 @@ const styles = StyleSheet.create({
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(15, 23, 42, 0.3)', 
-        justifyContent: 'flex-start',
-        alignItems: 'flex-end',
+        // We handle alignment via margins dynamically
+        alignItems: 'flex-start',
     },
     menuContainer: {
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        width: 250,
+        width: 180,
         borderRadius: 24,
         padding: 12,
-        marginTop: 154, 
-        marginRight: 20,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.5)',
         shadowColor: "#000",
@@ -194,15 +186,12 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         gap: 12,
     },
+    menuItemActive: {
+        backgroundColor: '#F0F9FF',
+    },
     menuText: {
         fontSize: 15,
         color: '#1E293B',
         fontWeight: '600',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: 'rgba(226, 232, 240, 1)',
-        marginVertical: 8,
-        marginHorizontal: 12,
     },
 });

@@ -77,30 +77,7 @@ export default function TaskEditFeatureGrid({
                 )}
             </TouchableOpacity>
 
-            {/* Estimate Card */}
-            <TouchableOpacity
-                style={styles.featureCardGrid}
-                activeOpacity={0.7}
-                delayPressIn={0}
-                onPress={() => setActiveFeature('estimate')}
-            >
-                <View style={styles.featureIconContainer}>
-                    <MaterialCommunityIcons name="timer-outline" size={20} color={estimatedTime ? THEME.textPrimary : THEME.textSecondary} />
-                </View>
-                <Text style={styles.featureLabel}>Estimate</Text>
-                <Text style={[styles.featureValue, estimatedTime && styles.featureValueActive]} numberOfLines={1}>
-                    {estimatedTime || 'None'}
-                </Text>
-                {estimatedTime && (
-                    <TouchableOpacity
-                        style={styles.featureClearHtml}
-                        onPress={() => setEstimatedTime(null)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                        <Ionicons name="close-circle" size={16} color={THEME.textSecondary} />
-                    </TouchableOpacity>
-                )}
-            </TouchableOpacity>
+
 
             {/* Tags / Properties Card */}
             <TouchableOpacity
@@ -142,6 +119,17 @@ export default function TaskEditFeatureGrid({
                                     />
                                 ))}
                             </View>
+                        </View>
+                    )}
+                    {estimatedTime && (
+                        <View style={{
+                            backgroundColor: '#E2E8F0',
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 4,
+                            alignSelf: 'flex-start'
+                        }}>
+                             <Text style={{ fontSize: 10, fontWeight: '700', color: THEME.textSecondary }}>{estimatedTime}</Text>
                         </View>
                     )}
                 </View>

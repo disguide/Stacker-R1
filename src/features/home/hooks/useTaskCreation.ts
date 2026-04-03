@@ -74,7 +74,7 @@ export function useTaskCreation({
     const handleAddTask = useCallback((date: string | null, parentId?: string | null) => {
         if (!newTaskTitle.trim()) return;
 
-        // Subtask Creation Mode
+        // Subtask Creation Mode - PRIORITY
         if (parentId) {
             const newSubtask: Subtask = {
                 id: Date.now().toString(),
@@ -95,6 +95,7 @@ export function useTaskCreation({
 
             // Keep the quick add bar open for continuous subtask entry
             setNewTaskTitle('');
+            // DO NOT clear parentId here to allow multiple subtasks
             return;
         }
 
@@ -260,8 +261,10 @@ export function useTaskCreation({
     }, [tasks, addTask, updateTask, setEditingTask, setIsDrawerVisible]);
 
     const saveSubtask = useCallback((subtaskData: any, editingSubtask: any, addingSubtaskToParentId: string | null) => {
+        const isNewTemp = editingSubtask?.subtask?.id?.startsWith('new_temp_');
+        
         const newSubtask = {
-            id: (editingSubtask ? subtaskData.id : Date.now().toString()),
+            id: (editingSubtask && !isNewTemp ? subtaskData.id : Date.now().toString()),
             title: subtaskData.title,
             completed: subtaskData.completed || false,
             deadline: subtaskData.deadline,
@@ -269,10 +272,16 @@ export function useTaskCreation({
         };
 
         if (editingSubtask) {
-            const parentTask = tasks.find(t => t.id === editingSubtask.parentId);
+            const { masterId } = resolveId(editingSubtask.parentId);
+            const parentTask = tasks.find(t => t.id === masterId);
             if (parentTask) {
-                const updatedSubtasks = parentTask.subtasks?.map(s => s.id === editingSubtask.subtask.id ? newSubtask : s) || [];
-                updateTask(editingSubtask.parentId, { subtasks: updatedSubtasks });
+                let updatedSubtasks;
+                if (isNewTemp) {
+                    updatedSubtasks = [...(parentTask.subtasks || []), newSubtask];
+                } else {
+                    updatedSubtasks = parentTask.subtasks?.map(s => s.id === editingSubtask.subtask.id ? newSubtask : s) || [];
+                }
+                updateTask(masterId, { subtasks: updatedSubtasks });
             }
         } else if (addingSubtaskToParentId) {
             const { masterId } = resolveId(addingSubtaskToParentId);

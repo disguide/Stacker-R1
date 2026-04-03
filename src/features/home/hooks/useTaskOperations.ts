@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { Task } from '../../tasks/types';
-import { StorageService } from '../../../services/storage';
+import { StorageService, TASK_COLORS } from '../../../services/storage';
 import { resolveId } from '../../../utils/taskHelpers';
 
 export function useTaskOperations(
@@ -183,38 +183,54 @@ export function useTaskOperations(
             return mins > 0 ? mins : Number.MAX_SAFE_INTEGER;
         };
 
+        // Helper to get color importance (Gray first, then TASK_COLORS sequence)
+        const getColorRank = (color?: string) => {
+            if (!color) return -1; 
+            const upperColor = color.toUpperCase();
+            const idx = TASK_COLORS.findIndex(c => c.toUpperCase() === upperColor);
+            return idx === -1 ? 999 : idx;
+        };
+
         switch (criteria) {
             case 'auto_organise':
                 return sorted.sort((a, b) => {
-                    // 1. Due Time (Empty/Invalid to bottom)
+                    // 1. Color Grouping (Gray on top, then adapt to TASK_COLORS order)
+                    const rankA = getColorRank(a.color);
+                    const rankB = getColorRank(b.color);
+                    if (rankA !== rankB) return rankA - rankB;
+
+                    // Tie-breaker: Group by exact color hex for custom colors to ensure vertical continuity
+                    const colA = (a.color || '').toLowerCase();
+                    const colB = (b.color || '').toLowerCase();
+                    const colorComp = colA.localeCompare(colB);
+                    if (colorComp !== 0) return colorComp;
+
+                    // 2. Deadline (Goes on top of importance)
+
+                    // 2. Deadline (Goes on top of importance)
                     const getTime = (d?: string | null) => {
                         if (!d) return Number.MAX_SAFE_INTEGER;
-                        const t = new Date(d).getTime();
+                        const t = new Date(d.match(/^\d{2}:\d{2}$/) ? `2000-01-01T${d}:00` : d).getTime();
                         return isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
                     };
                     const timeA = getTime(a.deadline);
                     const timeB = getTime(b.deadline);
                     if (timeA !== timeB) return timeA - timeB;
 
-                    // 2. Rollovers (Most rolled over first)
-                    const rollA = a.daysRolled || 0;
-                    const rollB = b.daysRolled || 0;
-                    if (rollA !== rollB) return rollB - rollA;
-
-                    // 3. Importance (Descending, empty to bottom)
+                    // 3. Importance
                     const impA = a.importance || 0;
                     const impB = b.importance || 0;
                     if (impA !== impB) return impB - impA;
 
-                    // 4. Estimated Time (Shortest first, empty to bottom)
+                    // 4. Rollovers (Most rolled over first)
+                    const rollA = a.daysRolled || 0;
+                    const rollB = b.daysRolled || 0;
+                    if (rollA !== rollB) return rollB - rollA;
+
+                    // 5. Estimated Time (Shortest first)
                     const estA = parseTime(a.estimatedTime);
                     const estB = parseTime(b.estimatedTime);
-                    if (estA !== estB) return estA - estB;
-
-                    // 5. Color (Group colors together, empty to bottom)
-                    const colA = a.color || 'zzz';
-                    const colB = b.color || 'zzz';
-                    return colA.localeCompare(colB);
+                    return estA - estB;
                 });
             case 'importance':
                 return sorted.sort((a, b) => (b.importance || 0) - (a.importance || 0));
@@ -232,8 +248,8 @@ export function useTaskOperations(
                 });
             case 'color':
                 return sorted.sort((a, b) => {
-                    const colorA = a.color || '';
-                    const colorB = b.color || '';
+                    const colorA = (a.color || '').toLowerCase();
+                    const colorB = (b.color || '').toLowerCase();
                     return colorA.localeCompare(colorB);
                 });
             default:

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Vibration, BackHandler, AppState, AppStateStatus, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,6 +30,7 @@ const THEME = {
 };
 
 export default function SprintScreen() {
+    const insets = useSafeAreaInsets();
     useKeepAwake(); // Keep screen on during sprint
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -545,6 +546,26 @@ export default function SprintScreen() {
         });
     };
 
+    const toggleSubtask = (subtaskId: string) => {
+        if (!tasks[0]) return;
+        
+        const now = Date.now();
+        const subtask = tasks[0].subtasks?.find(st => st.id === subtaskId);
+        const subtaskTitle = subtask ? subtask.title : 'Subtask';
+        
+        // Record the switch to this subtask focus
+        recordCurrentSegment(now, `Subtask: ${subtaskTitle}`);
+
+        setTasks(prev => {
+            if (!prev[0]) return prev;
+            const updatedTask = { ...prev[0] };
+            updatedTask.subtasks = updatedTask.subtasks?.map(st => 
+                st.id === subtaskId ? { ...st, completed: !st.completed } : st
+            );
+            return [updatedTask, ...prev.slice(1)];
+        });
+    };
+
     const currentTask = tasks[0];
 
     // Safe Dashboard Calculations
@@ -615,6 +636,30 @@ export default function SprintScreen() {
                         <>
                             <View style={styles.taskInfo}>
                                 <Text style={styles.taskTitle}>{currentTask.title}</Text>
+                                
+                                {currentTask.subtasks && currentTask.subtasks.length > 0 && (
+                                    <View style={styles.subtaskContainer}>
+                                        {currentTask.subtasks.map((st) => (
+                                            <TouchableOpacity 
+                                                key={st.id} 
+                                                style={styles.subtaskRow}
+                                                onPress={() => toggleSubtask(st.id)}
+                                            >
+                                                <Ionicons 
+                                                    name={st.completed ? "checkmark-circle" : "ellipse-outline"} 
+                                                    size={20} 
+                                                    color={st.completed ? "#4ADE80" : "#94A3B8"} 
+                                                />
+                                                <Text style={[
+                                                    styles.subtaskTitle, 
+                                                    st.completed && styles.subtaskCompletedText
+                                                ]}>
+                                                    {st.title}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                )}
                             </View>
 
                             {/* Split Pill Control */}
@@ -755,7 +800,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        height: 80, // Fixed height to prevent layout jumps
+        minHeight: 80, // Allow expansion for notch
     },
     headerCenter: {
         flex: 1,
@@ -826,15 +871,37 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     taskInfo: {
-        alignItems: 'center',
+        alignItems: 'flex-start',
         width: '100%',
         paddingVertical: 32,
+        paddingHorizontal: 12,
     },
     taskTitle: {
         fontSize: 26,
         fontWeight: '700',
         color: THEME.textPrimary,
-        textAlign: 'center',
+        textAlign: 'left',
+        marginBottom: 8,
+    },
+    subtaskContainer: {
+        marginTop: 16,
+        width: '100%',
+    },
+    subtaskRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        gap: 12,
+    },
+    subtaskTitle: {
+        fontSize: 18,
+        color: THEME.textPrimary,
+        fontWeight: '500',
+        flex: 1,
+    },
+    subtaskCompletedText: {
+        color: '#94A3B8',
+        textDecorationLine: 'line-through',
     },
     emptyText: {
         textAlign: 'center',

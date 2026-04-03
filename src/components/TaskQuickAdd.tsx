@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, StyleSheet, Pressable } from 'react-native';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { RecurrenceRule } from '../features/tasks/types';
 
@@ -13,7 +13,7 @@ interface TaskQuickAddProps {
 
     // Feature Triggers
     onOpenCalendar: () => void;
-    onOpenDuration: () => void;
+
     onOpenRecurrence: () => void;
     onOpenReminder: () => void;
     onOpenProperties: () => void;
@@ -37,7 +37,7 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
     onSave,
     onCancel,
     onOpenCalendar,
-    onOpenDuration,
+
     onOpenRecurrence,
     onOpenReminder,
     onOpenProperties,
@@ -53,10 +53,10 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
     // Auto-focus when becoming visible
     useEffect(() => {
         if (visible) {
-            // Small delay to ensure layout is ready
+            // Increased delay for Android focus reliability
             setTimeout(() => {
                 inputRef.current?.focus();
-            }, 50);
+            }, 200);
         }
     }, [visible]);
 
@@ -64,9 +64,8 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
 
     return (
         <>
-            <TouchableOpacity
+            <Pressable
                 style={styles.backdropLayer}
-                activeOpacity={1}
                 onPress={onCancel}
             />
 
@@ -84,7 +83,7 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                             placeholderTextColor="#999"
                             value={title}
                             onChangeText={onChangeTitle}
-                            autoFocus
+                            showSoftInputOnFocus={true}
                             onSubmitEditing={onSave}
                         />
                         <TouchableOpacity onPress={onSave} style={styles.tactileButton}>
@@ -97,9 +96,7 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                             <Ionicons name="calendar-outline" size={20} color="#555" />
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={onOpenDuration} style={styles.toolbarIconBtn}>
-                            <MaterialCommunityIcons name="timer-outline" size={20} color="#555" />
-                        </TouchableOpacity>
+
 
                         {!isSubtask && (
                             <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenReminder}>

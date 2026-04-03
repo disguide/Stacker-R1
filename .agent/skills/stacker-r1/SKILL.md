@@ -37,19 +37,17 @@ These skills define "How" we work to prevent bugs.
 | **`test-driven-development`** | Reliability | Red-Green-Refactor, writing tests before logic. |
 | **`project-rules`** | Governance | Expo Go constraints, platform-specific rules. |
 
-## 🤖 4. Meta-Skills (Agent Control)
-These skills control me (the Agent) and how I choose models.
+## 🤖 4. Agent Control & Modes
+These skills control how I think and respond to you.
 
 | Skill | Purpose | Key Focus |
 | :--- | :--- | :--- |
-| **antigravity-model-selection**| Optimal Intelligence | Choosing between Gemini 3/3.1, Claude 4.6, or GPT OSS. |
-| **`interaction-commands`** | "Magic Keywords" | Using `/suggest`, `/confirm`, or `/vibe` to control the Antigravity Assistant. |
-| **`terminal-automation`** | Tool Ecosystem | Defining when to use In-Chat (Antigravity) vs. Gemini CLI vs. Jules. |
-| **`jules-handoff`** | Cloud Delegation | Formal workflow for delegating heavy background tasks to Jules. |
+| **`agent-operating-modes`** | Reasoning Depth | Switching between **Regular** and **Economy** modes. |
+| **`interaction-v2`** | Magic Keywords | Triggers for mode switches and workflow control. |
 
 ---
 
 ### How to use this catalog:
-1.  **If the task is visual**: Mention **`aesthetic`** (Interaction command) to trigger the top four skills. 
-2.  **If the task is structural**: Mention **`roadmap`** to use the methodological skills.
-3.  **If the task is broken**: Mention **`suggestion`** to ensure we use a high-reasoning model and the debugging skill.
+1.  **For Economy**: Mention **`economy`** to trigger the strict Clarification/Planning workflow.
+2.  **For Vibe**: Mention **`regular`** to trigger high-reasoning models and creative freedom.
+3.  **For Scale**: Combine with **Gemini CLI** or **Jules** for massive changes.

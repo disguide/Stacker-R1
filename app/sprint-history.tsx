@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StorageService, SavedSprint } from '../src/services/storage';
@@ -13,6 +14,7 @@ const THEME = {
 };
 
 export default function SprintHistoryScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const [history, setHistory] = useState<SavedSprint[]>([]);
     const [expandedId, setExpandedId] = useState<string | null>(null);

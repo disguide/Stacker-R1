@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
     SPRINT_HISTORY: '@stacker_sprint_history_v1',
     MAIL: '@stacker_mail_v1',
     DAILY_DATA: '@stacker_daily_data_v1', // New Key
+    UI_STATE: '@stacker_ui_state_v1', // New Key
 };
 
 export interface SprintSettings {
@@ -110,9 +111,9 @@ export interface ColorDefinition {
     label: string;
 }
 
-// Red, Orange, Amber, Emerald, Blue, Violet, Pink
-export const TASK_COLORS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'];
-export const TASK_COLOR_LABELS = ['Urgent', 'High', 'Medium', 'Low', 'Work', 'Personal', 'Health'];
+// Red, Orange, Amber, Emerald, Blue, Violet
+export const TASK_COLORS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
+export const TASK_COLOR_LABELS = ['Urgent', 'High', 'Medium', 'Low', 'Work', 'Personal'];
 
 // Task and Recurrence types — single source of truth is features/tasks/types.ts
 // Re-exported here so existing imports from this file continue to work.
@@ -190,6 +191,28 @@ export const StorageService = {
             await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_TASKS, jsonValue);
         } catch (e) {
             console.error('Failed to save active tasks', e);
+        }
+    },
+
+    async loadUIState() {
+        try {
+            const data = await AsyncStorage.getItem(STORAGE_KEYS.UI_STATE);
+            if (__DEV__) console.log('[StorageService] Loaded UI State:', data);
+            return data ? JSON.parse(data) : null;
+        } catch (e) {
+            console.error('Failed to load UI state', e);
+            return null;
+        }
+    },
+
+    async saveUIState(state: any) {
+        try {
+            const current = await this.loadUIState() || {};
+            const next = { ...current, ...state };
+            if (__DEV__) console.log('[StorageService] Saving UI State:', next);
+            await AsyncStorage.setItem(STORAGE_KEYS.UI_STATE, JSON.stringify(next));
+        } catch (e) {
+            console.error('Failed to save UI state', e);
         }
     },
 

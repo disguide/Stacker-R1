@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StorageService, UserProfile, TagDefinition } from '../src/services/storage';
@@ -11,6 +11,7 @@ import SwipeableTaskRow from '../src/components/SwipeableTaskRow'; // Reusing fo
 import { toISODateString, formatDeadline } from '../src/utils/dateHelpers';
 
 export default function IdentityScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const { tasks, addTask, deleteTask, toggleTask, updateTask } = useTaskController();

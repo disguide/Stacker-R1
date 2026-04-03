@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Animated, LayoutAnimation } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useMail } from '../src/features/mail/useMail';
 import { MailMessage } from '../src/services/storage';
 
 export default function TrashScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const { trashedMessages, emptyTrash, restoreFromTrash, deleteMessage } = useMail();
 

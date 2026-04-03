@@ -164,6 +164,8 @@ export default function SwipeableTaskRow({
     touchingBottom = false,
     ...props // Catch-all for recurrence to avoid destructuring mess or add it explicitly
 }: SwipeableTaskRowProps) {
+    const hasMeta = !!(deadline || estimatedTime || daysRolled || props.recurrence || props.reminderTime);
+
     const [containerWidth, setContainerWidth] = useState(0);
 
     // Animation Values
@@ -357,44 +359,88 @@ export default function SwipeableTaskRow({
             onLayout={handleLayout} // Measure Full Container
         >
 
-            {/* Dynamic Sweeping Background and Border */}
-            {!isSelectionMode && (
-                <View style={{ position: 'absolute', top: -6, bottom: -1, left: -1, right: -6, borderRadius: 0, overflow: 'hidden' }} pointerEvents="none">
-                    <Animated.View style={[
-                        styles.progressFill,
-                        {
-                            top: 0,
-                            left: 0,
-                            bottom: 0,
-                            borderTopWidth: 6,
-                            borderLeftWidth: 1,
-                            borderBottomWidth: 1,
-                            borderColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : hexToRgba('#38A169', (completed || isCompleting) ? 0.35 : 0.25),
-                            borderTopLeftRadius: touchingTop || isSubtask ? 0 : 12,
-                            borderBottomLeftRadius: touchingBottom || isSubtask ? 0 : 12,
-                            borderTopRightRadius: 0,
-                            borderBottomRightRadius: 0,
-                            width: progressAnim.interpolate({
-                                inputRange: [0, 100],
-                                outputRange: ['0%', '100%']
-                            }),
-                            backgroundColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : ((completed || isCompleting) ? '#F0FFF4' : '#E6FFFA'),
-                            opacity: progressAnim.interpolate({
-                                inputRange: [0, 5, 100],
-                                outputRange: [0, 1, 1]
-                            })
-                        }
-                    ]} />
-                </View>
-            )}
 
             <View
                 ref={viewRef}
                 style={[
                     styles.container,
-                    isSubtask && { minHeight: 40 }
+                    { paddingRight: 6 }, // Add internal space for the 3D frame boundary
+                    isSubtask && { minHeight: 40, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' }, // Unified 3D card block with hairline divider
+                    (touchingTop && !isSubtask) && { paddingTop: 0 }, 
+                    (!touchingTop && !isSubtask) && { paddingTop: 6 }, // Create space for the 3D frame
+                    touchingTop && { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+                    touchingBottom && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }
                 ]}
             >
+                {/* Dynamic Sweeping Background and Border - Restored inside container to fix z-index masking */}
+                {!isSelectionMode && (
+                    <View style={{ position: 'absolute', top: 0, bottom: 0, left: -1, right: 0, borderRadius: 0, overflow: 'hidden' }} pointerEvents="none">
+                        {/* 6px Static Grey Frame Base (Top) - Reserved space for 3D depth */}
+                        {!touchingTop && !isSubtask && (
+                            <View style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                height: 6,
+                                backgroundColor: '#E2E8F0'
+                            }} />
+                        )}
+
+                        {/* Static Grey Base for Right 3D Shade Frame */}
+                        <View style={{
+                            position: 'absolute',
+                            top: 0,
+                            right: 0,
+                            bottom: 0,
+                            width: 6,
+                            backgroundColor: '#E2E8F0' // Solid grey right border
+                        }} />
+
+                        {/* Top Bar Progress Tracker (Reactive Color) */}
+                        <Animated.View style={[
+                            styles.progressFill,
+                            {
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                height: (touchingTop || isSubtask) ? 1 : 6,
+                                width: progressAnim.interpolate({
+                                    inputRange: [0, 100],
+                                    outputRange: ['0%', '100%']
+                                }),
+                                backgroundColor: props.color ? hexToRgba(props.color, 0.65) : hexToRgba('#38A169', 0.65), // Softened vibrant color
+                                borderTopLeftRadius: (touchingTop || isSubtask) ? 0 : 12,
+                                opacity: progressAnim.interpolate({
+                                    inputRange: [0, 5, 100],
+                                    outputRange: [0, 1, 1]
+                                })
+                            }
+                        ]} />
+
+                        {/* Main Task Body Progress (Light Tint) */}
+                        <Animated.View style={[
+                            styles.progressFill,
+                            {
+                                position: 'absolute',
+                                top: (touchingTop || isSubtask) ? 1 : 6,
+                                left: 0,
+                                bottom: 0,
+                                width: progressAnim.interpolate({
+                                    inputRange: [0, 100],
+                                    outputRange: ['0%', '100%']
+                                }),
+                                backgroundColor: props.color ? hexToRgba(props.color, (completed || isCompleting) ? 0.25 : 0.15) : ((completed || isCompleting) ? '#F0FFF4' : '#E6FFFA'),
+                                borderTopLeftRadius: 0,
+                                borderBottomLeftRadius: touchingBottom ? 0 : 12,
+                                opacity: progressAnim.interpolate({
+                                    inputRange: [0, 5, 100],
+                                    outputRange: [0, 1, 1]
+                                })
+                            }
+                        ]} />
+                    </View>
+                )}
                 {/* Color Stripe - Static */}
                 <View style={{
                     position: 'absolute',
@@ -402,8 +448,8 @@ export default function SwipeableTaskRow({
                     top: 0,
                     bottom: 0,
                     width: 4,
-                    borderTopLeftRadius: touchingTop || isSubtask ? 0 : 6,
-                    borderBottomLeftRadius: touchingBottom || isSubtask ? 0 : 10,
+                    borderTopLeftRadius: touchingTop ? 0 : 6,
+                    borderBottomLeftRadius: touchingBottom ? 0 : 10,
                     backgroundColor: props.color || '#CBD5E0',
                     zIndex: 2,
                 }} />
@@ -417,7 +463,8 @@ export default function SwipeableTaskRow({
                     <TouchableOpacity
                         style={[
                             styles.sliderContent,
-                            isSubtask && { paddingLeft: 44, paddingVertical: 4 }
+                            isSubtask && { paddingLeft: 44, paddingVertical: 4 },
+                            (isSubtask && !hasMeta) && { alignItems: 'center' }
                         ]}
                         onPress={isSelectionMode ? onSelect : undefined}
                         disabled={!isSelectionMode}
@@ -484,7 +531,7 @@ export default function SwipeableTaskRow({
                                 {deadline && (
                                     <View style={styles.metaItem}>
                                         <Ionicons name="calendar-outline" size={14} color={getDeadlineUrgencyColor(deadline) || THEME.textSecondary} />
-                                        <Text style={[styles.metaText, getDeadlineUrgencyColor(deadline) && { color: getDeadlineUrgencyColor(deadline), fontWeight: 'bold' }]}>
+                                        <Text style={[styles.metaText, getDeadlineUrgencyColor(deadline) && { color: getDeadlineUrgencyColor(deadline) }]}>
                                             {(() => {
                                                 try {
                                                     return formatDeadline(deadline);
@@ -548,7 +595,7 @@ export default function SwipeableTaskRow({
 
                 {/* Absolute Top Right Corner Stars */}
                 {props.importance ? (
-                    <View style={{ position: 'absolute', top: 4, right: 8, flexDirection: 'row', zIndex: 10 }}>
+                    <View style={{ position: 'absolute', top: 6, right: 12, flexDirection: 'row', zIndex: 10 }}>
                         {Array.from({ length: props.importance }).map((_, i) => (
                             <MaterialCommunityIcons key={i} name="star" size={10} color="#F59E0B" style={{ marginHorizontal: -1 }} />
                         ))}
@@ -580,7 +627,7 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'stretch',
-        backgroundColor: 'transparent',
+        backgroundColor: '#FFFFFF',
         borderBottomWidth: 0,
         minHeight: 52,
         overflow: 'hidden', // Contain progress bar
@@ -624,7 +671,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: 'transparent',
         zIndex: 20,
-        alignSelf: 'center', // Added: Vertically center the checkbox independently
     },
     taskCheckboxInner: {
         width: 14,

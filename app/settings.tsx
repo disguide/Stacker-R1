@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
@@ -7,6 +7,7 @@ import { StorageService, ColorDefinition, SprintSettings } from '../src/services
 import ColorSettingsModal from '../src/components/ColorSettingsModal';
 
 export default function SettingsScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const [isColorModalVisible, setIsColorModalVisible] = useState(false);
     const [userColors, setUserColors] = useState<ColorDefinition[]>([]);

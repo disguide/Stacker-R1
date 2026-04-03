@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { StorageService, UserProfile, GoalItem, GoalEventType } from '../src/services/storage';
@@ -32,6 +33,7 @@ type TLEvent = {
 };
 
 export default function TimelineScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -322,11 +324,11 @@ export default function TimelineScreen() {
             />
 
             {/* Solid Header Background for Back Button Area */}
-            <View style={styles.headerBar} />
+            <View style={[styles.headerBar, { height: insets.top + (Platform.OS === 'ios' ? 44 : 56) }]} />
 
             {/* Custom Back Button */}
             <TouchableOpacity 
-                style={styles.backButton} 
+                style={[styles.backButton, { top: insets.top + (Platform.OS === 'ios' ? 0 : 8) }]} 
                 onPress={() => router.back()}
                 activeOpacity={0.7}
             >

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StorageService, DailyData } from '../src/services/storage';
 import { toISODateString } from '../src/utils/dateHelpers';
 
@@ -83,6 +83,7 @@ const MoodCounterButton = ({ day, onPress }: { day: LogDay, onPress: () => void 
 };
 
 export default function JournalScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [logDays, setLogDays] = useState<LogDay[]>([]);
@@ -207,40 +208,50 @@ export default function JournalScreen() {
         await StorageService.saveDailyData(dayDate, dataToSave);
     };
 
-    const toggleTaskCompletion = async (taskId: string) => {
+    const toggleTaskCompletion = async (taskId: string, dayDate: string) => {
         let activeTasks = await StorageService.loadActiveTasks();
-        let historyTasks = await StorageService.loadHistory();
+        
+        // 1. Resolve master ID in case it's a recurring ghost task
+        let masterId = taskId;
+        if (taskId.includes('_')) {
+            const parts = taskId.split('_');
+            if (parts[parts.length - 1].match(/^\d{4}-\d{2}-\d{2}$/)) {
+                masterId = parts.slice(0, parts.length - 1).join('_');
+            }
+        }
 
-        const activeIndex = activeTasks.findIndex(t => t.id === taskId);
-        const historyIndex = historyTasks.findIndex(t => t.id === taskId);
+        const activeIndex = activeTasks.findIndex(t => t.id === masterId);
 
         if (activeIndex > -1) {
-            // Uncheck if it's sitting locally in active memory
-            activeTasks[activeIndex] = { 
-                ...activeTasks[activeIndex], 
-                completed: false, 
-                completedAt: undefined,
-                date: toISODateString(new Date()),
-                daysRolled: undefined,
-                originalDate: undefined
-            };
-            await StorageService.saveActiveTasks(activeTasks);
-        } else if (historyIndex > -1) {
-            // Uncheck and move it OUT of history back into active
+            // Task still exists in active memory (Standard or Recurring)
+            const task = activeTasks[activeIndex];
+            if (task.completedDates) {
+                task.completedDates = task.completedDates.filter((d: string) => d !== dayDate);
+            }
+            // Clear legacy single-completion fields
+            task.completed = false;
+            task.completedAt = undefined;
+            // DONT change its original date string so it returns to its scheduled slot
+        } else {
+            // Task was physically deleted from active memory and only exists in history
             const removedTask = await StorageService.removeFromHistory(taskId);
             if (removedTask) {
                 const taskToRestore = { 
                     ...removedTask, 
+                    id: masterId,
                     completed: false, 
-                    completedAt: undefined,
-                    date: toISODateString(new Date()),
-                    daysRolled: undefined,
-                    originalDate: undefined
+                    completedAt: undefined
                 };
+                if (taskToRestore.completedDates) {
+                    taskToRestore.completedDates = taskToRestore.completedDates.filter((d: string) => d !== dayDate);
+                }
                 activeTasks.push(taskToRestore);
-                await StorageService.saveActiveTasks(activeTasks);
             }
         }
+
+        // Clean up history and save!
+        await StorageService.saveActiveTasks(activeTasks);
+        await StorageService.removeFromHistory(taskId);
 
         loadData();
     };
@@ -289,8 +300,8 @@ export default function JournalScreen() {
 
     if (loading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#3B82F6" />
+            <View style={[styles.loadingContainer, { backgroundColor: '#F9F7F2' }]}>
+                <ActivityIndicator size="large" color="#C19A6B" />
             </View>
         );
     }
@@ -300,7 +311,7 @@ export default function JournalScreen() {
             <View style={[styles.header, { justifyContent: 'space-between' }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <Ionicons name="chevron-back" size={28} color="#1E293B" />
+                        <Ionicons name="chevron-back" size={28} color="#3E362E" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Journal</Text>
                 </View>
@@ -308,7 +319,7 @@ export default function JournalScreen() {
                     style={styles.vaultButton}
                     onPress={() => router.push('/saved')}
                 >
-                    <Ionicons name="bookmark" size={24} color="#1E293B" />
+                    <Ionicons name="bookmark" size={24} color="#3E362E" />
                 </TouchableOpacity>
             </View>
 
@@ -352,7 +363,7 @@ export default function JournalScreen() {
                                     <Ionicons 
                                         name={"star"} 
                                         size={20} 
-                                        color={day.isStarred ? "#F59E0B" : "#CBD5E1"} 
+                                        color={day.isStarred ? "#C19A6B" : "#E8E2D8"} 
                                     />
                                 </TouchableOpacity>
                             </View>
@@ -372,7 +383,7 @@ export default function JournalScreen() {
                                                 }}
                                                 style={{ padding: 4 }}
                                             >
-                                                <Ionicons name="refresh-outline" size={16} color="#94A3B8" />
+                                                <Ionicons name="refresh-outline" size={16} color="#8C7E6E" />
                                             </TouchableOpacity>
                                         )}
                                     </View>
@@ -384,7 +395,7 @@ export default function JournalScreen() {
                                 <TextInput
                                     style={styles.reflectionInput}
                                     placeholder="Notes for yourself..."
-                                    placeholderTextColor="#ABB5C2"
+                                    placeholderTextColor="#C4B7A6"
                                     multiline
                                     scrollEnabled={false}
                                     value={day.reflection}
@@ -406,15 +417,15 @@ export default function JournalScreen() {
                                             <TouchableOpacity 
                                                 key={task.id} 
                                                 style={styles.taskItemRow}
-                                                onPress={() => toggleTaskCompletion(task.id)}
+                                                onPress={() => toggleTaskCompletion(task.id, day.date)}
                                                 activeOpacity={0.5}
                                             >
                                                 <Ionicons 
                                                     name="checkmark-circle" 
                                                     size={24} 
-                                                    color="#10B981" 
+                                                    color="#84CC16" 
                                                 />
-                                                <Text style={[styles.taskItemText, { color: '#94A3B8' }]} numberOfLines={1}>
+                                                <Text style={[styles.taskItemText, { color: '#8C7E6E' }]} numberOfLines={1}>
                                                     {task.title}
                                                 </Text>
                                             </TouchableOpacity>
@@ -431,7 +442,7 @@ export default function JournalScreen() {
                                     {day.sprints.map((sprint, sIdx) => (
                                         <View key={sprint.id || sIdx} style={styles.sprintItemRow}>
                                             <View style={styles.sprintIconWrap}>
-                                                <Ionicons name="flash-outline" size={16} color="#3B82F6" />
+                                                <Ionicons name="flash-outline" size={16} color="#C19A6B" />
                                             </View>
                                             <View style={{ flex: 1 }}>
                                                 <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
@@ -460,7 +471,7 @@ export default function JournalScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFF',
+        backgroundColor: '#F9F7F2',
     },
     loadingContainer: {
         flex: 1,
@@ -478,14 +489,14 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: '#F2F0E9',
         alignItems: 'center',
         justifyContent: 'center',
     },
     headerTitle: {
         fontSize: 20,
         fontWeight: '800',
-        color: '#1E293B',
+        color: '#3E362E',
     },
     content: {
         flex: 1,
@@ -495,7 +506,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: '#F1F5F9',
+        backgroundColor: '#F2F0E9',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -513,14 +524,14 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         fontFamily: 'Georgia',
-        color: '#1E293B',
+        color: '#3E362E',
         letterSpacing: 0.5,
     },
     starCircleButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: '#F2F0E9',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -530,7 +541,7 @@ const styles = StyleSheet.create({
     sectionHeading: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#94A3B8',
+        color: '#8C7E6E',
         letterSpacing: 1.2,
         textTransform: 'uppercase',
         marginBottom: 12,
@@ -548,7 +559,7 @@ const styles = StyleSheet.create({
     sprintItemRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: '#F2F0E9',
         paddingVertical: 10,
         paddingHorizontal: 12,
         borderRadius: 12,
@@ -558,34 +569,34 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
-        backgroundColor: '#DBEAFE',
+        backgroundColor: '#E8E2D8',
         alignItems: 'center',
         justifyContent: 'center',
     },
     sprintItemText: {
         fontSize: 15,
         fontWeight: '600',
-        color: '#334155',
+        color: '#3E362E',
     },
     completedSprintDuration: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#3B82F6',
+        color: '#C19A6B',
     },
     sprintLogNote: {
         fontSize: 13,
-        color: '#94A3B8',
+        color: '#8C7E6E',
         marginTop: 2,
         fontStyle: 'italic',
     },
     reflectionCard: {
-        backgroundColor: '#FFF',
+        backgroundColor: '#FFFDF5',
         borderRadius: 16,
         padding: 20,
         marginTop: 8,
         borderWidth: 1,
-        borderColor: '#E2E8F0',
-        shadowColor: '#000',
+        borderColor: '#E8E2D8',
+        shadowColor: '#3E362E',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 8,
@@ -601,12 +612,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         fontFamily: 'Georgia',
-        color: '#64748B',
+        color: '#8C7E6E',
     },
     moodPillSmall: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F1F5F9',
+        backgroundColor: '#F2F0E9',
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 16,
@@ -615,18 +626,18 @@ const styles = StyleSheet.create({
     moodLabelText: {
         fontSize: 10,
         fontWeight: '700',
-        color: '#94A3B8',
+        color: '#8C7E6E',
         letterSpacing: 1,
     },
     moodNumberText: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#333',
+        color: '#3E362E',
         fontFamily: 'Georgia',
     },
     reflectionInput: {
         fontSize: 16,
-        color: '#475569',
+        color: '#3E362E',
         lineHeight: 24,
         textAlignVertical: 'top',
         minHeight: 80,
@@ -634,7 +645,7 @@ const styles = StyleSheet.create({
     },
     modalContainer: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: '#F9F7F2',
     },
     modalHeader: {
         flexDirection: 'row',
@@ -642,14 +653,14 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingVertical: 16,
-        backgroundColor: '#FFF',
+        backgroundColor: '#FFFDF5',
         borderBottomWidth: 1,
-        borderBottomColor: '#E2E8F0',
+        borderBottomColor: '#E8E2D8',
     },
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#1E293B',
+        color: '#3E362E',
         fontFamily: 'Georgia',
     },
     modalCloseButton: {
@@ -660,13 +671,13 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     savedDayCard: {
-        backgroundColor: '#FFF',
+        backgroundColor: '#FFFDF5',
         borderRadius: 16,
         padding: 16,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: '#E2E8F0',
-        shadowColor: '#000',
+        borderColor: '#E8E2D8',
+        shadowColor: '#3E362E',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
@@ -681,7 +692,7 @@ const styles = StyleSheet.create({
     savedDayDate: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#1E293B',
+        color: '#3E362E',
     },
     savedDayContentRow: {
         flexDirection: 'row',
@@ -691,13 +702,13 @@ const styles = StyleSheet.create({
     savedDayReflectionText: {
         flex: 1,
         fontSize: 15,
-        color: '#475569',
+        color: '#3E362E',
         fontStyle: 'italic',
         lineHeight: 22,
     },
     emptySavedText: {
         fontSize: 16,
-        color: '#94A3B8',
+        color: '#8C7E6E',
         textAlign: 'center',
         marginTop: 40,
         fontStyle: 'italic',

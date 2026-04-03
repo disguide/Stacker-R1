@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { THEME } from '../constants';
 import { ActionBar } from '../common/ActionBar';
@@ -15,7 +15,7 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
     onDeadlineChange: (dl: string | null) => void;
     onClose: () => void;
 }) {
-    const scrollRef = useRef<ScrollView>(null);
+    const scrollRef = useRef<FlatList>(null);
     const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
     const [hasTime, setHasTime] = useState(false);
     const [showTimeWheel, setShowTimeWheel] = useState(false);
@@ -116,23 +116,22 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
         return tempSelectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     };
 
-    // ─── Shared chips row (used in both views) ──────────────────────
     const renderChips = () => (
         <View style={st.chipRow}>
             {/* Date chip */}
             {tempSelectedDate ? (
-                <View style={st.chipActive}>
+                <TouchableOpacity style={st.chipActive} onPress={() => setShowTimeWheel(false)}>
                     <Ionicons name="calendar" size={14} color={THEME.green} />
                     <Text style={st.chipActiveText}>{formatDateShort()}</Text>
                     <TouchableOpacity onPress={() => setTempSelectedDate(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                         <Ionicons name="close-circle" size={15} color="#94A3B8" />
                     </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
             ) : (
-                <View style={st.chipEmpty}>
+                <TouchableOpacity style={st.chipEmpty} onPress={() => setShowTimeWheel(false)}>
                     <Ionicons name="calendar-outline" size={14} color={THEME.textSecondary} />
                     <Text style={st.chipEmptyText}>No date</Text>
-                </View>
+                </TouchableOpacity>
             )}
             {/* Time chip */}
             {hasTime ? (
@@ -205,24 +204,28 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
             <View style={{ height: 1, backgroundColor: '#E5E7EB', marginHorizontal: 20 }} />
 
             {/* Scrollable Calendar */}
-            <ScrollView
+            <FlatList
                 ref={scrollRef as any}
+                data={months}
+                keyExtractor={(item) => item.date.toISOString()}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
                 keyboardShouldPersistTaps="always"
                 bounces={false}
                 style={{ flex: 1 }}
                 contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 16 }}
-            >
-                {months.map((item) => (
+                initialNumToRender={3}
+                maxToRenderPerBatch={3}
+                windowSize={3}
+                removeClippedSubviews={true}
+                renderItem={({ item }) => (
                     <MemoizedMonth
-                        key={item.date.toISOString()}
                         item={item}
                         tempSelectedDate={tempSelectedDate}
                         onDateSelect={handleDateSelect}
                     />
-                ))}
-            </ScrollView>
+                )}
+            />
 
             {/* Chips at bottom (above action bar) */}
             {renderChips()}

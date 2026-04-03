@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal, Dimensions, ScrollView, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
@@ -23,10 +23,12 @@ import TaskMenu from '../src/components/TaskMenu';
 import { TaskQuickAdd } from '../src/components/TaskQuickAdd';
 import { Subtask } from '../src/features/tasks/types';
 import { getDayName, getDaysDifference } from '../src/utils/dateHelpers';
+import { styles as taskStyles } from '../src/styles/taskListStyles';
 
 type ListItem = Task | string;
 
 export default function LongTermScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const { tasks, toggleTask, updateTask, deleteTask, addTask, toggleSubtask, updateSubtask } = useTaskController();
 
@@ -430,7 +432,7 @@ export default function LongTermScreen() {
 
     return (
         <View style={s.container}>
-            <SafeAreaView edges={['top']} style={s.header}>
+            <View style={[s.header, { paddingTop: insets.top }]}>
                 <View style={s.headerTop}>
                     <TouchableOpacity onPress={handleBack} style={s.backBtn}>
                         <Ionicons name="arrow-back" size={24} color="#FFF" />
@@ -439,8 +441,7 @@ export default function LongTermScreen() {
                     <View style={{ width: 40 }} />
                 </View>
                 <Text style={s.headerSubtitle}>Horizon View</Text>
-            </SafeAreaView>
-
+            </View>
             <View style={s.content}>
                 {horizonData.length === 0 ? (
                     <View style={s.emptyState}>
@@ -457,7 +458,7 @@ export default function LongTermScreen() {
                         keyExtractor={item => typeof item === 'string' ? item : item.id}
                         stickyHeaderIndices={stickyHeaderIndices}
                         scrollEnabled={isListScrollEnabled}
-                        renderItem={({ item }) => {
+                        renderItem={({ item, index }) => {
                             if (typeof item === 'string') {
                                 if (item.startsWith('DATE_HEADER:')) {
                                     const dateStr = item.split(':')[1];
@@ -499,8 +500,27 @@ export default function LongTermScreen() {
                                     </View>
                                 );
                             }
+
+                            const prevItem = index > 0 ? horizonData[index - 1] : null;
+                            const nextItem = index < horizonData.length - 1 ? horizonData[index + 1] : null;
+                            const touchingTop = prevItem !== null && typeof prevItem !== 'string';
+                            const touchingBottom = nextItem !== null && typeof nextItem !== 'string';
+
+                            let clumpStyle = null;
+                            if (touchingTop && touchingBottom) clumpStyle = taskStyles.taskCardClumpedMiddle;
+                            else if (touchingTop && !touchingBottom) clumpStyle = taskStyles.taskCardClumpedLast;
+                            else if (!touchingTop && touchingBottom) clumpStyle = taskStyles.taskCardClumpedFirst;
+                            
+                            const isAnyTouching = touchingTop || touchingBottom;
+                            const hasSubtasks = (item as Task).subtasks && (item as Task).subtasks!.length > 0;
+
                             return (
-                                <View style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9' }}>
+                                <View style={[
+                                    taskStyles.taskCard, 
+                                    { marginTop: touchingTop ? 0 : 8 }, 
+                                    isAnyTouching && taskStyles.taskCardClumped,
+                                    clumpStyle
+                                ]}>
                                     <SwipeableTaskRow
                                         id={(item as Task).id}
                                         title={(item as Task).title}
@@ -509,7 +529,6 @@ export default function LongTermScreen() {
                                         estimatedTime={(item as Task).estimatedTime}
                                         progress={(item as Task).progress || 0}
                                         onComplete={() => handleListTaskToggle(item as Task)}
-                                        // wrapper usually handles swipe, but here we might need explicit actions if SwipeableTaskRow doesn't self-manage everything
                                         isCompleting={completingTaskIds.has((item as Task).id)}
                                         recurrence={(item as Task).rrule || (item as Task).recurrence}
                                         color={(item as Task).color}
@@ -521,31 +540,34 @@ export default function LongTermScreen() {
                                         onProgressUpdate={(id, p) => updateTask(id, { progress: p })}
                                         onSwipeStart={handleSwipeStart}
                                         onSwipeEnd={handleSwipeEnd}
+                                        touchingTop={touchingTop}
+                                        touchingBottom={touchingBottom || !!hasSubtasks}
                                     />
 
                                     {/* Subtasks Rendering */}
-                                    {(item as Task).subtasks && (item as Task).subtasks!.map((subtask: Subtask) => (
-                                        <SwipeableTaskRow
-                                            key={subtask.id}
-                                            id={subtask.id}
-                                            title={subtask.title}
-                                            completed={subtask.completed}
-                                            isSubtask={true}
-                                            progress={subtask.progress || 0}
-                                            onComplete={() => handleSubtaskToggle(item as Task, subtask)}
-                                            onProgressUpdate={(sid, p) => updateSubtask((item as Task).id, sid, p, (item as Task).date)}
-                                            onEdit={() => {
-                                                // Optional: Edit subtask details (not fully implemented in Telescope yet)
-                                            }}
-                                            onMenu={() => {
-                                                // Handle subtask specific menu if needed
-                                            }}
-                                            formatDeadline={() => ''} // Subtasks usually don't show deadline in list or have simplified view
-                                            // Lock scroll for subtasks too
-                                            onSwipeStart={handleSwipeStart}
-                                            onSwipeEnd={handleSwipeEnd}
-                                        />
-                                    ))}
+                                    {(item as Task).subtasks && (item as Task).subtasks!.length > 0 && (
+                                        <View style={taskStyles.subtaskRowWrapper}>
+                                            {(item as Task).subtasks!.map((subtask: Subtask) => (
+                                                <SwipeableTaskRow
+                                                    key={subtask.id}
+                                                    id={subtask.id}
+                                                    title={subtask.title}
+                                                    completed={subtask.completed}
+                                                    isSubtask={true}
+                                                    progress={subtask.progress || 0}
+                                                    onComplete={() => handleSubtaskToggle(item as Task, subtask)}
+                                                    onProgressUpdate={(sid, p) => updateSubtask((item as Task).id, sid, p, (item as Task).date)}
+                                                    onEdit={() => {}}
+                                                    onMenu={() => {}}
+                                                    formatDeadline={() => ''}
+                                                    onSwipeStart={handleSwipeStart}
+                                                    onSwipeEnd={handleSwipeEnd}
+                                                    touchingTop={true} 
+                                                    touchingBottom={true}
+                                                />
+                                            ))}
+                                        </View>
+                                    )}
                                 </View>
                             );
                         }}
@@ -634,7 +656,6 @@ export default function LongTermScreen() {
                 onSave={handleSaveSubtask}
                 onCancel={cancelAddingSubtask}
                 onOpenCalendar={() => { }}
-                onOpenDuration={() => { }}
                 onOpenRecurrence={() => { }}
                 onOpenReminder={() => { }}
                 onOpenProperties={() => { }}

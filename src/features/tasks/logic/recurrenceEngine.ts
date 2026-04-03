@@ -98,7 +98,9 @@ export const RecurrenceEngine = {
                             reminderDate: task.reminderDate,
                             reminderTime: task.reminderTime,
                             daysRolled: daysRolled,
-                            sortOrder: task.sortOrder
+                            sortOrder: (task.instanceSortOrders && task.instanceSortOrders[dateString])
+                                ? task.instanceSortOrders[dateString]
+                                : task.sortOrder
                         });
                     });
                 } catch (e) {
@@ -203,6 +205,9 @@ export const RecurrenceEngine = {
             }
         });
 
-        return finalItems.sort((a, b) => a.date.localeCompare(b.date));
+        return finalItems.sort((a, b) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            return (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999);
+        });
     }
 };

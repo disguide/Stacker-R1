@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../constants';
 import { ActionBar } from '../common/ActionBar';
 import { RecurrenceRule, RecurrenceFrequency, WeekDay } from '../../../services/storage';
 
-const FREQUENCIES: { label: string; value: RecurrenceFrequency }[] = [
-    { label: 'Day', value: 'daily' },
-    { label: 'Week', value: 'weekly' },
-    { label: 'Month', value: 'monthly' },
-    { label: 'Year', value: 'yearly' },
+const FREQUENCIES: { label: string; value: RecurrenceFrequency | 'none' }[] = [
+    { label: 'Does not repeat', value: 'none' },
+    { label: 'Daily', value: 'daily' },
+    { label: 'Weekly', value: 'weekly' },
+    { label: 'Monthly', value: 'monthly' },
+    { label: 'Yearly', value: 'yearly' },
 ];
 
 const WEEKDAYS: { label: string; value: WeekDay }[] = [
@@ -28,284 +29,322 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
     onRecurrenceChange: (rule: RecurrenceRule | null) => void;
     onClose: () => void;
 }) {
-    const [viewMode, setViewMode] = useState<'presets' | 'custom'>('presets');
-    const [frequency, setFrequency] = useState<RecurrenceFrequency>('weekly');
-    const [interval, setIntervalVal] = useState('1');
+    const [frequency, setFrequency] = useState<RecurrenceFrequency | 'none'>('none');
+    const [intervalVal, setIntervalVal] = useState(1);
     const [selectedDays, setSelectedDays] = useState<Set<WeekDay>>(new Set());
     const [localRecurrence, setLocalRecurrence] = useState<RecurrenceRule | null>(recurrence);
 
     const [prevRecurrence, setPrevRecurrence] = useState<RecurrenceRule | null>(recurrence);
 
+    // Sync from props
     if (recurrence !== prevRecurrence) {
         setPrevRecurrence(recurrence);
         setLocalRecurrence(recurrence);
         if (recurrence) {
-            setViewMode('custom');
             setFrequency(recurrence.frequency);
-            setIntervalVal(recurrence.interval.toString());
+            setIntervalVal(recurrence.interval || 1);
             if (Array.isArray(recurrence.daysOfWeek)) setSelectedDays(new Set(recurrence.daysOfWeek));
         } else {
-            setViewMode('presets');
-            setFrequency('weekly');
-            setIntervalVal('1');
+            setFrequency('none');
+            setIntervalVal(1);
             setSelectedDays(new Set());
         }
     }
 
-    const handlePreset = (type: string) => {
+    // Auto-save changes synchronously through handlers instead of useEffect
+    const updateParent = (f: RecurrenceFrequency | 'none', i: number, days: Set<WeekDay>) => {
         let rule: RecurrenceRule | null = null;
-        switch (type) {
-            case 'daily': rule = { frequency: 'daily', interval: 1 }; break;
-            case 'weekly': rule = { frequency: 'weekly', interval: 1 }; break;
-            case 'monthly': rule = { frequency: 'monthly', interval: 1 }; break;
-            case 'yearly': rule = { frequency: 'yearly', interval: 1 }; break;
-            case 'weekdays': rule = { frequency: 'weekly', interval: 1, daysOfWeek: ['MO', 'TU', 'WE', 'TH', 'FR'] }; break;
-            case 'none': rule = null; break;
+        if (f !== 'none') {
+            rule = {
+                frequency: f,
+                interval: i,
+                daysOfWeek: f === 'weekly' && days.size > 0 ? Array.from(days) : undefined,
+            };
         }
+        
+        // Skip JSON comparison and force update to ensure parent gets Latest state immediately
         setLocalRecurrence(rule);
-        onRecurrenceChange(rule); // Auto-save
+        onRecurrenceChange(rule);
     };
 
-    // Auto-save Custom Recurrence on any structural change
-    useEffect(() => {
-        if (viewMode === 'custom') {
-            const repeatInterval = parseInt(interval, 10) || 1;
-            const rule: RecurrenceRule = {
-                frequency,
-                interval: repeatInterval,
-                daysOfWeek: frequency === 'weekly' && selectedDays.size > 0 ? Array.from(selectedDays) : undefined,
-            };
-            // Prevent recursive loop if local isn't completely new
-            if (JSON.stringify(rule) !== JSON.stringify(localRecurrence)) {
-                setLocalRecurrence(rule);
-                onRecurrenceChange(rule);
-            }
-        }
-    }, [frequency, interval, selectedDays, viewMode]);
     const toggleDay = (day: WeekDay) => {
         const newSet = new Set(selectedDays);
         if (newSet.has(day)) newSet.delete(day);
         else newSet.add(day);
         setSelectedDays(newSet);
+        updateParent(frequency, intervalVal, newSet);
     };
 
     const handleReset = () => {
-        setLocalRecurrence(null);
-        onRecurrenceChange(null);
-        setViewMode('presets');
-        setFrequency('weekly');
-        setIntervalVal('1');
+        setFrequency('none');
+        setIntervalVal(1);
         setSelectedDays(new Set());
+        updateParent('none', 1, new Set());
     };
 
-    // Auto-save custom recurrence when user closes/navigates away
-    // This prevents losing custom config when swiping to another tab
     const handleConfirm = () => {
-        if (viewMode === 'custom') {
-            // Auto-apply custom config before closing
-            const repeatInterval = parseInt(interval, 10) || 1;
-            const rule: RecurrenceRule = {
-                frequency,
-                interval: repeatInterval,
-                daysOfWeek: frequency === 'weekly' && selectedDays.size > 0 ? Array.from(selectedDays) : undefined,
-            };
-            setLocalRecurrence(rule);
-            onRecurrenceChange(rule);
-        }
         onClose();
+    };
+
+    const getFrequencyPlural = () => {
+        const p = intervalVal > 1 ? 's' : '';
+        switch (frequency) {
+            case 'daily': return `day${p}`;
+            case 'weekly': return `week${p}`;
+            case 'monthly': return `month${p}`;
+            case 'yearly': return `year${p}`;
+            default: return '';
+        }
     };
 
     return (
         <View style={{ width, flex: 1 }}>
-            <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 }} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
-                {viewMode === 'presets' ? (
-                    <View>
-                        {[
-                            { label: 'Does not repeat', type: 'none' },
-                            { label: 'Every day', type: 'daily' },
-                            { label: 'Every week', type: 'weekly' },
-                            { label: 'Every month', type: 'monthly' },
-                            { label: 'Every year', type: 'yearly' },
-                            { label: 'Every weekday (Mon-Fri)', type: 'weekdays' },
-                        ].map(preset => (
-                            <TouchableOpacity
-                                key={preset.type}
-                                style={p.presetItem}
-                                onPress={() => handlePreset(preset.type)}
+            <ScrollView 
+                keyboardShouldPersistTaps="always" 
+                contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 40 }} 
+                showsVerticalScrollIndicator={false} 
+                nestedScrollEnabled={true}
+            >
+                {/* Frequency List */}
+                <View style={s.listCard}>
+                    {FREQUENCIES.map((f, i) => {
+                        const isSelected = frequency === f.value;
+                        return (
+                            <TouchableOpacity 
+                                key={f.value}
+                                style={[
+                                    s.listItem, 
+                                    i === 0 && s.listFirst, 
+                                    i === FREQUENCIES.length - 1 && s.listLast,
+                                    isSelected && s.listItemSelected
+                                ]} 
+                                onPress={() => {
+                                    setFrequency(f.value);
+                                    updateParent(f.value, intervalVal, selectedDays);
+                                }}
                             >
-                                <Text style={p.presetText}>{preset.label}</Text>
-                                {(preset.type === 'none' && !localRecurrence) && (
-                                    <Ionicons name="checkmark" size={20} color={THEME.green} />
-                                )}
-                                {localRecurrence && preset.type === localRecurrence.frequency && localRecurrence.interval === 1 && !localRecurrence.daysOfWeek && (
-                                    <Ionicons name="checkmark" size={20} color={THEME.green} />
-                                )}
-                                {localRecurrence && preset.type === 'weekdays' && localRecurrence.frequency === 'weekly' && localRecurrence.interval === 1 && localRecurrence.daysOfWeek?.length === 5 && (
-                                    <Ionicons name="checkmark" size={20} color={THEME.green} />
-                                )}
+                                <Text style={[s.listText, isSelected && s.listTextSelected]}>{f.label}</Text>
+                                {isSelected && <Ionicons name="checkmark-circle" size={20} color={THEME.green} />}
                             </TouchableOpacity>
-                        ))}
-                        <TouchableOpacity style={p.customBtn} onPress={() => setViewMode('custom')}>
-                            <Text style={p.customBtnText}>Custom...</Text>
-                            <Ionicons name="chevron-forward" size={20} color="#666" />
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View>
-                        {/* Frequency Selector */}
-                        <Text style={p.sectionLabel}>Repeat every</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                            <TextInput
-                                style={p.intervalInput}
-                                keyboardType="number-pad"
-                                value={interval}
-                                onChangeText={setIntervalVal}
-                                textAlign="center"
-                            />
-                        </View>
+                        );
+                    })}
+                </View>
 
-                        <View style={p.freqSelector}>
-                            {FREQUENCIES.map(f => (
-                                <TouchableOpacity
-                                    key={f.value}
-                                    style={[p.freqOption, frequency === f.value && p.freqOptionSelected]}
-                                    onPress={() => setFrequency(f.value)}
+                {/* Custom Options (Only show if repeating) */}
+                {frequency !== 'none' && (
+                    <View style={s.customContainer}>
+                        
+                        {/* Stepper for Interval */}
+                        <View style={s.stepperCard}>
+                            <Text style={s.sectionLabel}>Repeat every</Text>
+                            
+                            <View style={s.stepperControls}>
+                                <TouchableOpacity 
+                                    style={s.stepperBtn} 
+                                    onPress={() => {
+                                        const newVal = Math.max(1, intervalVal - 1);
+                                        setIntervalVal(newVal);
+                                        updateParent(frequency, newVal, selectedDays);
+                                    }}
+                                    disabled={intervalVal <= 1}
                                 >
-                                    <Text style={[p.freqText, frequency === f.value && { color: '#FFF' }]}>
-                                        {f.label}
-                                    </Text>
+                                    <Ionicons name="remove" size={24} color={intervalVal <= 1 ? '#D1D5DB' : THEME.textPrimary} />
                                 </TouchableOpacity>
-                            ))}
+                                
+                                <View style={s.stepperDisplay}>
+                                    <Text style={s.stepperValue}>{intervalVal}</Text>
+                                    <Text style={s.stepperUnit}>{getFrequencyPlural()}</Text>
+                                </View>
+                                
+                                <TouchableOpacity 
+                                    style={s.stepperBtn} 
+                                    onPress={() => {
+                                        const newVal = intervalVal + 1;
+                                        setIntervalVal(newVal);
+                                        updateParent(frequency, newVal, selectedDays);
+                                    }}
+                                >
+                                    <Ionicons name="add" size={24} color={THEME.textPrimary} />
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
-                        {/* Weekday Selector */}
+                        {/* Weekly Day Selector */}
                         {frequency === 'weekly' && (
-                            <View style={{ marginBottom: 20 }}>
-                                <Text style={p.sectionLabel}>Repeats on</Text>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                    {WEEKDAYS.map(day => (
-                                        <TouchableOpacity
-                                            key={day.value}
-                                            style={[
-                                                p.dayCircle,
-                                                selectedDays.has(day.value) && p.dayCircleSelected,
-                                            ]}
-                                            onPress={() => toggleDay(day.value)}
-                                        >
-                                            <Text style={[
-                                                { fontSize: 12, fontWeight: '600', color: '#333' },
-                                                selectedDays.has(day.value) && { color: '#FFF' },
-                                            ]}>
-                                                {day.label}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
+                            <View style={s.stepperCard}>
+                                <Text style={s.sectionLabel}>On these days</Text>
+                                <View style={s.dayGrid}>
+                                    {WEEKDAYS.map(day => {
+                                        const isSelected = selectedDays.has(day.value);
+                                        return (
+                                            <TouchableOpacity
+                                                key={day.value}
+                                                style={[
+                                                    s.dayBubble,
+                                                    isSelected && s.dayBubbleSelected,
+                                                ]}
+                                                onPress={() => toggleDay(day.value)}
+                                            >
+                                                <Text style={[
+                                                    s.dayBubbleText,
+                                                    isSelected && s.dayBubbleTextSelected,
+                                                ]}>
+                                                    {day.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                 </View>
+                                {selectedDays.size === 0 && (
+                                    <Text style={s.helperText}>If no days are selected, the task repeats based on the start date.</Text>
+                                )}
                             </View>
                         )}
 
-                        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-                            <TouchableOpacity onPress={() => setViewMode('presets')} style={p.backBtn}>
-                                <Text style={{ color: THEME.textSecondary, fontWeight: '600' }}>Back to Presets</Text>
-                            </TouchableOpacity>
-                        </View>
                     </View>
                 )}
             </ScrollView>
-            <ActionBar onReset={handleReset} onConfirm={handleConfirm} hasValue={!!localRecurrence} />
+            
+            <ActionBar onReset={handleReset} onConfirm={handleConfirm} hasValue={frequency !== 'none'} />
         </View>
     );
 }
 
 export default React.memo(RecurrencePage);
 
-const p = StyleSheet.create({
-    presetItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 14,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: THEME.border,
-    },
-    presetText: {
-        fontSize: 16,
-        color: THEME.textPrimary,
-    },
-    customBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 14,
-        marginTop: 8,
-    },
-    customBtnText: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: THEME.textPrimary,
-    },
-    intervalInput: {
-        width: 60,
-        height: 40,
+const s = StyleSheet.create({
+    listCard: {
+        backgroundColor: '#FFF',
+        borderRadius: 16,
         borderWidth: 1,
         borderColor: THEME.border,
-        borderRadius: 8,
-        fontSize: 18,
-        padding: 4,
-        backgroundColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 1,
     },
-    freqSelector: {
+    listItem: {
         flexDirection: 'row',
-        backgroundColor: '#F3F4F6',
-        borderRadius: 8,
-        padding: 2,
-        marginBottom: 20,
-    },
-    freqOption: {
-        flex: 1,
         alignItems: 'center',
-        paddingVertical: 8,
-        borderRadius: 6,
+        justifyContent: 'space-between',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: '#F3F4F6',
     },
-    freqOptionSelected: {
-        backgroundColor: '#333',
+    listFirst: {
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
     },
-    freqText: {
-        fontSize: 13,
-        color: '#333',
+    listLast: {
+        borderBottomWidth: 0,
+        borderBottomLeftRadius: 16,
+        borderBottomRightRadius: 16,
+    },
+    listItemSelected: {
+        backgroundColor: '#F0FDF4', // very light forest green
+    },
+    listText: {
+        fontSize: 16,
+        color: THEME.textPrimary,
         fontWeight: '500',
     },
-    dayCircle: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+    listTextSelected: {
+        color: THEME.green,
+        fontWeight: '600',
+    },
+    customContainer: {
+        marginTop: 24,
+        gap: 16,
+    },
+    stepperCard: {
+        backgroundColor: '#FFF',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: THEME.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        elevation: 1,
+    },
+    sectionLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: THEME.textSecondary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 16,
+    },
+    stepperControls: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#F9FAFB',
+        borderRadius: 12,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    stepperBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#FFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    stepperDisplay: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    stepperValue: {
+        fontSize: 24,
+        fontWeight: '700',
+        color: THEME.textPrimary,
+    },
+    stepperUnit: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: THEME.textSecondary,
+        marginTop: -2,
+    },
+    dayGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    dayBubble: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: '#F3F4F6',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    dayCircleSelected: {
-        backgroundColor: '#333',
+    dayBubbleSelected: {
+        backgroundColor: THEME.green,
     },
-    sectionLabel: {
+    dayBubbleText: {
         fontSize: 14,
-        color: THEME.textSecondary,
         fontWeight: '600',
-        marginBottom: 10,
-        marginTop: 8,
+        color: THEME.textPrimary,
     },
-    backBtn: {
-        flex: 1,
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: THEME.border,
+    dayBubbleTextSelected: {
+        color: '#FFF',
     },
-    applyCustomBtn: {
-        flex: 2,
-        alignItems: 'center',
-        paddingVertical: 12,
-        backgroundColor: THEME.accent,
-        borderRadius: 8,
+    helperText: {
+        fontSize: 12,
+        color: THEME.textSecondary,
+        marginTop: 12,
+        fontStyle: 'italic',
+        textAlign: 'center',
     },
 });

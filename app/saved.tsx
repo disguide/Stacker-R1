@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StorageService, DailyData } from '../src/services/storage';
 import { toISODateString } from '../src/utils/dateHelpers';
 
@@ -83,6 +83,7 @@ const MoodCounterButton = ({ day, onPress }: { day: LogDay, onPress: () => void 
 };
 
 export default function SavedScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [logDays, setLogDays] = useState<LogDay[]>([]);

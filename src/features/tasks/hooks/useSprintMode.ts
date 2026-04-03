@@ -30,35 +30,13 @@ export const useSprintMode = (tasks: Task[]) => {
 
         const selectedTasks = tasks.filter(t => selectedSprintTaskIds.has(t.id));
 
-        // Flatten tasks that have incomplete subtasks
-        const flattenedSprintTasks: Task[] = [];
-
-        selectedTasks.forEach(parentTask => {
-            const incompleteSubtasks = parentTask.subtasks?.filter(st => !st.completed) || [];
-
-            if (incompleteSubtasks.length > 0) {
-                // Generate a temporary sprint task for each subtask
-                incompleteSubtasks.forEach(subtask => {
-                    flattenedSprintTasks.push({
-                        id: `sprint_${parentTask.id}_${subtask.id}`,
-                        title: `${parentTask.title} / ${subtask.title}`,
-                        date: parentTask.date,
-                        estimatedTime: subtask.estimatedTime,
-                        sprintParentId: parentTask.id,
-                        sprintSubtaskId: subtask.id,
-                    } as Task);
-                });
-            } else {
-                // No incomplete subtasks, pass the parent task as-is
-                flattenedSprintTasks.push(parentTask);
-            }
-        });
-
-        await StorageService.saveSprintTasks(flattenedSprintTasks);
+        // Just pass selected tasks as-is (with their subtasks)
+        // The sprint view and summary will handle the subtasks within the task card.
+        await StorageService.saveSprintTasks(selectedTasks);
 
         router.push({
             pathname: '/sprint',
-            params: { taskIds: JSON.stringify(flattenedSprintTasks.map(t => t.id)) }
+            params: { taskIds: JSON.stringify(selectedTasks.map(t => t.id)) }
         });
     }, [selectedSprintTaskIds, tasks, router]);
 

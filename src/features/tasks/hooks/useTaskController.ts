@@ -396,124 +396,121 @@ export const useTaskController = () => {
     }, [tasks, loading]);
 
     /**
-     * MOVE TASK TO DATE - Phase 4: Cross-Day "Delete & Duplicate" Engine
-     * 
-     * UNIVERSAL APPROACH for ALL tasks:
-     * 1. Mark/delete the old task (completed or exceptionDate)
-     * 2. Create a clean standalone duplicate on the new date
-     * 3. The duplicate has NO recurrence, NO completedDates — a fresh start
-     *
-     * @param calendarItem - The CalendarItem being moved (has isGhost, originalTaskId, date, etc.)
-     * @param newDate - The target date string (YYYY-MM-DD)
+     * ATOMIC REORDER BATCH
+     * Handles both sortOrder updates and task moves (cross-day) in a single state change
+     * to prevent race conditions during complex drag-and-drop operations.
      */
-    const moveTaskToDate = useCallback((calendarItem: any, newDate: string) => {
-        if (calendarItem.date === newDate) return; // No-op if same day
-
-        const isGhost = calendarItem.isGhost;
-        const masterId = calendarItem.originalTaskId;
-        const oldDate = calendarItem.date;
-
+    const applyReorderBatch = useCallback((
+        reorderUpdates: Array<{ id: string; sortOrder: number }>,
+        moveUpdates: Array<{ calendarItem: any; newDate: string; sortOrder: number }> = []
+    ) => {
         setTasks(prev => {
             const updatedTasks = [...prev];
 
-            // ===== Step 1: Mark/delete the OLD task =====
-            if (isGhost && masterId) {
-                // RECURRING GHOST: Add old date to master's exceptionDates (hides the ghost)
-                const masterIndex = resolveTaskIndex(updatedTasks, masterId);
-                if (masterIndex !== -1) {
-                    const master = { ...updatedTasks[masterIndex] };
-                    const exceptions = new Set(master.exceptionDates || []);
-                    exceptions.add(oldDate);
-                    master.exceptionDates = Array.from(exceptions);
-                    updatedTasks[masterIndex] = master;
-                    if (__DEV__) console.log(`[moveTaskToDate] Ghost: exception added to "${masterId}" for ${oldDate}`);
+            // 1. Handle reorder updates
+            reorderUpdates.forEach(({ id, sortOrder }) => {
+                const ghostMatch = id.match(/^(.+)_(\d{4}-\d{2}-\d{2})$/);
+                const masterId = ghostMatch ? ghostMatch[1] : id;
+                const date = ghostMatch ? ghostMatch[2] : null;
+
+                const index = resolveTaskIndex(updatedTasks, masterId);
+                if (index !== -1) {
+                    const task = updatedTasks[index];
+                    if (date && (task.rrule || task.recurrence)) {
+                        const instanceSortOrders = { ...(task.instanceSortOrders || {}) };
+                        instanceSortOrders[date] = sortOrder;
+                        updatedTasks[index] = { ...task, instanceSortOrders };
+                    } else {
+                        updatedTasks[index] = { ...task, sortOrder };
+                    }
                 }
-            } else {
-                // SINGLE TASK: Mark as completed on old date
-                const taskId = masterId || calendarItem.id;
-                const taskIndex = resolveTaskIndex(updatedTasks, taskId);
-                if (taskIndex !== -1) {
-                    const task = { ...updatedTasks[taskIndex] };
-                    const completedDates = new Set(task.completedDates || []);
-                    completedDates.add(oldDate);
-                    task.completedDates = Array.from(completedDates);
-                    task.completed = true;
-                    updatedTasks[taskIndex] = task;
-                    if (__DEV__) console.log(`[moveTaskToDate] Single: marked completed "${taskId}" on ${oldDate}`);
-                }
-            }
-
-            // ===== Step 2: Create a CLEAN duplicate on the NEW date =====
-            // Source the data from the calendarItem (which has all display fields)
-
-            const duplicate: Task = {
-                id: `${masterId || calendarItem.id}_moved_${Date.now()}`,
-                title: calendarItem.title,
-                date: newDate,
-                deadline: calendarItem.deadline,
-                estimatedTime: calendarItem.estimatedTime,
-                subtasks: calendarItem.subtasks?.map((s: any) => ({ ...s, completed: false })),
-                color: calendarItem.color,
-                type: calendarItem.taskType || calendarItem.type,
-                importance: calendarItem.importance,
-
-                // Properties to restore
-                tagIds: calendarItem.tagIds,
-
-                // Reminder fields
-                reminderEnabled: calendarItem.reminderEnabled,
-                reminderTime: calendarItem.reminderTime,
-                reminderDate: undefined, // Let it default to the day the task resides in
-
-                // Recurrence restoration: CLEAR these to ensure it remains a static single task
-                rrule: undefined,
-                recurrence: undefined,
-                completedDates: undefined,
-                exceptionDates: undefined,
-
-                sortOrder: 9999, // End of new day
-            };
-
-            if (__DEV__) console.log(`[moveTaskToDate] Duplicate created: "${duplicate.title}" on ${newDate}`);
-
-            HistoryRepository.addLog({
-                id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                taskId: duplicate.id,
-                taskTitle: duplicate.title,
-                action: 'added',
-                timestamp: new Date().toISOString(),
-                date: newDate,
-                details: `Moved from ${oldDate} (clean duplicate with retained properties)`
             });
 
-            return [...updatedTasks, duplicate];
+            // 2. Handle move updates (Cross-Day "Delete & Duplicate" Engine)
+            moveUpdates.forEach(move => {
+                const { calendarItem, newDate, sortOrder: targetSortOrder } = move;
+                if (calendarItem.date === newDate) return;
+
+                const isGhost = calendarItem.isGhost;
+                const masterId = calendarItem.originalTaskId;
+                const oldDate = calendarItem.date;
+
+                // Step 1: Mark/delete the OLD task
+                if (isGhost && masterId) {
+                    const masterIndex = resolveTaskIndex(updatedTasks, masterId);
+                    if (masterIndex !== -1) {
+                        const master = { ...updatedTasks[masterIndex] };
+                        const exceptions = new Set(master.exceptionDates || []);
+                        exceptions.add(oldDate);
+                        master.exceptionDates = Array.from(exceptions);
+                        updatedTasks[masterIndex] = master;
+                    }
+                } else {
+                    const taskId = masterId || calendarItem.id;
+                    const taskIndex = resolveTaskIndex(updatedTasks, taskId);
+                    if (taskIndex !== -1) {
+                        const task = { ...updatedTasks[taskIndex] };
+                        const completedDates = new Set(task.completedDates || []);
+                        completedDates.add(oldDate);
+                        task.completedDates = Array.from(completedDates);
+                        if (!task.rrule) task.completed = true;
+                        updatedTasks[taskIndex] = task;
+                    }
+                }
+
+                // Step 2: Create a CLEAN duplicate on the NEW date
+                const duplicate: Task = {
+                    id: `${masterId || calendarItem.id}_moved_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                    title: calendarItem.title,
+                    date: newDate,
+                    deadline: calendarItem.deadline,
+                    estimatedTime: calendarItem.estimatedTime,
+                    subtasks: calendarItem.subtasks?.map((s: any) => ({ ...s, completed: false })),
+                    color: calendarItem.color,
+                    type: calendarItem.taskType || calendarItem.type,
+                    importance: calendarItem.importance,
+                    tagIds: calendarItem.tagIds,
+                    reminderEnabled: calendarItem.reminderEnabled,
+                    reminderTime: calendarItem.reminderTime,
+                    reminderDate: undefined,
+                    rrule: undefined,
+                    recurrence: undefined,
+                    completedDates: undefined,
+                    exceptionDates: undefined,
+                    sortOrder: targetSortOrder ?? 9999,
+                    completed: false,
+                };
+
+                updatedTasks.push(duplicate);
+
+                HistoryRepository.addLog({
+                    id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    taskId: duplicate.id,
+                    taskTitle: duplicate.title,
+                    action: 'added',
+                    timestamp: new Date().toISOString(),
+                    date: newDate,
+                    details: `Moved from ${oldDate} (atomic batch update)`
+                });
+            });
+
+            return updatedTasks;
         });
     }, []);
 
     /**
-     * REORDER TASKS - Batch update sortOrder for drag-and-drop
+     * MOVE TASK TO DATE (Legacy wrapper)
+     */
+    const moveTaskToDate = useCallback((calendarItem: any, newDate: string, sortOrder?: number) => {
+        applyReorderBatch([], [{ calendarItem, newDate, sortOrder: sortOrder ?? 9999 }]);
+    }, [applyReorderBatch]);
+
+    /**
+     * REORDER TASKS (Legacy wrapper)
      */
     const reorderTasks = useCallback((updates: Array<{ id: string; sortOrder: number }>) => {
-        console.log(`[reorderTasks] Received ${updates.length} updates. Dispatched from handleDrop.`);
-        setTasks(prev => {
-            const newTasks = [...prev];
-            let successCount = 0;
-            let failCount = 0;
-
-            updates.forEach(({ id, sortOrder }) => {
-                const index = resolveTaskIndex(newTasks, id);
-                if (index !== -1) {
-                    newTasks[index] = { ...newTasks[index], sortOrder };
-                    successCount++;
-                } else {
-                    failCount++;
-                }
-            });
-
-            console.log(`[reorderTasks] Mapped successfully: ${successCount}. Failed to find task IDs: ${failCount}`);
-            return newTasks;
-        });
-    }, []);
+        applyReorderBatch(updates, []);
+    }, [applyReorderBatch]);
 
     return {
         tasks,
@@ -527,6 +524,7 @@ export const useTaskController = () => {
         toggleTaskReminder,
         reorderTasks,
         moveTaskToDate,
+        applyReorderBatch,
         refresh: loadTasks
     };
 };

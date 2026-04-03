@@ -17,6 +17,7 @@ import TimePickerModal from '../src/components/TimePickerModal';
 import ColorSettingsModal from '../src/components/ColorSettingsModal';
 import { FeatureKey } from '../src/components/editor/constants';
 import { OrganizeMenu } from '../src/components/OrganizeMenu';
+import { ViewMenu } from '../src/components/ViewMenu';
 import RemindersManagerModal from '../src/components/RemindersManagerModal';
 import { TaskQuickAdd } from '../src/components/TaskQuickAdd';
 
@@ -170,10 +171,29 @@ export default function TaskListScreen() {
 
     // 6. Local Handlers (Bridging)
     const handleOpenAddDrawer = (feature?: FeatureKey) => {
-        // Logic to setup temp task and open drawer
-        // This was previously in openAddDrawer
-        // We can create a temp task here or inside the drawer component?
-        // The drawer expects 'task' prop.
+        if (form.addingSubtaskToParentId) {
+            const tempSubtask: any = {
+                id: `new_temp_${Date.now()}`,
+                title: form.newTaskTitle,
+                completed: false,
+                deadline: form.newTaskDeadline || undefined,
+                estimatedTime: form.newTaskEstimatedTime || undefined,
+            };
+            ui.setEditingSubtask({ 
+                parentId: form.addingSubtaskToParentId, 
+                subtask: tempSubtask 
+            });
+            ui.setIsDrawerVisible(true);
+            if (feature) {
+                ui.setInitialActiveFeature(feature);
+            } else {
+                ui.setInitialActiveFeature(null);
+            }
+            // Clear the subtask adding state as it's now in the drawer
+            form.setAddingSubtaskToParentId(null);
+            return;
+        }
+
         const tempTask: any = {
             id: `new_temp_${Date.now()}`,
             title: form.newTaskTitle,
@@ -202,7 +222,11 @@ export default function TaskListScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.container, sprintMode.isSprintSelectionMode && styles.sprintContainer]}>
+        <SafeAreaView style={[
+            styles.container, 
+            sprintMode.isSprintSelectionMode && styles.sprintContainer,
+            homeState.isReorderMode && { backgroundColor: 'rgba(16, 185, 129, 0.08)' }
+        ]}>
             <TaskListHeader
                 userAvatar={userProfile?.avatar}
                 offset={homeState.offset}
@@ -214,7 +238,10 @@ export default function TaskListScreen() {
                 isSprintSelectionMode={sprintMode.isSprintSelectionMode}
                 onToggleSprint={sprintMode.toggleSprintSelectionMode}
                 showViewPicker={homeState.showViewPicker}
-                setShowViewPicker={homeState.setShowViewPicker}
+                onViewPress={(anchor) => {
+                    homeState.setViewMenuAnchor(anchor);
+                    homeState.setShowViewPicker(true);
+                }}
                 onOpenReminders={() => ui.setIsRemindersManagerVisible(true)}
                 onOrganize={(anchor) => {
                     homeState.setOrganizeMenuAnchor(anchor);
@@ -223,39 +250,14 @@ export default function TaskListScreen() {
                 isOrganizeMenuVisible={homeState.isOrganizeMenuVisible}
             />
 
-            {/* View Picker Modal */}
-            <Modal
+            {/* View Picker Dropdown */}
+            <ViewMenu
                 visible={homeState.showViewPicker}
-                transparent
-                animationType="fade"
-                onRequestClose={() => homeState.setShowViewPicker(false)}
-            >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => homeState.setShowViewPicker(false)}
-                >
-                    <View style={styles.viewPickerContainer}>
-                        {(Object.keys(VIEW_CONFIG) as any[]).map((mode) => (
-                            <TouchableOpacity
-                                key={mode}
-                                style={[
-                                    styles.viewPickerOption,
-                                    homeState.viewMode === mode && styles.viewPickerOptionActive
-                                ]}
-                                onPress={() => homeState.switchViewMode(mode)}
-                            >
-                                <Text style={[
-                                    styles.viewPickerText,
-                                    homeState.viewMode === mode && styles.viewPickerTextActive
-                                ]}>
-                                    {VIEW_CONFIG[mode as keyof typeof VIEW_CONFIG].label}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </TouchableOpacity>
-            </Modal>
+                onClose={() => homeState.setShowViewPicker(false)}
+                onSelectView={homeState.switchViewMode}
+                currentView={homeState.viewMode}
+                anchor={homeState.viewMenuAnchor || undefined}
+            />
 
             {/* Main List Section */}
             <TaskListSection
@@ -292,6 +294,7 @@ export default function TaskListScreen() {
                     handleListTaskToggle: ops.handleListTaskToggle, // Pass explicitly if spread isn't enough
                     reorderTasks: taskController.reorderTasks,
                     moveTaskToDate: taskController.moveTaskToDate,
+                    applyReorderBatch: taskController.applyReorderBatch,
                     onStartMoveToDate: (task: any) => {
                         ui.setActiveMenuTask(task);
                         ui.setCalendarInitialPage(0);
@@ -311,7 +314,7 @@ export default function TaskListScreen() {
                 onSave={() => creation.handleAddTask(form.addingTaskForDate, form.addingSubtaskToParentId)}
                 onCancel={form.cancelAddingTask}
                 onOpenCalendar={() => handleOpenAddDrawer('deadline')}
-                onOpenDuration={() => handleOpenAddDrawer('estimate')}
+
                 onOpenRecurrence={() => handleOpenAddDrawer('recurrence')}
                 onOpenReminder={() => handleOpenAddDrawer('reminder')}
                 onOpenProperties={() => handleOpenAddDrawer('properties')}
@@ -361,6 +364,7 @@ export default function TaskListScreen() {
                 onClose={() => homeState.setIsMenuVisible(false)}
                 onAddSubtask={() => {
                     if (ui.activeMenuTask) {
+                        form.setAddingTaskForDate(null); // Clear date to ensure subtask mode
                         form.setAddingSubtaskToParentId(ui.activeMenuTask.id);
                         form.setNewTaskTitle('');
                         ui.setActiveMenuTask(null);
@@ -458,12 +462,8 @@ export default function TaskListScreen() {
                 anchor={homeState.organizeMenuAnchor}
                 onSelectFilter={(filter) => {
                     if (filter === 'manual_reorder') {
-                        homeState.setIsReorderMode(true);
+                        homeState.setIsReorderMode(!homeState.isReorderMode);
                         homeState.setSortOption(null);
-                        homeState.setIsOrganizeMenuVisible(false);
-                    } else if (filter === 'auto_organise') {
-                        homeState.setSortOption('auto_organise');
-                        homeState.setIsClumped(true); // Auto-clump for Auto-Organise
                         homeState.setIsOrganizeMenuVisible(false);
                     } else if (filter === 'clump_on') {
                         homeState.setIsClumped(true);
@@ -472,9 +472,30 @@ export default function TaskListScreen() {
                         homeState.setIsClumped(false);
                         homeState.setIsOrganizeMenuVisible(false);
                     } else {
-                        // All other specific sorts (color, importance, date, recurrence)
-                        homeState.setSortOption(filter);
-                        homeState.setIsClumped(true); // Always clump when a specific sort is applied
+                        // SORTING FILTERS (auto_organise, importance, date, estimatedTime, color)
+                        // One-shot physical reordering
+                        const allUpdates: { id: string; sortOrder: number }[] = [];
+                        homeState.dates.forEach(date => {
+                            const dStr = toISODateString(date);
+                            const allTasksForDate = calendarItems.filter((t: any) => t.type !== 'header' && t.date === dStr);
+                            const allSorted = ops.sortTasks(allTasksForDate, filter);
+                            allSorted.forEach((t: any, index: number) => {
+                                // Important: use the projected ID (e.g. masterId_YYYY-MM-DD) to support per-instance sort orders
+                                allUpdates.push({ id: t.id, sortOrder: index });
+                            });
+                        });
+                        
+                        if (allUpdates.length > 0) {
+                            taskController.reorderTasks(allUpdates);
+                        }
+
+                        // Auto-enable clumping for auto-organise for that premium feel
+                        if (filter === 'auto_organise') {
+                            homeState.setIsClumped(true);
+                        }
+
+                        // CLEAR the sort option immediately so UI remains in manual mode but with new order
+                        homeState.setSortOption(null);
                         homeState.setIsOrganizeMenuVisible(false);
                     }
                 }}

@@ -19,7 +19,6 @@ import {
 } from './editor/constants';
 
 import DeadlinePage from './editor/pages/DeadlinePage';
-import EstimatePage from './editor/pages/DurationPage';
 import PropertiesPage from './editor/pages/PropertiesPage';
 import RecurrencePage from './editor/pages/RecurrencePage';
 import ReminderPage from './editor/pages/ReminderPage';
@@ -93,7 +92,7 @@ export default function TaskFeatureCarousel({
     // console.log('[DEBUG_RENDER] TaskFeatureCarousel', { visible, hasUserColors: !!userColors, colorsCount: userColors?.length });
     const flatListRef = useRef<FlatList>(null);
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageWidth, setPageWidth] = useState(SCREEN_WIDTH * 0.92); // default estimate
+    const [pageWidth, setPageWidth] = useState(0); // Start at 0 to delay render until measured
 
     const activeFeatures = isSubtask
         ? FEATURE_ORDER.filter(f => f !== 'recurrence' && f !== 'reminder')
@@ -102,39 +101,36 @@ export default function TaskFeatureCarousel({
     // Measure actual container width
     const handleLayout = useCallback((e: LayoutChangeEvent) => {
         const w = e.nativeEvent.layout.width;
-        if (w > 0) setPageWidth(w);
-    }, []);
+        if (w > 0 && w !== pageWidth) setPageWidth(w);
+    }, [pageWidth]);
 
     const [renderedPages, setRenderedPages] = useState<Set<number>>(new Set());
 
-    // Extend the active features array with clones at the beginning and end for infinite scroll illusion
     const extendedFeatures = [
-        activeFeatures[activeFeatures.length - 1], // Clone of Last
+        activeFeatures[activeFeatures.length - 1], 
         ...activeFeatures,
-        activeFeatures[0] // Clone of First
+        activeFeatures[0] 
     ];
 
-    // Set initial page state and derived offset without delay
     useEffect(() => {
-        if (visible) {
+        if (visible && pageWidth > 0) {
             const idx = activeFeatures.indexOf(initialFeature);
             const page = idx >= 0 ? idx : 0;
             setCurrentPage(page);
             setRenderedPages(new Set([page]));
             
-            // Re-sync initial offset immediately for the padded array (real index + 1)
+            // Only scroll once we have a width
             setTimeout(() => {
                  flatListRef.current?.scrollToIndex({ index: page + 1, animated: false });
             }, 0);
-        } else {
-            // Clear rendered memory when closed so next time it opens fast
+        } else if (!visible) {
             setRenderedPages(new Set());
         }
-    }, [visible, initialFeature]);
+    }, [visible, initialFeature, pageWidth]); // Added pageWidth dependency so it fires when layout is ready
 
-    // Automatically load remaining pages slightly after the initial render
+    // Load remaining pages in background once visible and measured
     useEffect(() => {
-        if (!visible) return;
+        if (!visible || pageWidth === 0) return;
         if (renderedPages.size > 0 && renderedPages.size < activeFeatures.length) {
             const timer = setTimeout(() => {
                 setRenderedPages(prev => {
@@ -142,26 +138,27 @@ export default function TaskFeatureCarousel({
                     for (let i = 0; i < activeFeatures.length; i++) {
                         if (!next.has(i)) {
                             next.add(i);
-                            break;
                         }
                     }
                     return next;
                 });
-            }, 100);
+            }, 300); // Increased delay slightly to avoid blocking initial animation
             return () => clearTimeout(timer);
         }
-    }, [visible, renderedPages]);
+    }, [visible, renderedPages, pageWidth]);
 
     const handleScroll = (e: any) => {
+        if (pageWidth === 0) return;
         const x = e.nativeEvent.contentOffset.x;
-        // extendedFeatures length is activeFeatures.length + 2
-        // So actual visual page includes the clone. The math provides an index from 0 to N+1
+        
+        // Ignore wild, un-initialized scroll values
+        if (x < 0) return;
+
         const visualPage = Math.round(x / pageWidth);
         
-        // Map visual page back to actual logical activeFeatures page
         let realPage = visualPage - 1;
-        if (realPage < 0) realPage = activeFeatures.length - 1; // It's showing the left clone
-        if (realPage >= activeFeatures.length) realPage = 0; // It's showing the right clone
+        if (realPage < 0) realPage = activeFeatures.length - 1; 
+        if (realPage >= activeFeatures.length) realPage = 0; 
 
         if (realPage !== currentPage) {
             setCurrentPage(realPage);
@@ -170,21 +167,29 @@ export default function TaskFeatureCarousel({
     };
 
     const scrollToPage = (page: number, animated: boolean = true) => {
+        if (pageWidth === 0) return;
         setRenderedPages(prev => new Set(prev).add(page));
-        // Add +1 because index 0 is the clone
         flatListRef.current?.scrollToIndex({ index: page + 1, animated });
         setCurrentPage(page);
     };
 
     const handleMomentumScrollEnd = (e: any) => {
+        if (pageWidth === 0) return;
         const xOffset = e.nativeEvent.contentOffset.x;
         const visualPage = Math.round(xOffset / pageWidth);
         
-        // If we settled on the left clone (index 0), snap silently to the real last item
+        let realPage = visualPage - 1;
+        if (realPage < 0) realPage = activeFeatures.length - 1; 
+        if (realPage >= activeFeatures.length) realPage = 0; 
+
+        if (realPage !== currentPage) {
+            setCurrentPage(realPage);
+            setRenderedPages(prev => new Set(prev).add(realPage));
+        }
+
         if (visualPage === 0) {
             flatListRef.current?.scrollToIndex({ index: activeFeatures.length, animated: false });
         }
-        // If we settled on the right clone (index N+1), snap silently to the real first item
         else if (visualPage === extendedFeatures.length - 1) {
             flatListRef.current?.scrollToIndex({ index: 1, animated: false });
         }
@@ -194,54 +199,61 @@ export default function TaskFeatureCarousel({
 
     return (
         <View style={s.container} onLayout={handleLayout}>
-            {/* Tab Bar */}
-            <View style={s.tabBar}>
-                {activeFeatures.map((key, i) => {
-                    const isActive = currentPage === i;
-                    const icon = FEATURE_ICONS[key];
-                    return (
-                        <TouchableOpacity
-                            key={key}
-                            style={[s.tab, isActive && s.tabActive]}
-                            onPress={() => scrollToPage(i)}
-                        >
-                            <MaterialCommunityIcons
-                                name={icon.name as any}
-                                size={16}
-                                color={isActive ? THEME.textPrimary : THEME.textSecondary}
-                            />
-                            <Text style={[s.tabText, isActive && s.tabTextActive]}>
-                                {FEATURE_LABELS[key]}
-                            </Text>
-                            {isActive && <View style={s.tabIndicator} />}
-                        </TouchableOpacity>
-                    );
-                })}
-            </View>
+            {pageWidth > 0 && (
+                <>
+                    {/* Tab Bar */}
+                    <View style={s.tabBar}>
+                        {activeFeatures.map((key, i) => {
+                            const isActive = currentPage === i;
+                            const icon = FEATURE_ICONS[key];
+                            return (
+                                <TouchableOpacity
+                                    key={key}
+                                    style={[s.tab, isActive && s.tabActive]}
+                                    onPress={() => scrollToPage(i)}
+                                >
+                                    <MaterialCommunityIcons
+                                        name={icon.name as any}
+                                        size={16}
+                                        color={isActive ? THEME.textPrimary : THEME.textSecondary}
+                                    />
+                                    <Text style={[s.tabText, isActive && s.tabTextActive]}>
+                                        {FEATURE_LABELS[key]}
+                                    </Text>
+                                    {isActive && <View style={s.tabIndicator} />}
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
 
-            {/* Pages */}
-            <FlatList
-                ref={flatListRef}
-                data={extendedFeatures}
-                keyExtractor={(item, index) => `${item}-${index}`}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={handleScroll}
-                onMomentumScrollEnd={handleMomentumScrollEnd}
-                scrollEventThrottle={16}
-                bounces={false}
-                style={{ flex: 1 }}
-                initialScrollIndex={activeFeatures.indexOf(initialFeature) >= 0 ? activeFeatures.indexOf(initialFeature) + 1 : 1}
-                getItemLayout={(_, index) => ({
-                    length: pageWidth,
-                    offset: pageWidth * index,
-                    index,
-                })}
-                renderItem={({ item, index }) => {
-                    // Logic index handling for rendering elements. 
-                    // To handle copies correctly, we derive logical state from the item itself:
-                    const isRendered = true; // For clones, just render them so they're fully visible during scroll.
+                    {/* Pages */}
+                    <FlatList
+                        ref={flatListRef}
+                        data={extendedFeatures}
+                        keyExtractor={(item, index) => `${item}-${index}`}
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onScroll={handleScroll}
+                        onMomentumScrollEnd={handleMomentumScrollEnd}
+                        onScrollEndDrag={handleMomentumScrollEnd}
+                        scrollEventThrottle={16}
+                        bounces={false}
+                        style={{ flex: 1 }}
+                        initialScrollIndex={activeFeatures.indexOf(initialFeature) >= 0 ? activeFeatures.indexOf(initialFeature) + 1 : 1}
+                        getItemLayout={(_, index) => ({
+                            length: pageWidth,
+                            offset: pageWidth * index,
+                            index,
+                        })}
+                        renderItem={({ item, index }) => {
+                    // Determine logical page index from visual index
+                    let logicalIndex = index - 1;
+                    if (logicalIndex < 0) logicalIndex = activeFeatures.length - 1;
+                    if (logicalIndex >= activeFeatures.length) logicalIndex = 0;
+                    
+                    const isRendered = renderedPages.has(logicalIndex);
+
                     return (
                         <LazyPage isRendered={isRendered} width={pageWidth}>
                             {item === 'deadline' && (
@@ -252,23 +264,17 @@ export default function TaskFeatureCarousel({
                                     onClose={onClose}
                                 />
                             )}
-                            {item === 'estimate' && (
-                                <EstimatePage
-                                    width={pageWidth}
-                                    estimatedTime={estimatedTime}
-                                    onEstimateChange={onEstimateChange}
-                                    onClose={onClose}
-                                />
-                            )}
                             {item === 'properties' && (
                                 <PropertiesPage
                                     width={pageWidth}
                                     color={color}
                                     taskType={taskType}
                                     importance={importance}
+                                    estimatedTime={estimatedTime}
                                     onColorChange={onColorChange}
                                     onTypeChange={onTypeChange}
                                     onImportanceChange={onImportanceChange}
+                                    onEstimateChange={onEstimateChange}
                                     userColors={userColors}
                                     onRequestColorSettings={onRequestColorSettings}
                                     onClose={onClose}
@@ -296,6 +302,8 @@ export default function TaskFeatureCarousel({
                     );
                 }}
             />
+                </>
+            )}
         </View>
     );
 }

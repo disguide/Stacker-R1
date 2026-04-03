@@ -65,7 +65,8 @@ interface TaskListSectionProps {
         openEditSubtask: (parentId: string, subtask: any) => void;
         openSubtaskMenu: (parentId: string, subtaskId: string) => void;
         reorderTasks?: (updates: Array<{ id: string; sortOrder: number }>) => void;
-        moveTaskToDate?: (calendarItem: any, newDate: string) => void;
+        moveTaskToDate?: (calendarItem: any, newDate: string, sortOrder?: number) => void;
+        applyReorderBatch?: (reorderUpdates: Array<{ id: string; sortOrder: number }>, moveUpdates?: Array<{ calendarItem: any; newDate: string; sortOrder: number }>) => void;
         onStartMoveToDate?: (task: any) => void; // Long-press 3-dots shortcut
     };
 }
@@ -307,6 +308,7 @@ function ReorderableList({
                 let currentDate = '';
                 let orderCounter = 0;
                 const sortUpdates: Array<{ id: string; sortOrder: number }> = [];
+                const moveUpdates: Array<{ calendarItem: any; newDate: string; sortOrder: number }> = [];
 
                 currentItems.forEach(item => {
                     if (item.type === 'header') {
@@ -314,8 +316,8 @@ function ReorderableList({
                         orderCounter = 0;
                     } else if (item.type === 'task') {
                         const task = item.data;
-                        if (task.date !== currentDate && ops.moveTaskToDate) {
-                            ops.moveTaskToDate(task, currentDate);
+                        if (task.date !== currentDate) {
+                            moveUpdates.push({ calendarItem: task, newDate: currentDate, sortOrder: orderCounter });
                         } else {
                             const taskId = task.originalTaskId || task.id;
                             sortUpdates.push({ id: taskId, sortOrder: orderCounter });
@@ -324,9 +326,15 @@ function ReorderableList({
                     }
                 });
 
-                console.log(`[handleDrop] Dispatching sortUpdates:`, sortUpdates);
+                console.log(`[handleDrop] Dispatching atomic applyReorderBatch. Moves: ${moveUpdates.length}, Sorts: ${sortUpdates.length}`);
 
-                if (ops.reorderTasks && sortUpdates.length > 0) {
+                if (ops.applyReorderBatch) {
+                    ops.applyReorderBatch(sortUpdates, moveUpdates);
+                } else if (moveUpdates.length > 0 && ops.moveTaskToDate) {
+                    // Fallback for safety
+                    moveUpdates.forEach(m => ops.moveTaskToDate!(m.calendarItem, m.newDate, m.sortOrder));
+                    if (sortUpdates.length > 0 && ops.reorderTasks) ops.reorderTasks(sortUpdates);
+                } else if (ops.reorderTasks && sortUpdates.length > 0) {
                     ops.reorderTasks(sortUpdates);
                 }
 
@@ -384,17 +392,16 @@ function ReorderableList({
                         if (!otherItem || otherItem.type !== 'task') return false;
                         const otherTask = otherItem.data;
 
-                        if (sortOption === 'color') {
-                            return (task.color || 'none') === (otherTask.color || 'none');
-                        } else if (sortOption === 'importance') {
+                        if (sortOption === 'importance') {
                             return (task.importance || 0) === (otherTask.importance || 0);
                         } else if (sortOption === 'estimatedTime') {
                             return task.estimatedTime === otherTask.estimatedTime;
-                        } else if (sortOption === 'date' || sortOption === 'auto_organise' || sortOption === 'manual') {
-                            return true;
                         }
 
-                        return true;
+                        // Default to color matching for Manual, Auto-Organise, or Date sorts
+                        const c1 = (task.color || 'none').toLowerCase();
+                        const c2 = (otherTask.color || 'none').toLowerCase();
+                        return c1 === c2;
                     };
 
                     const isPrevTask = isMatchingTask(prevItem);
@@ -451,7 +458,7 @@ function ReorderableList({
 
 // Sub-component wrapper attaching the gesture responder
 const DraggableRow = React.memo(function DraggableRow({
-    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, touchingTop, touchingBottom, baseTranslateY, scrollOffset, style
+    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, touchingTop, touchingBottom, baseTranslateY, scrollOffset, isReorderMode, style
 }: {
     index: number;
     task: any;
@@ -467,6 +474,7 @@ const DraggableRow = React.memo(function DraggableRow({
     touchingBottom?: boolean;
     baseTranslateY: Animated.Value;
     scrollOffset: Animated.Value;
+    isReorderMode?: boolean;
     style?: any;
 }) {
     const pan = useRef(new Animated.ValueXY()).current;
@@ -552,18 +560,23 @@ const DraggableRow = React.memo(function DraggableRow({
                 importance={task.importance} reminderEnabled={task.reminderEnabled}
                 reminderTime={task.reminderTime} reminderDate={task.reminderDate}
                 isReorderMode={true}
+                touchingTop={touchingTop}
+                touchingBottom={task.subtasks?.length > 0 ? true : touchingBottom}
             />
-            {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any) => (
+            {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any, subIdx: number) => (
                 <SwipeableTaskRow
                     key={sub.id} id={sub.id} title={sub.title}
                     completed={sub.completed} estimatedTime={sub.estimatedTime}
                     deadline={sub.deadline} menuIcon="dots-horizontal" isSubtask={true}
+                    color={task.color} // New: color inheritance
+                    touchingTop={true} // Subtasks always touch the parent or previous subtask top
+                    touchingBottom={subIdx < task.subtasks.length - 1 ? true : touchingBottom} // Clump with siblings or transition to parent's bottom state
                     onProgressUpdate={(id, val) => ops.handleSubtaskProgress(task.originalTaskId || task.id, sub.id, val, task.originalDate || task.date)}
                     onComplete={() => ops.handleSubtaskToggle(task.originalTaskId || task.id, sub.id, task.originalDate || task.date)}
                     onEdit={() => { }} onMenu={() => { }}
                     formatDeadline={formatDeadline}
                     onSwipeStart={ops.handleSwipeStart} onSwipeEnd={ops.handleSwipeEnd}
-                    isSelectionMode={false} isReorderMode={true}
+                    isSelectionMode={false} isReorderMode={isReorderMode}
                 />
             ))}
         </Animated.View>
@@ -591,7 +604,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
             items.push({ type: 'footer', dateString: dateStr, key: `footer-${dateStr}` });
         });
         return items;
-    }, [dates, calendarItems, sortOption, form.addingTaskForDate, form.newTaskTitle, form.newTaskDeadline, form.newTaskEstimatedTime, form.newTaskReminderTime]);
+    }, [dates, calendarItems, sortOption, isReorderMode]);
 
     // Flat items for reorder mode: headers + tasks only (no footers)
     const reorderFlatItems = useMemo((): FlatItem[] => {
@@ -654,17 +667,17 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                     if (!otherItem || otherItem.type !== 'task') return false;
                     const otherTask = otherItem.data;
 
-                    if (sortOption === 'color') {
-                        return (task.color || 'none') === (otherTask.color || 'none');
-                    } else if (sortOption === 'importance') {
+                    if (sortOption === 'importance') {
                         return (task.importance || 0) === (otherTask.importance || 0);
                     } else if (sortOption === 'estimatedTime') {
                         return task.estimatedTime === otherTask.estimatedTime;
-                    } else if (sortOption === 'date' || sortOption === 'auto_organise' || sortOption === 'manual') {
-                        return true; // Default clumping (everything clumps together if adjacent)
                     }
 
-                    return true;
+                    // Default physical behavior: merge adjacent blocks ONLY if they match exactly in color.
+                    // This creates satisfying visual chunks as you reorganize tasks manually or hit Auto-Organise!
+                    const c1 = (task.color || 'none').toLowerCase();
+                    const c2 = (otherTask.color || 'none').toLowerCase();
+                    return c1 === c2;
                 };
 
                 const isPrevTask = isMatchingTask(prevItem);
@@ -685,7 +698,12 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
             }
 
             return (
-                <View style={[styles.taskCard, (touchingTop || touchingBottom) && styles.taskCardClumped, clumpStyle, { zIndex: zIdx, elevation: zIdx }]}>
+                <View style={[
+                    styles.taskCard,
+                    (touchingTop || touchingBottom) && styles.taskCardClumped,
+                    clumpStyle,
+                    { zIndex: zIdx, elevation: zIdx }
+                ]}>
                     <SwipeableTaskRow
                         id={task.id} recurrence={task.rrule} title={task.title} completed={task.isCompleted}
                         deadline={task.deadline} estimatedTime={task.estimatedTime} progress={task.progress}
@@ -699,13 +717,17 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         taskType={task.taskType} importance={task.importance} reminderEnabled={task.reminderEnabled}
                         reminderTime={task.reminderTime} reminderDate={task.reminderDate}
                         onToggleReminder={() => ops.onToggleReminder(task)}
-                        touchingTop={touchingTop} touchingBottom={touchingBottom}
+                        touchingTop={touchingTop}
+                        touchingBottom={task.subtasks?.length > 0 ? true : touchingBottom}
                     />
-                    {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any) => (
+                    {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any, subIdx: number) => (
                         <SwipeableTaskRow
                             key={sub.id} id={sub.id} title={sub.title} completed={sub.completed}
                             estimatedTime={sub.estimatedTime} deadline={sub.deadline} menuIcon="dots-horizontal"
                             isSubtask={true}
+                            color={task.color} // Color inheritance
+                            touchingTop={true} // Always touches item above
+                            touchingBottom={subIdx < task.subtasks.length - 1 ? true : touchingBottom} // Clumps with siblings or card bottom
                             onProgressUpdate={(id, val) => ops.handleSubtaskProgress(task.originalTaskId || task.id, sub.id, val, task.originalDate || task.date)}
                             onComplete={() => ops.handleSubtaskToggle(task.originalTaskId || task.id, sub.id, task.originalDate || task.date)}
                             onEdit={() => ops.openEditSubtask(task.originalTaskId || task.id, sub)}

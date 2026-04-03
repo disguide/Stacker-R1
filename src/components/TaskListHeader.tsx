@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { styles } from '../styles/taskListStyles';
@@ -15,8 +16,8 @@ interface TaskListHeaderProps {
     viewMode: ViewMode;
     isSprintSelectionMode: boolean;
     onToggleSprint: () => void;
-    showViewPicker: boolean;
-    setShowViewPicker: (show: boolean) => void;
+    showViewPicker: boolean; // Keeping for rotating arrow state or backwards compatibility temporarily
+    onViewPress: (layout: { pageX: number; pageY: number; width: number; height: number }) => void;
     onOpenReminders: () => void;
     onOrganize: (layout: { pageX: number; pageY: number; width: number; height: number }) => void;
     isOrganizeMenuVisible: boolean;
@@ -30,12 +31,15 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
     isSprintSelectionMode,
     onToggleSprint,
     showViewPicker,
-    setShowViewPicker,
+    onViewPress,
     onOpenReminders,
     onOrganize,
     isOrganizeMenuVisible
 }) => {
+    const insets = useSafeAreaInsets();
     const rotateAnim = React.useRef(new Animated.Value(0)).current;
+
+    const viewRotateAnim = React.useRef(new Animated.Value(0)).current;
 
     React.useEffect(() => {
         Animated.spring(rotateAnim, {
@@ -44,19 +48,39 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
             friction: 8,
             tension: 40
         }).start();
-    }, [isOrganizeMenuVisible]);
+
+        Animated.spring(viewRotateAnim, {
+            toValue: showViewPicker ? 1 : 0,
+            useNativeDriver: true,
+            friction: 8,
+            tension: 40
+        }).start();
+    }, [isOrganizeMenuVisible, showViewPicker]);
 
     const rotation = rotateAnim.interpolate({
         inputRange: [0, 1],
         outputRange: ['0deg', '180deg']
     });
+
+    const viewRotation = viewRotateAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '180deg']
+    });
+
     const router = useRouter();
     const { unreadCount } = useMail();
     const organizeBtnRef = useRef<View>(null);
+    const viewBtnRef = useRef<View>(null);
 
     const handleOrganizePress = () => {
         organizeBtnRef.current?.measure((x, y, width, height, pageX, pageY) => {
             onOrganize({ pageX, pageY, width, height });
+        });
+    };
+
+    const handleViewPress = () => {
+        viewBtnRef.current?.measure((x, y, width, height, pageX, pageY) => {
+            onViewPress({ pageX, pageY, width, height });
         });
     };
 
@@ -133,11 +157,14 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                    ref={viewBtnRef as any}
                     style={styles.viewLabelButton}
-                    onPress={() => setShowViewPicker(true)}
+                    onPress={handleViewPress}
                 >
                     <Text style={styles.viewLabel}>{VIEW_CONFIG[viewMode].label}</Text>
-                    <Ionicons name="chevron-down" size={16} color="#666" style={{ marginTop: 2 }} />
+                    <Animated.View style={{ transform: [{ rotate: viewRotation }] }}>
+                        <Ionicons name="chevron-down" size={16} color="#666" style={{ marginTop: 2 }} />
+                    </Animated.View>
                 </TouchableOpacity>
 
 

@@ -60,28 +60,14 @@ export default function TaskEditCarousel({
 }: TaskEditCarouselProps) {
     const carouselPanResponder = useRef(
         PanResponder.create({
-            onStartShouldSetPanResponder: () => false,
+            onStartShouldSetPanResponder: () => true, // Own the touch in the bottom zone
             onStartShouldSetPanResponderCapture: () => false,
-            // Capture phase: for scrollable pages, grab swipe from bottom zone BEFORE children
-            onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-                 const feature = activeFeatureRef.current;
-                 if (feature === 'deadline' || feature === 'estimate') {
-                     const sheetBottom = SCREEN_HEIGHT * 0.9;
-                     if (gestureState.y0 > sheetBottom - 100) {
-                         return gestureState.dy < -30 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
-                     }
-                 }
-                 return false;
-            },
-            // Bubbling phase: normal pages
+            // Capture phase: let children handle their own touches first.
+            onMoveShouldSetPanResponderCapture: () => false,
+            // Bubbling phase: if child didn't claim, we claim if it's a solid upward swipe.
             onMoveShouldSetPanResponder: (_, gestureState) => {
-                 const feature = activeFeatureRef.current;
-                 if (feature === 'deadline' || feature === 'estimate') return false;
-                 if (feature === 'reminder') {
-                     const isTouchingWheels = gestureState.x0 > SCREEN_WIDTH / 2 - 120 && gestureState.x0 < SCREEN_WIDTH / 2 + 120;
-                     if (isTouchingWheels) return false;
-                 }
-                 return gestureState.dy < -40 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
+                 // Make swipe up more responsive (threshold -15)
+                 return gestureState.dy < -15 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
             },
             onPanResponderGrant: () => {
                 carouselPanY.setOffset((carouselPanY as any)._value);
@@ -95,7 +81,7 @@ export default function TaskEditCarousel({
             },
             onPanResponderRelease: (_, gestureState) => {
                 carouselPanY.flattenOffset();
-                if (gestureState.dy < -60 || gestureState.vy < -0.8) {
+                if (gestureState.dy < -100 || gestureState.vy < -1.2) {
                     // Swiped up far enough -> save and close EVERYTHING simultaneously
                     Animated.parallel([
                         Animated.timing(carouselPanY, {
@@ -148,7 +134,6 @@ export default function TaskEditCarousel({
                     styles.carouselSheet,
                     { transform: [{ translateY: carouselPanY }] }
                 ]}
-                {...carouselPanResponder.panHandlers}
             >
                 <View style={styles.carouselHeader}>
                     <TouchableOpacity onPress={() => setActiveFeature(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -182,6 +167,8 @@ export default function TaskEditCarousel({
                     userColors={userColors}
                     onRequestColorSettings={onRequestColorSettings}
                 />
+                
+                <View style={{ height: 80, bottom: 0, position: 'absolute', width: '100%', backgroundColor: 'rgba(0,0,0,0)', zIndex: 9999 }} {...carouselPanResponder.panHandlers} pointerEvents="auto" />
             </Animated.View>
         </View>
     );

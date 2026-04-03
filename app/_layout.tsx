@@ -15,7 +15,7 @@ export default function Layout() {
                     headerShown: false,
                 }}
             >
-                <Stack.Screen name="index" />
+                <Stack.Screen name="index" options={{ gestureEnabled: false }} />
                 <Stack.Screen name="profile" />
                 <Stack.Screen name="mail" />
                 <Stack.Screen name="settings" />

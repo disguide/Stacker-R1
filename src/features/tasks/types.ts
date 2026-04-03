@@ -26,6 +26,7 @@ export interface Task {
     tagIds?: string[];
     instanceProgress?: Record<string, number>;
     instanceSubtasks?: Record<string, Subtask[]>;
+    instanceSortOrders?: Record<string, number>;
 
     // Design System (User customizable)
     color?: string; // Hex color for stripe

@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, PanResponder, Animated, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Modal, Alert, PanResponder } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Task, StorageService } from '../src/services/storage';
@@ -52,11 +53,15 @@ const calculateRemainingTime = (estimatedTime: string, progress: number) => {
 const SprintSummaryTaskRow = ({
     task,
     onStatusChange,
-    onProgressChange
+    onProgressChange,
+    isSubtask = false,
+    isLast = false
 }: {
-    task: Task,
-    onStatusChange: (id: string, isConfirmed: boolean) => void,
-    onProgressChange: (id: string, progress: number) => void
+    task: any,
+    onStatusChange: (id: string, isConfirmed: boolean, parentId?: string) => void,
+    onProgressChange: (id: string, progress: number, parentId?: string) => void,
+    isSubtask?: boolean,
+    isLast?: boolean
 }) => {
     // Use task status for initialization
     const initialProgress = task.completed ? 100 : (task.progress || 0);
@@ -93,26 +98,19 @@ const SprintSummaryTaskRow = ({
                     p = Math.max(0, Math.min(100, p));
                     setProgress(p);
                     progressAnim.setValue(p);
-                    onProgressChangeRef.current(task.id, p);
+                    onProgressChangeRef.current(task.id, p, (task as any).parentId);
                 }
             },
             onPanResponderMove: (_, gestureState) => {
                 const w = widthRef.current;
                 if (w > 0) {
-                    // Absolute tracking if we start from jump
-                    // But if we want relative dragging from initial touch point?
-                    // We used "Jump to finger" logic in Grant, so we are tracking finger position relative to view
-                    // gestureState.moveX is page-relative.
-                    // locationX is element-relative but ONLY at start of gesture (in Grant).
-                    // To track accurately:
-                    // Current X = Start X (from Grant) + dx
                     const currentX = startTouchXRef.current + gestureState.dx;
                     let p = (currentX / w) * 100;
                     p = Math.max(0, Math.min(100, p));
                     if (p > 95) p = 100; // Magnetic Snap
                     setProgress(p);
                     progressAnim.setValue(p);
-                    onProgressChangeRef.current(task.id, p);
+                    onProgressChangeRef.current(task.id, p, (task as any).parentId);
                 }
             },
             onPanResponderRelease: (_, gestureState) => {
@@ -129,8 +127,8 @@ const SprintSummaryTaskRow = ({
                         bounciness: 0
                     }).start();
                     setProgress(p);
-                    onProgressChangeRef.current(task.id, p);
-                    onStatusChangeRef.current(task.id, p >= 95);
+                    onProgressChangeRef.current(task.id, p, (task as any).parentId);
+                    onStatusChangeRef.current(task.id, p >= 95, (task as any).parentId);
                 }
             },
             onPanResponderTerminationRequest: () => false,
@@ -146,13 +144,16 @@ const SprintSummaryTaskRow = ({
             useNativeDriver: false
         }).start();
         setProgress(target);
-        onProgressChange(task.id, target);
-        onStatusChange(task.id, target === 100);
+        onProgressChange(task.id, target, (task as any).parentId);
+        onStatusChange(task.id, target === 100, (task as any).parentId);
     };
 
     return (
         <View
-            style={styles.taskItemContainer}
+            style={[
+                styles.taskItemContainer, 
+                !isLast && { borderBottomWidth: 1, borderBottomColor: '#CBD5E1' }
+            ]}
             onLayout={(e) => widthRef.current = e.nativeEvent.layout.width}
         >
             <Animated.View style={[
@@ -164,21 +165,14 @@ const SprintSummaryTaskRow = ({
                     }),
                     backgroundColor: progressAnim.interpolate({
                         inputRange: [0, 100],
-                        outputRange: ['#F1F5F9', THEME.successBg]
+                        outputRange: ['#F1F5F9', '#F0F9FF'] // Fades into background
                     })
                 }
             ]} />
 
-            {/* Overlay allows gestures anywhere on the row */}
-            {/* zIndex 20 ensures it is above background but below Content if Content is higher */}
             <View style={[styles.sliderOverlay, { zIndex: 20 }]} {...panResponder.panHandlers} />
 
-            {/* Content sits visually on top. 
-                pointerEvents="box-none" lets touches pass through the container.
-                Checkbox is touchable.
-                Text wrapper is NOT touchable (pointerEvents="none"), so touches fall through to Overlay.
-            */}
-            <View style={[styles.taskContent, { zIndex: 30 }]} pointerEvents="box-none">
+            <View style={[styles.taskContent, { zIndex: 30 }, isSubtask && { paddingLeft: 40 }]} pointerEvents="box-none">
                 <TouchableOpacity
                     onPress={handleToggle}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -186,18 +180,18 @@ const SprintSummaryTaskRow = ({
                 >
                     <Ionicons
                         name={isConfirmed ? "checkmark-circle" : "ellipse-outline"}
-                        size={24}
+                        size={isSubtask ? 20 : 24}
                         color={isConfirmed ? '#4ADE80' : THEME.textSecondary}
                     />
                 </TouchableOpacity>
 
                 <View style={{ flex: 1 }} pointerEvents="none">
-                    <Text style={[styles.taskTitle, isConfirmed && { color: '#000' }]} numberOfLines={1}>
+                    <Text style={[styles.taskTitle, isConfirmed && { color: THEME.textPrimary }, isSubtask && { fontSize: 14 }]} numberOfLines={1}>
                         {task.title}
                     </Text>
                     <View style={styles.metaRow}>
                         <Text style={styles.metaText}>
-                            {isConfirmed ? 'Completed' : `${Math.round(progress)}% done - Slide to adjust`}
+                            {isConfirmed ? 'Completed' : `${Math.round(progress)}% done`}
                         </Text>
                     </View>
                 </View>
@@ -207,33 +201,50 @@ const SprintSummaryTaskRow = ({
 };
 
 export default function SprintSummaryScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const params = useLocalSearchParams();
     const workSeconds = parseInt(params.duration as string || '0', 10);
     const breakSeconds = parseInt(params.breakDuration as string || '0', 10);
     const totalDurationSeconds = parseInt(params.totalDuration as string || '0', 10);
-    const initialCompletedTasks: Task[] = params.tasks ? JSON.parse(params.tasks as string) : [];
+    const initialSprintTasks: Task[] = params.tasks ? JSON.parse(params.tasks as string) : [];
 
     // Track confirmed status and progress percentage
-    // Only auto-confirm tasks that were already marked 'completed' in the sprint
     const [confirmedTaskIds, setConfirmedTaskIds] = React.useState<Set<string>>(
-        new Set(initialCompletedTasks.filter(t => t.completed).map(t => t.id))
+        new Set(initialSprintTasks.filter(t => t.completed).map(t => t.id))
     );
+    // { [taskId]: { [subtaskId]: progress } } for subtasks
     const [taskProgress, setTaskProgress] = useState<{ [id: string]: number }>({});
+    const [subtaskProgress, setSubtaskProgress] = useState<{ [parentId: string]: { [subId: string]: number } }>({});
+    const [confirmedSubtaskIds, setConfirmedSubtaskIds] = useState<{ [parentId: string]: Set<string> }>({});
 
     // Timeline State
     const [timelineEvents, setTimelineEvents] = useState<any[]>([]);
     const [showTimeline, setShowTimeline] = useState(false);
 
-    // Initializing progress map
+    // Initializing progress maps
     const [savedSprintId, setSavedSprintId] = useState<string | null>(null);
     useEffect(() => {
-        const initialMap: any = {};
-        initialCompletedTasks.forEach(t => {
-            // If already completed, set to 100, otherwise leave at 0 or current progress
-            initialMap[t.id] = t.completed ? 100 : (t.progress || 0);
+        const initialTaskMap: any = {};
+        const initialSubMap: any = {};
+        const initialSubConfirmed: any = {};
+
+        initialSprintTasks.forEach(t => {
+            initialTaskMap[t.id] = t.completed ? 100 : (t.progress || 0);
+            if (t.subtasks && t.subtasks.length > 0) {
+                const subProgress: any = {};
+                const subConf = new Set<string>();
+                t.subtasks.forEach(st => {
+                    subProgress[st.id] = st.completed ? 100 : (st.progress || 0);
+                    if (st.completed) subConf.add(st.id);
+                });
+                initialSubMap[t.id] = subProgress;
+                initialSubConfirmed[t.id] = subConf;
+            }
         });
-        setTaskProgress(initialMap);
+        setTaskProgress(initialTaskMap);
+        setSubtaskProgress(initialSubMap);
+        setConfirmedSubtaskIds(initialSubConfirmed);
 
         if (params.timeline) {
             try {
@@ -242,17 +253,57 @@ export default function SprintSummaryScreen() {
         }
     }, []);
 
-    const handleStatusChange = (taskId: string, isConfirmed: boolean) => {
-        setConfirmedTaskIds(prev => {
-            const next = new Set(prev);
-            if (isConfirmed) next.add(taskId);
-            else next.delete(taskId);
-            return next;
-        });
+    const handleStatusChange = (taskId: string, isConfirmed: boolean, parentId?: string) => {
+        // Find title for timeline entry
+        let title = 'Task';
+        if (parentId) {
+            const parent = initialSprintTasks.find(t => t.id === parentId);
+            const sub = parent?.subtasks?.find(st => st.id === taskId);
+            title = sub ? sub.title : 'Subtask';
+        } else {
+            const task = initialSprintTasks.find(t => t.id === taskId);
+            title = task ? task.title : 'Task';
+        }
+
+        // Add "Review" marker if confirmed
+        if (isConfirmed) {
+            const now = Date.now();
+            const newEvent = {
+                type: 'task',
+                title: `Review: ${title}`,
+                startTime: now,
+                endTime: now,
+                durationSeconds: 0 // Duration is 0 for post-sprint adjustments
+            };
+            setTimelineEvents(prev => [...prev, newEvent]);
+        }
+
+        if (parentId) {
+            setConfirmedSubtaskIds(prev => {
+                const parentSet = new Set(prev[parentId] || []);
+                if (isConfirmed) parentSet.add(taskId);
+                else parentSet.delete(taskId);
+                return { ...prev, [parentId]: parentSet };
+            });
+        } else {
+            setConfirmedTaskIds(prev => {
+                const next = new Set(prev);
+                if (isConfirmed) next.add(taskId);
+                else next.delete(taskId);
+                return next;
+            });
+        }
     };
 
-    const handleProgressChange = (taskId: string, progress: number) => {
-        setTaskProgress(prev => ({ ...prev, [taskId]: progress }));
+    const handleProgressChange = (taskId: string, progress: number, parentId?: string) => {
+        if (parentId) {
+            setSubtaskProgress(prev => ({
+                ...prev,
+                [parentId]: { ...(prev[parentId] || {}), [taskId]: progress }
+            }));
+        } else {
+            setTaskProgress(prev => ({ ...prev, [taskId]: progress }));
+        }
     };
 
     const getLongestTask = () => {
@@ -316,130 +367,66 @@ export default function SprintSummaryScreen() {
             let finalActiveTasks = [...activeTasks];
             let hasChanges = false;
 
-            // 1. Confirmed -> Archive or Mark Completed
-            const tasksToComplete = initialCompletedTasks.filter(t => confirmedTaskIds.has(t.id));
+            // 1. Process all initial sprint tasks
+            for (const sprintTask of initialSprintTasks) {
+                const isTaskConfirmed = confirmedTaskIds.has(sprintTask.id);
+                const currentTaskProgress = taskProgress[sprintTask.id];
 
-            if (tasksToComplete.length > 0) {
-                const idsToArchive = new Set<string>();
+                // Check if it's a Ghost/Recurring Instance
+                const isRecurringInstance = sprintTask.originalTaskId && sprintTask.originalTaskId !== sprintTask.id;
+                const masterId = isRecurringInstance ? sprintTask.originalTaskId : sprintTask.id;
+                const masterIndex = finalActiveTasks.findIndex(t => t.id === masterId);
 
-                for (const task of tasksToComplete) {
-                    // --- NEW LOGIC: Subtask Extraction Handling ---
-                    if (task.sprintParentId && task.sprintSubtaskId) {
-                        const masterIndex = finalActiveTasks.findIndex(t => t.id === task.sprintParentId);
-                        if (masterIndex >= 0) {
-                            const masterTask = finalActiveTasks[masterIndex];
+                if (masterIndex >= 0) {
+                    let masterTask = { ...finalActiveTasks[masterIndex] };
 
-                            // Map over subtasks to mark the matching one completed
-                            const updatedSubtasks = masterTask.subtasks?.map(st =>
-                                st.id === task.sprintSubtaskId ? { ...st, completed: true } : st
-                            ) || [];
+                    // --- Update Subtasks first ---
+                    if (sprintTask.subtasks && sprintTask.subtasks.length > 0) {
+                        const parentSubConf = confirmedSubtaskIds[sprintTask.id] || new Set();
+                        const parentSubProg = subtaskProgress[sprintTask.id] || {};
 
-                            // Check if all subtasks are now complete
-                            const allSubtasksCompleted = updatedSubtasks.every(st => st.completed);
-
-                            if (allSubtasksCompleted) {
-                                // Subtasks are all done!
-                                // Check if the master is a recurring instance (handled further down normally if it was a direct task)
-                                if (masterTask.originalTaskId && masterTask.originalTaskId !== masterTask.id) {
-                                    // It's a recurring instance
-                                    const dateToMark = (masterTask as any).originalDate || masterTask.date;
-                                    const newCompletedDates = [...(masterTask.completedDates || []), dateToMark];
-                                    finalActiveTasks[masterIndex] = { ...masterTask, completedDates: newCompletedDates };
-                                    hasChanges = true;
-                                } else {
-                                    // Regular master task - all subtasks done, so archive the whole parent!
-                                    const taskWithDate = { ...masterTask, completed: true, completedAt: new Date().toISOString() };
-                                    await StorageService.addToHistory(taskWithDate);
-                                    idsToArchive.add(masterTask.id);
-                                }
-                            } else {
-                                // Not all subtasks are done, just save the parent back to active tasks with updated array
-                                finalActiveTasks[masterIndex] = { ...masterTask, subtasks: updatedSubtasks };
-                                hasChanges = true;
-                            }
-                        }
+                        masterTask.subtasks = masterTask.subtasks?.map(st => {
+                            const newComp = parentSubConf.has(st.id);
+                            const newProg = parentSubProg[st.id] ?? st.progress ?? 0;
+                            return { ...st, completed: newComp, progress: newProg };
+                        });
                     }
-                    // Check if it's a Ghost/Recurring Instance
-                    else if (task.originalTaskId && task.originalTaskId !== task.id) {
-                        // It's a recurring instance!
-                        // We don't archive the master task. We update its completedDates.
-                        const masterIndex = finalActiveTasks.findIndex(t => t.id === task.originalTaskId);
-                        if (masterIndex >= 0) {
-                            const masterTask = finalActiveTasks[masterIndex];
-                            const dateToMark = (task as any).originalDate || (task as any).date; // specific date of instance
 
+                    // --- Update Task Completion/Progress ---
+                    if (isTaskConfirmed) {
+                        if (isRecurringInstance) {
+                            const dateToMark = (sprintTask as any).originalDate || sprintTask.date;
                             const newCompletedDates = [...(masterTask.completedDates || []), dateToMark];
-
-                            finalActiveTasks[masterIndex] = {
-                                ...masterTask,
-                                completedDates: newCompletedDates
-                            };
-                            hasChanges = true;
+                            masterTask.completedDates = newCompletedDates;
+                            finalActiveTasks[masterIndex] = masterTask;
+                        } else {
+                            // Regular task -> Archive it
+                            const taskToArchive = { ...masterTask, completed: true, completedAt: new Date().toISOString() };
+                            await StorageService.addToHistory(taskToArchive);
+                            // Mark for removal but don't just filter yet to preserve index mapping during the loop
+                            (finalActiveTasks[masterIndex] as any).__toBeArchived = true;
                         }
                     } else {
-                        // Regular task -> Archive it
-                        const taskWithDate = { ...task, completed: true, completedAt: new Date().toISOString() };
-                        await StorageService.addToHistory(taskWithDate);
-                        idsToArchive.add(task.id);
+                        // Not confirmed, update progress
+                        if (isRecurringInstance) {
+                            const dateKey = (sprintTask as any).originalDate || (sprintTask as any).date;
+                            const newInstanceProgress = {
+                                ...(masterTask.instanceProgress || {}),
+                                [dateKey]: currentTaskProgress
+                            };
+                            masterTask.instanceProgress = newInstanceProgress;
+                        } else {
+                            masterTask.progress = currentTaskProgress;
+                        }
+                        finalActiveTasks[masterIndex] = masterTask;
                     }
-                }
-
-                // Remove archived regular tasks from active list
-                if (idsToArchive.size > 0) {
-                    finalActiveTasks = finalActiveTasks.filter(t => !idsToArchive.has(t.id));
                     hasChanges = true;
                 }
             }
 
-            // 2. Partial / Not Completed (Update Progress)
-            const tasksToUpdate = initialCompletedTasks.filter(t => !confirmedTaskIds.has(t.id));
-
-            for (const task of tasksToUpdate) {
-                const newProgress = taskProgress[task.id];
-                if (newProgress !== undefined) {
-                    if (task.sprintParentId && task.sprintSubtaskId) {
-                        // Update specific subtask progress
-                        const masterIndex = finalActiveTasks.findIndex(t => t.id === task.sprintParentId);
-                        if (masterIndex >= 0) {
-                            const masterTask = finalActiveTasks[masterIndex];
-                            const updatedSubtasks = masterTask.subtasks?.map(st =>
-                                st.id === task.sprintSubtaskId ? { ...st, progress: newProgress } : st
-                            ) || [];
-
-                            finalActiveTasks[masterIndex] = { ...masterTask, subtasks: updatedSubtasks };
-                            hasChanges = true;
-                        }
-                    } else if (task.originalTaskId && task.originalTaskId !== task.id) {
-                        const masterIndex = finalActiveTasks.findIndex(t => t.id === task.originalTaskId);
-                        if (masterIndex >= 0) {
-                            const masterTask = finalActiveTasks[masterIndex];
-                            const dateKey = (task as any).originalDate || (task as any).date;
-
-                            const newInstanceProgress = {
-                                ...(masterTask.instanceProgress || {}),
-                                [dateKey]: newProgress
-                            };
-
-                            finalActiveTasks[masterIndex] = {
-                                ...masterTask,
-                                instanceProgress: newInstanceProgress
-                            };
-                            hasChanges = true;
-                        }
-                    } else {
-                        // Regular task
-                        finalActiveTasks = finalActiveTasks.map(t => {
-                            if (t.id === task.id) {
-                                return { ...t, progress: newProgress };
-                            }
-                            return t;
-                        });
-                        hasChanges = true;
-                    }
-                }
-            }
-
+            // Perform the final filtering of archived tasks
             if (hasChanges) {
+                finalActiveTasks = finalActiveTasks.filter(t => !(t as any).__toBeArchived);
                 await StorageService.saveActiveTasks(finalActiveTasks);
             }
 
@@ -504,16 +491,36 @@ export default function SprintSummaryScreen() {
                 </View>
 
                 <Text style={styles.sectionHeader}>REVIEW PROGRESS</Text>
+                
                 <View style={styles.taskListContainer}>
-                    {initialCompletedTasks.map((task, index) => (
-                        <View key={task.id} style={{ borderBottomWidth: index === initialCompletedTasks.length - 1 ? 0 : 1, borderBottomColor: THEME.border }}>
-                            <SprintSummaryTaskRow
-                                task={task}
-                                onStatusChange={handleStatusChange}
-                                onProgressChange={handleProgressChange}
-                            />
-                        </View>
-                    ))}
+                    {initialSprintTasks.map((task, index) => {
+                        const hasSubs = !!task.subtasks && task.subtasks.length > 0;
+                        const isLastTask = index === initialSprintTasks.length - 1;
+                        return (
+                            <React.Fragment key={task.id}>
+                                <SprintSummaryTaskRow
+                                    task={task}
+                                    onStatusChange={handleStatusChange}
+                                    onProgressChange={handleProgressChange}
+                                    isLast={isLastTask && !hasSubs}
+                                />
+                                {task.subtasks && task.subtasks.map((subtask, subIdx) => {
+                                    const isSubOfLastTask = isLastTask;
+                                    const isLastSubInParent = subIdx === task.subtasks!.length - 1;
+                                    return (
+                                        <SprintSummaryTaskRow
+                                            key={subtask.id}
+                                            task={{ ...subtask, parentId: task.id }}
+                                            onStatusChange={handleStatusChange}
+                                            onProgressChange={handleProgressChange}
+                                            isSubtask={true}
+                                            isLast={isSubOfLastTask && isLastSubInParent}
+                                        />
+                                    );
+                                })}
+                            </React.Fragment>
+                        );
+                    })}
                 </View>
 
                 {/* See Timeline Button */}
@@ -630,21 +637,27 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     taskListContainer: { 
-        backgroundColor: THEME.cardBg, 
-        borderRadius: 24, 
+        backgroundColor: '#FFFFFF', 
+        borderRadius: 4, // Subtle rounding
         borderWidth: 1, 
-        borderColor: THEME.border,
+        borderColor: '#CBD5E1', // Softer border color
         overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 4,
+        marginBottom: 24, 
     },
     taskItemContainer: {
-        height: 60, justifyContent: 'center', backgroundColor: 'transparent'
+        height: 60, 
+        justifyContent: 'center', 
+        backgroundColor: '#FFFFFF', 
     },
-    progressFill: { position: 'absolute', top: 0, left: 0, bottom: 0, zIndex: 0 },
+    progressFill: { 
+        position: 'absolute', 
+        top: 0, 
+        left: 0, 
+        bottom: 0, 
+        zIndex: 0,
+        borderRightWidth: 1,
+        borderRightColor: 'rgba(14, 165, 233, 0.2)', // Edge definition for progress
+    },
     taskContent: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, zIndex: 10 },
     taskTitle: { fontSize: 16, fontWeight: '600', color: THEME.textPrimary, marginBottom: 2 },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

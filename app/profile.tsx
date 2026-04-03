@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform, Alert, useWindowDimensions, Animated, Easing } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StorageService, UserProfile, GoalCategory, SavedSprint, Task, DailyData } from '../src/services/storage';
 import { toISODateString } from '../src/utils/dateHelpers';
@@ -46,6 +47,7 @@ const MoodCounterButton = ({ rating, onPress }: { rating: number, onPress: () =>
 };
 
 export default function ProfileScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
 
     const [isEditing, setIsEditing] = useState(false);
@@ -466,7 +468,7 @@ export default function ProfileScreen() {
                                 onPress={() => scrollToSection('sprints')}
                                 style={[styles.sectionTab, activeSection === 'sprints' && styles.sectionTabActive]}
                             >
-                                <Text style={[styles.sectionTabText, activeSection === 'sprints' && styles.sectionTabTextActive]}>Sprints</Text>
+                                <Text style={[styles.sectionTabText, activeSection === 'sprints' && styles.sectionTabTextActive]}>Archive</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -793,7 +795,7 @@ export default function ProfileScreen() {
                             <View style={styles.bestDaysContainer}>
                                 <TouchableOpacity
                                     activeOpacity={0.9}
-                                    onPress={() => router.push('/saved-sprints')}
+                                    onPress={() => router.push('/achievements')}
                                 >
                                     <LinearGradient
                                         colors={['#F59E0B', '#FBBF24']}
@@ -925,7 +927,7 @@ export default function ProfileScreen() {
 
                                     {sprintHistory.filter(s => s.date === toISODateString(new Date())).length > 0 && (
                                         <View style={styles.listSection}>
-                                            <Text style={styles.journalSectionHeading}>Focus Sessions</Text>
+                                            <Text style={styles.journalSectionHeading}>Archived Sessions</Text>
                                             <View style={{ gap: 8 }}>
                                             {sprintHistory.filter(s => s.date === toISODateString(new Date())).map((sprint, sIdx) => (
                                                 <View key={sprint.id || sIdx} style={styles.sprintItemRow}>
@@ -1061,7 +1063,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingLeft: 6, // Moved further left
         paddingRight: 16,
-        paddingTop: 4,
         paddingBottom: 8,
         backgroundColor: '#FFF',
         justifyContent: 'space-between',

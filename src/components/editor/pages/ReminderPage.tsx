@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Pressable, TouchableOpacity, Text } from 'react-native';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { ActionBar } from '../common/ActionBar';
 import { TimeWheelPanel } from '../common/TimeWheelPanel';
 import { StorageService } from '../../../services/storage';
@@ -40,15 +41,6 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
         await StorageService.saveSprintSettings({ ...settings, use24HourFormat: newMode });
     };
 
-    // ─── Auto-save: apply changes immediately when wheels change ────
-    const isFirstRender = useRef(true);
-    useEffect(() => {
-        if (isFirstRender.current) { isFirstRender.current = false; return; }
-        const hh = String(tempHour).padStart(2, '0');
-        const mm = String(tempMinute).padStart(2, '0');
-        onReminderChange(0, `${hh}:${mm}`); // Always 0 offset
-    }, [tempHour, tempMinute]);
-
     const hasReminder = reminderOffset !== null;
 
     const handleReset = () => {
@@ -56,6 +48,34 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
         setTempMinute(0);
         onReminderChange(null, null);
     };
+
+    const formatTime = () => {
+        if (is24h) {
+            return `${String(tempHour).padStart(2, '0')}:${String(tempMinute).padStart(2, '0')}`;
+        }
+        const h12 = tempHour % 12 || 12;
+        const period = tempHour >= 12 ? 'PM' : 'AM';
+        return `${h12}:${String(tempMinute).padStart(2, '0')} ${period}`;
+    };
+
+    const renderChipRow = () => (
+        <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, backgroundColor: '#FAFBFC', borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
+            {hasReminder ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#10B981' }}>
+                    <MaterialCommunityIcons name="bell-ring" size={16} color="#10B981" />
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#10B981' }}>{formatTime()}</Text>
+                    <TouchableOpacity onPress={handleReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' }}>
+                    <MaterialCommunityIcons name="bell-off-outline" size={16} color="#64748B" />
+                    <Text style={{ fontSize: 14, fontWeight: '500', color: '#64748B' }}>No Reminder</Text>
+                </View>
+            )}
+        </View>
+    );
 
     const handleConfirm = () => {
         // Ensure the current selection is applied when validating
@@ -93,6 +113,10 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
                     />
                 </View>
             </View>
+            
+            {/* Visual Confirmation Banner */}
+            {renderChipRow()}
+
             <ActionBar onReset={handleReset} onConfirm={handleConfirm} hasValue={hasReminder} />
         </View>
     );

@@ -13,7 +13,7 @@ export const styles = StyleSheet.create({
         paddingLeft: 8,
         paddingRight: 16,
         paddingVertical: 10,
-        height: 60,
+        minHeight: 60,
     },
     spacer: {
         flex: 1,
@@ -401,7 +401,7 @@ export const styles = StyleSheet.create({
     deadlineText: {
         fontSize: 12,
         color: '#E53E3E', // Red for deadline
-        fontWeight: '600',
+        fontWeight: 'normal',
     },
     estimateText: {
         fontSize: 12,
@@ -669,17 +669,17 @@ export const styles = StyleSheet.create({
     },
     taskCard: {
         backgroundColor: '#FFFFFF',
-        marginBottom: 2, // Even tighter spacing requested by user
-        marginHorizontal: 8,
+        marginBottom: 2, 
+        marginHorizontal: 0, // Wide tasks (no side margins)
         marginTop: 0,
 
         borderBottomWidth: 1,
         borderLeftWidth: 1,
-        borderTopWidth: 6, // Restoring 3D shade
-        borderRightWidth: 6, // Restoring 3D shade
-
-        // Default Soft Palette (Will be overridden by Task Color physically)
-        borderColor: '#E2E8F0', // Base soft grey for uncolored tasks
+        borderTopWidth: 0, 
+        paddingTop: 0, 
+        borderRightWidth: 0, 
+        paddingRight: 0, 
+        borderColor: '#E2E8F0', // Consistently Gray base
 
         shadowColor: 'transparent',
         elevation: 0,
@@ -690,23 +690,29 @@ export const styles = StyleSheet.create({
         position: 'relative',
     },
     taskCardClumped: {
-        marginBottom: -6, // Tightly pull tasks over each other's 6px 3D shade!
+        marginBottom: -1, // Overlap the 1px bottom border of the previous task for a perfect flush
         marginTop: 0,
     },
     taskCardClumpedFirst: {
         borderBottomLeftRadius: 0,
         borderBottomRightRadius: 0,
-        borderBottomWidth: 1, // Keep separator
+        borderBottomWidth: 1, 
+        marginBottom: 0, // Tighten gap
     },
     taskCardClumpedMiddle: {
         borderRadius: 0,
         borderBottomWidth: 1,
+        borderTopWidth: 0, // Remove double line
+        marginBottom: 0, // Tighten gap
+        marginTop: 0,
     },
     taskCardClumpedLast: {
         borderTopLeftRadius: 0,
         borderTopRightRadius: 0,
         borderBottomWidth: 1,
-        marginBottom: 8, // Restore margin after the clump is done
+        borderTopWidth: 0, // Remove double line
+        marginBottom: 8, 
+        marginTop: 0,
     },
     subtaskRowWrapper: {
         borderTopWidth: 1,
