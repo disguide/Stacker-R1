@@ -336,13 +336,14 @@ export default function SprintScreen() {
                 
                 setIsPaused(false);
                 setBreakPhase('none');
-                setElapsedSeconds(workSecondsRef.current);
+                setElapsedSeconds(totalSecondsRef.current);
 
                 Alert.alert("Break Over", "You're all caught up! Back to work.");
             } else {
                 // Still in break
                 breakSecondsRef.current += gapSeconds;
                 setPauseElapsed(totalBreakElapsed);
+                setElapsedSeconds(totalSecondsRef.current);
             }
         }
         
@@ -361,7 +362,7 @@ export default function SprintScreen() {
                     // WORK TICK
                     workSecondsRef.current += 1;
                     intervalWorkSecondsRef.current += 1;
-                    setElapsedSeconds(workSecondsRef.current);
+                    setElapsedSeconds(totalSecondsRef.current);
 
                     // Auto-Break Check (Work-Only)
                     // GUARD: only if mode is on AND setting > 0
@@ -378,6 +379,7 @@ export default function SprintScreen() {
                     const nextPauseElapsed = pauseElapsedRef.current + 1;
                     setPauseElapsed(nextPauseElapsed);
                     pauseElapsedRef.current = nextPauseElapsed;
+                    setElapsedSeconds(totalSecondsRef.current);
 
                     // Break Countdown Check
                     if (breakPhaseRef.current === 'active' && breakDurationRef.current > 0) {
@@ -501,8 +503,9 @@ export default function SprintScreen() {
     const formatTimerDisplay = () => {
         if (settings.autoBreakMode && settings.autoBreakWorkTime) {
             const workSeconds = settings.autoBreakWorkTime * 60;
-            const remaining = Math.max(0, workSeconds - (elapsedSeconds % workSeconds));
-            const actualRemaining = (elapsedSeconds > 0 && elapsedSeconds % workSeconds === 0) ? 0 : remaining;
+            const currentWork = intervalWorkSecondsRef.current;
+            const remaining = Math.max(0, workSeconds - (currentWork % workSeconds));
+            const actualRemaining = (currentWork > 0 && currentWork % workSeconds === 0) ? 0 : remaining;
             return formatCountdown(actualRemaining);
         }
         return formatMinutesOnly(elapsedSeconds);

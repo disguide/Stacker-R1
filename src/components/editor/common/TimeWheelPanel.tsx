@@ -1,8 +1,7 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { THEME } from '../constants';
 
-// Wheel Picker Constants
 const WP_ITEM_HEIGHT = 50;
 const WP_WHEEL_HEIGHT = WP_ITEM_HEIGHT * 5;
 
@@ -12,13 +11,20 @@ export const WheelPicker = ({ items, selectedValue, onChange, formatLabel }: {
     const scrollRef = useRef<ScrollView>(null);
     const momentumStarted = useRef(false);
     const isUserScrolling = useRef(false);
+    // Track what value we last programmatically scrolled to, to avoid feedback loops
     const lastSyncedValue = useRef<number | null>(null);
-    const needsInitialScroll = useRef(true);
+    // One-shot flag: true until the ScrollView has measured and done its first scroll
+    const initialScrollDone = useRef(false);
 
+    // Programmatically sync scroll position when selectedValue changes externally
+    // (e.g. the parent resets or changes the value). Skip if the user is dragging.
     useEffect(() => {
-        if (needsInitialScroll.current) return;
+        if (!initialScrollDone.current) return; // wait for initial scroll via onContentSizeChange
+        if (isUserScrolling.current) return;
+        if (selectedValue === lastSyncedValue.current) return;
+
         const index = items.indexOf(selectedValue);
-        if (index >= 0 && selectedValue !== lastSyncedValue.current && !isUserScrolling.current) {
+        if (index >= 0) {
             lastSyncedValue.current = selectedValue;
             setTimeout(() => {
                 scrollRef.current?.scrollTo({ y: index * WP_ITEM_HEIGHT, animated: true });
@@ -54,8 +60,8 @@ export const WheelPicker = ({ items, selectedValue, onChange, formatLabel }: {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingVertical: WP_ITEM_HEIGHT * 2 }}
                 onContentSizeChange={() => {
-                    if (needsInitialScroll.current) {
-                        needsInitialScroll.current = false;
+                    if (!initialScrollDone.current) {
+                        initialScrollDone.current = true;
                         const index = items.indexOf(selectedValue);
                         if (index >= 0) {
                             lastSyncedValue.current = selectedValue;

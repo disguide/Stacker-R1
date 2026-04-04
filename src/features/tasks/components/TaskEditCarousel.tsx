@@ -134,6 +134,7 @@ export default function TaskEditCarousel({
                     styles.carouselSheet,
                     { transform: [{ translateY: carouselPanY }] }
                 ]}
+                {...carouselPanResponder.panHandlers}
             >
                 <View style={styles.carouselHeader}>
                     <TouchableOpacity onPress={() => setActiveFeature(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -168,7 +169,6 @@ export default function TaskEditCarousel({
                     onRequestColorSettings={onRequestColorSettings}
                 />
                 
-                <View style={{ height: 80, bottom: 0, position: 'absolute', width: '100%', backgroundColor: 'rgba(0,0,0,0)', zIndex: 9999 }} {...carouselPanResponder.panHandlers} pointerEvents="auto" />
             </Animated.View>
         </View>
     );
