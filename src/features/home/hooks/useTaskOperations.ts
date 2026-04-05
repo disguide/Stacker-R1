@@ -45,6 +45,7 @@ export function useTaskOperations(
         completionTimeouts.current = {};
         pendingItems.current = {};
         setCompletingTaskIds(new Set());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [toggleTask]);
 
     useEffect(() => {
@@ -101,6 +102,7 @@ export function useTaskOperations(
                 });
             }, 2000);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [completingTaskIds, toggleTask]);
 
     const handleConfirmDelete = useCallback((taskId: string, todayString: string, onSuccess: () => void) => {
