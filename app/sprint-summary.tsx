@@ -251,6 +251,7 @@ export default function SprintSummaryScreen() {
                 setTimelineEvents(JSON.parse(params.timeline as string));
             } catch (e) { console.error('Failed to parse timeline', e); }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleStatusChange = (taskId: string, isConfirmed: boolean, parentId?: string) => {
