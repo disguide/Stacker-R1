@@ -139,6 +139,7 @@ export default function SprintScreen() {
         return () => {
             cancelTimerNotifications();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [taskIds]);
 
     const requestNotificationPermissions = async () => {
@@ -162,6 +163,7 @@ export default function SprintScreen() {
             backSub.remove();
             stateSub.remove();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [settings, isPaused, breakPhase]); // Re-bind when state affecting notifications changes
 
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
@@ -414,6 +416,7 @@ export default function SprintScreen() {
             }, 1000);
         }
         return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [settings.showTimer, isPaused, breakPhase, breakDuration, settings.autoBreakMode, settings.autoBreakWorkTime, settings.maxDurationEnabled, settings.maxDurationMinutes]);
     // NOTE: Removed 'pauseElapsed' from dependency to prevent timer restarts
 
