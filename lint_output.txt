@@ -182,9 +182,9 @@
 /app/src/components/CalendarModal.tsx
    9:5   warning  'Platform' is defined but never used                                                                          no-unused-vars
    9:5   warning  'Platform' is defined but never used                                                                          @typescript-eslint/no-unused-vars
-  40:17  warning  Component definition is missing display name                                                                  react/display-name
-  54:8   warning  React Hook useEffect has a missing dependency: 'scaleAnim'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
-  87:22  warning  Component definition is missing display name                                                                  react/display-name
+  43:17  warning  Component definition is missing display name                                                                  react/display-name
+  57:8   warning  React Hook useEffect has a missing dependency: 'scaleAnim'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  90:22  warning  Component definition is missing display name                                                                  react/display-name
 
 /app/src/components/ColorSettingsModal.tsx
   4:27  warning  'TASK_COLORS' is defined but never used        no-unused-vars
