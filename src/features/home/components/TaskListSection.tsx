@@ -843,6 +843,10 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                 keyExtractor={(item: any) => item.key}
                 contentContainerStyle={styles.scrollContent}
                 renderItem={renderItem}
+                // Performance Optimization: Providing getItemType ensures FlashList uses efficient
+                // view recycling for our heterogeneous items (header vs task vs footer),
+                // preventing heavy re-renders and reducing memory consumption during scrolling.
+                getItemType={(item: any) => item.type}
                 // @ts-ignore
                 estimatedItemSize={70}
             />
