@@ -522,7 +522,7 @@ export default function SwipeableTaskRow({
                             <Text style={[
                                 styles.taskTitle,
                                 (completed || isCompleting) && styles.taskTitleCompleted,
-                                isSubtask && { fontSize: 14 },
+                                isSubtask && { fontSize: 15 },
                             ]}>
                                 {title}
                             </Text>

@@ -36,12 +36,14 @@ export default function LongTermScreen() {
     const {
         isDrawerVisible, setIsDrawerVisible,
         editingTask, setEditingTask,
+        editingSubtask, setEditingSubtask,
+        setActiveMenuSubtask, activeMenuSubtask,
+        setIsMenuVisible, isMenuVisible,
+        activeMenuTask, setActiveMenuTask,
     } = useTaskUI();
 
     const [drawerInitialFeature, setDrawerInitialFeature] = useState<FeatureKey | null>(null);
     const [isCalendarVisible, setIsCalendarVisible] = useState(false);
-    const [isMenuVisible, setIsMenuVisible] = useState(false);
-    const [activeMenuTask, setActiveMenuTask] = useState<Task | null>(null);
     const [addingSubtaskToParentId, setAddingSubtaskToParentId] = useState<string | null>(null);
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [isListScrollEnabled, setIsListScrollEnabled] = useState(true);
@@ -234,6 +236,29 @@ export default function LongTermScreen() {
     };
 
     const handleSaveTask = (updatedTask: Task) => {
+        // --- SUBTASK SAVING LOGIC ---
+        if (editingSubtask) {
+            const parentId = editingSubtask.parentId;
+            const parentTask = tasks.find(t => t.id === parentId);
+            if (parentTask) {
+                const subtaskData = updatedTask as any; // EditingSubtask treated as Task in drawer
+                const updatedSubtasks = parentTask.subtasks?.map(s => 
+                    s.id === editingSubtask.subtask.id ? {
+                        ...s,
+                        title: subtaskData.title,
+                        deadline: subtaskData.deadline,
+                        estimatedTime: subtaskData.estimatedTime,
+                        completed: subtaskData.completed
+                    } : s
+                ) || [];
+                updateTask(parentId, { subtasks: updatedSubtasks });
+            }
+            setEditingSubtask(null);
+            setIsDrawerVisible(false);
+            return;
+        }
+
+        // --- MAIN TASK SAVING LOGIC ---
         if (updatedTask.id.startsWith('new_')) {
             const finalTask = { ...updatedTask, id: Date.now().toString() };
             if (finalTask.recurrence) {
@@ -326,7 +351,30 @@ export default function LongTermScreen() {
 
     const handleOpenMenu = (task: Task) => {
         setActiveMenuTask(task);
+        setActiveMenuSubtask(null);
         setIsMenuVisible(true);
+    };
+
+    const handleEditSubtask = (parentId: string, subtask: Subtask) => {
+        setEditingSubtask({ parentId, subtask });
+        setEditingTask(null);
+        setIsDrawerVisible(true);
+    };
+
+    const handleOpenSubtaskMenu = (parentId: string, subtaskId: string) => {
+        setActiveMenuSubtask({ parentId, subtaskId });
+        setActiveMenuTask(null);
+        setIsMenuVisible(true);
+    };
+
+    const handleDeleteSubtask = (parentId: string, subtaskId: string) => {
+        const parentTask = tasks.find(t => t.id === parentId);
+        if (parentTask) {
+            const updatedSubtasks = parentTask.subtasks?.filter(s => s.id !== subtaskId) || [];
+            updateTask(parentId, { subtasks: updatedSubtasks });
+        }
+        setIsMenuVisible(false);
+        setActiveMenuSubtask(null);
     };
 
     const handleSwipeStart = () => setIsListScrollEnabled(false);
@@ -557,8 +605,8 @@ export default function LongTermScreen() {
                                                     progress={subtask.progress || 0}
                                                     onComplete={() => handleSubtaskToggle(item as Task, subtask)}
                                                     onProgressUpdate={(sid, p) => updateSubtask((item as Task).id, sid, p, (item as Task).date)}
-                                                    onEdit={() => {}}
-                                                    onMenu={() => {}}
+                                                    onEdit={() => handleEditSubtask((item as Task).id, subtask)}
+                                                    onMenu={() => handleOpenSubtaskMenu((item as Task).id, subtask.id)}
                                                     formatDeadline={() => ''}
                                                     onSwipeStart={handleSwipeStart}
                                                     onSwipeEnd={handleSwipeEnd}
@@ -582,8 +630,12 @@ export default function LongTermScreen() {
 
             <TaskEditDrawer
                 visible={isDrawerVisible}
-                task={editingTask}
-                onClose={() => setIsDrawerVisible(false)}
+                task={editingSubtask ? (editingSubtask.subtask as any) : editingTask}
+                onClose={() => {
+                    setIsDrawerVisible(false);
+                    setEditingSubtask(null);
+                    setEditingTask(null);
+                }}
                 onSave={handleSaveTask}
                 onRequestCalendar={(currentDeadline) => {
                     setCalendarMode('edit');
@@ -600,9 +652,7 @@ export default function LongTermScreen() {
                 visible={isCalendarVisible}
                 onClose={() => setIsCalendarVisible(false)}
                 onSelectDate={handleSelectDate}
-                selectedDate={calendarMode === 'edit' ? editingTask?.deadline : null}
-                showTimePicker={true} // Allow time picking now for full parity
-                initialPage={calendarInitialPage}
+                selectedDate={calendarMode === 'edit' ? (editingSubtask ? editingSubtask.subtask.deadline : editingTask?.deadline) : null}
             />
 
             <DurationPickerModal
@@ -629,13 +679,23 @@ export default function LongTermScreen() {
             <TaskMenu
                 visible={isMenuVisible}
                 onClose={() => setIsMenuVisible(false)}
-                onEdit={() => {
+                 onEdit={() => {
                     setIsMenuVisible(false);
-                    if (activeMenuTask) handleEditTask(activeMenuTask);
+                    if (activeMenuSubtask) {
+                        const parent = tasks.find(t => t.id === activeMenuSubtask.parentId);
+                        const sub = parent?.subtasks?.find(s => s.id === activeMenuSubtask.subtaskId);
+                        if (sub) handleEditSubtask(activeMenuSubtask.parentId, sub);
+                    } else if (activeMenuTask) {
+                        handleEditTask(activeMenuTask);
+                    }
                 }}
                 onDelete={() => {
                     setIsMenuVisible(false);
-                    if (activeMenuTask) confirmDelete(activeMenuTask);
+                    if (activeMenuSubtask) {
+                        handleDeleteSubtask(activeMenuSubtask.parentId, activeMenuSubtask.subtaskId);
+                    } else if (activeMenuTask) {
+                        confirmDelete(activeMenuTask);
+                    }
                 }}
                 onAddSubtask={() => {
                     if (activeMenuTask) {
@@ -645,7 +705,8 @@ export default function LongTermScreen() {
                         setActiveMenuTask(null);
                     }
                 }}
-                enableSubtasks={true}
+                isSubtask={!!activeMenuSubtask}
+                enableSubtasks={!activeMenuSubtask}
             />
 
             <TaskQuickAdd

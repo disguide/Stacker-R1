@@ -1,7 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, ScrollView, KeyboardAvoidingView, Platform, Alert, LayoutAnimation, UIManager } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { ColorDefinition, TASK_COLORS, StorageService, TASK_COLOR_LABELS } from '../services/storage';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    Modal,
+    StyleSheet,
+    TextInput,
+    ScrollView,
+    KeyboardAvoidingView,
+    Platform,
+    Alert,
+    LayoutAnimation,
+    UIManager,
+    Vibration,
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { ColorDefinition, StorageService } from '../services/storage';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -9,11 +23,13 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const THEME = {
-    bg: '#FAFAF6',
-    textPrimary: '#333333',
-    textSecondary: '#64748B',
-    border: '#E2E8F0',
+    bg: '#FAFAF6', // Slightly parchment-like off-white
+    textPrimary: '#0F172A', // Slate 900
+    textSecondary: '#64748B', // Slate 500
+    border: '#E2E8F0', // Slate 200
     surface: '#FFFFFF',
+    accent: '#10B981', // Emerald 500
+    danger: '#EF4444', // Red 500
 };
 
 interface ColorSettingsModalProps {
@@ -25,9 +41,11 @@ interface ColorSettingsModalProps {
 
 export default function ColorSettingsModal({ visible, onClose, userColors, onSave }: ColorSettingsModalProps) {
     const [colors, setColors] = useState<ColorDefinition[]>([]);
-    const [isEditing, setIsEditing] = useState(false);
     const [newColorHex, setNewColorHex] = useState('');
     const [isAdding, setIsAdding] = useState(false);
+
+    // Track the initial mount to skip auto-saves on first load
+    const isMounted = useRef(false);
 
     useEffect(() => {
         if (visible) {
@@ -36,9 +54,11 @@ export default function ColorSettingsModal({ visible, onClose, userColors, onSav
                 safeColors = StorageService.getDefaultUserColors();
             }
             setColors(JSON.parse(JSON.stringify(safeColors)));
-            setIsEditing(false);
             setIsAdding(false);
             setNewColorHex('');
+            isMounted.current = true;
+        } else {
+            isMounted.current = false;
         }
     }, [visible, userColors]);
 
@@ -51,42 +71,37 @@ export default function ColorSettingsModal({ visible, onClose, userColors, onSav
         setColors(prev => prev.map(c => c.id === id ? { ...c, label: text } : c));
     };
 
-    const handleLabelSubmit = () => {
-        if (colors.length === 0) return;
-        onSave(colors);
+    const handleLabelBlur = () => {
+        if (isMounted.current) {
+            onSave(colors);
+        }
     };
 
     const handleAddColor = () => {
         if (!newColorHex) return;
-        const hex = newColorHex.startsWith('#') ? newColorHex : `#${newColorHex}`;
+        let hex = newColorHex.startsWith('#') ? newColorHex : `#${newColorHex}`;
         if (!/^#[0-9A-F]{6}$/i.test(hex)) {
             Alert.alert('Invalid Color', 'Please enter a valid Hex code (e.g., #FF5500)');
             return;
         }
         const newColor: ColorDefinition = {
             id: `custom_${Date.now()}`,
-            color: hex,
+            color: hex.toUpperCase(),
             label: ''
         };
         const newColors = [...colors, newColor];
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         persistChanges(newColors);
         setNewColorHex('');
         setIsAdding(false);
+        Vibration.vibrate(10);
     };
 
     const handleDelete = (id: string) => {
-        Alert.alert('Delete Color', 'Are you sure?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Delete',
-                style: 'destructive',
-                onPress: () => {
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                    const newColors = colors.filter(c => c.id !== id);
-                    persistChanges(newColors);
-                }
-            }
-        ]);
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        const newColors = colors.filter(c => c.id !== id);
+        persistChanges(newColors);
+        Vibration.vibrate(10);
     };
 
     const moveColor = (index: number, direction: 'up' | 'down') => {
@@ -98,47 +113,41 @@ export default function ColorSettingsModal({ visible, onClose, userColors, onSav
         }
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         persistChanges(newColors);
+        Vibration.vibrate(5);
     };
 
-    const handleSave = () => {
-        if (colors.length === 0) {
-            onClose();
-            return;
-        }
-        onSave(colors);
+    const handleReset = () => {
+        Alert.alert('Reset Palette', 'Revert all color meanings to default entries?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Reset Defaults',
+                style: 'destructive',
+                onPress: () => {
+                    const defaults = StorageService.getDefaultUserColors();
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
+                    persistChanges(defaults);
+                    Vibration.vibrate(20);
+                }
+            }
+        ]);
+    };
+
+    const handleClose = () => {
+        onSave(colors); // Final safety save
         onClose();
     };
 
     return (
-        <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-            <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleSave}>
+        <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
+            <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
                 <View style={styles.container} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.title}>Color Meanings</Text>
-
-                    {/* Toolbar */}
-                    <View style={styles.toolbar}>
-                        <Text style={styles.subtitle}>Customize your palette</Text>
-                        <View style={{ flexDirection: 'row', gap: 6 }}>
-                            <TouchableOpacity onPress={() => {
-                                Alert.alert('Reset Colors', 'Revert to the default 7 colors?', [
-                                    { text: 'Cancel', style: 'cancel' },
-                                    {
-                                        text: 'Reset',
-                                        style: 'destructive',
-                                        onPress: () => {
-                                            const defaults = StorageService.getDefaultUserColors();
-                                            onSave(defaults);
-                                            setColors(defaults);
-                                        }
-                                    }
-                                ]);
-                            }} style={styles.toolBtn}>
-                                <Text style={styles.toolBtnText}>Reset</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => setIsEditing(!isEditing)} style={styles.toolBtn}>
-                                <Text style={styles.toolBtnText}>{isEditing ? 'Done' : 'Edit'}</Text>
-                            </TouchableOpacity>
-                        </View>
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <View style={styles.headerBar} />
+                        <Text style={styles.title}>Color Meanings</Text>
+                        <TouchableOpacity onPress={handleClose} style={styles.closeIcon}>
+                            <Ionicons name="close-circle" size={24} color={THEME.textSecondary} />
+                        </TouchableOpacity>
                     </View>
 
                     <KeyboardAvoidingView
@@ -149,86 +158,105 @@ export default function ColorSettingsModal({ visible, onClose, userColors, onSav
                             style={styles.content}
                             contentContainerStyle={styles.scrollContent}
                             keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={false}
                         >
+                            <Text style={styles.description}>
+                                Define what your task colors represent. Reorder or add custom labels—changes save instantly.
+                            </Text>
+
                             {colors.map((item, index) => (
                                 <View key={item.id} style={styles.row}>
-                                    {isEditing && (
-                                        <View style={styles.reorderControls}>
-                                            <TouchableOpacity onPress={() => moveColor(index, 'up')} disabled={index === 0}>
-                                                <Ionicons name="chevron-up" size={18} color={index === 0 ? '#E2E8F0' : THEME.textSecondary} />
-                                            </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => moveColor(index, 'down')} disabled={index === colors.length - 1}>
-                                                <Ionicons name="chevron-down" size={18} color={index === colors.length - 1 ? '#E2E8F0' : THEME.textSecondary} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-
-                                    <View style={[styles.colorCircle, { backgroundColor: item.color }]} />
-
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Label (optional)"
-                                        value={item.label}
-                                        onChangeText={(text) => handleLabelChange(item.id, text)}
-                                        onEndEditing={handleLabelSubmit}
-                                        onBlur={handleLabelSubmit}
-                                        placeholderTextColor="#94A3B8"
-                                        editable={!isEditing}
-                                    />
-
-                                    {isEditing && (
-                                        <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-                                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                    <View style={styles.dragHandle}>
+                                        <TouchableOpacity 
+                                            onPress={() => moveColor(index, 'up')} 
+                                            disabled={index === 0}
+                                            hitSlop={{ top: 10, bottom: 5, left: 10, right: 10 }}
+                                        >
+                                            <Ionicons name="chevron-up" size={16} color={index === 0 ? '#E2E8F0' : THEME.textSecondary} />
                                         </TouchableOpacity>
-                                    )}
+                                        <TouchableOpacity 
+                                            onPress={() => moveColor(index, 'down')} 
+                                            disabled={index === colors.length - 1}
+                                            hitSlop={{ top: 5, bottom: 10, left: 10, right: 10 }}
+                                        >
+                                            <Ionicons name="chevron-down" size={16} color={index === colors.length - 1 ? '#E2E8F0' : THEME.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <View style={[styles.colorChip, { backgroundColor: item.color }]}>
+                                        <View style={styles.colorGlare} />
+                                    </View>
+
+                                    <View style={styles.inputWrapper}>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Label meaning..."
+                                            value={item.label}
+                                            onChangeText={(text) => handleLabelChange(item.id, text)}
+                                            onBlur={handleLabelBlur}
+                                            onEndEditing={handleLabelBlur}
+                                            placeholderTextColor="#94A3B8"
+                                            selectionColor={THEME.accent}
+                                        />
+                                    </View>
+
+                                    <TouchableOpacity 
+                                        onPress={() => handleDelete(item.id)} 
+                                        style={styles.deleteButton}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    >
+                                        <Ionicons name="trash-outline" size={18} color={THEME.danger} />
+                                    </TouchableOpacity>
                                 </View>
                             ))}
 
-                            {/* Add New Color */}
-                            {!isEditing && (
-                                <View style={styles.addSection}>
-                                    {isAdding ? (
-                                        <View style={styles.addRow}>
-                                            <View style={styles.hexInputContainer}>
-                                                <Text style={styles.hashText}>#</Text>
-                                                <TextInput
-                                                    style={styles.hexInput}
-                                                    placeholder="FF5500"
-                                                    value={newColorHex}
-                                                    onChangeText={setNewColorHex}
-                                                    maxLength={6}
-                                                    autoCapitalize="characters"
-                                                    placeholderTextColor="#94A3B8"
-                                                />
-                                            </View>
-                                            <TouchableOpacity onPress={handleAddColor} style={styles.confirmAddBtn}>
-                                                <Text style={styles.confirmAddText}>Add</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setIsAdding(false)} style={styles.cancelAddBtn}>
-                                                <Ionicons name="close" size={18} color={THEME.textSecondary} />
-                                            </TouchableOpacity>
+                            {/* Add Section */}
+                            <View style={styles.addSection}>
+                                {isAdding ? (
+                                    <View style={styles.addRow}>
+                                        <View style={styles.hexInputWrapper}>
+                                            <Text style={styles.hash}>#</Text>
+                                            <TextInput
+                                                style={styles.hexInput}
+                                                placeholder="FF00CC"
+                                                value={newColorHex}
+                                                onChangeText={setNewColorHex}
+                                                maxLength={6}
+                                                autoCapitalize="characters"
+                                                autoFocus
+                                                placeholderTextColor="#94A3B8"
+                                            />
                                         </View>
-                                    ) : (
-                                        <TouchableOpacity onPress={() => setIsAdding(true)} style={styles.addButton}>
-                                            <Ionicons name="add-circle-outline" size={20} color="#38A169" />
-                                            <Text style={styles.addButtonText}>Add Custom Color</Text>
+                                        <TouchableOpacity onPress={handleAddColor} style={styles.addButtonCircle}>
+                                            <Ionicons name="checkmark" size={20} color="#FFF" />
                                         </TouchableOpacity>
-                                    )}
-                                </View>
-                            )}
+                                        <TouchableOpacity onPress={() => setIsAdding(false)} style={styles.cancelAdd}>
+                                            <Ionicons name="close" size={20} color={THEME.textSecondary} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : (
+                                    <TouchableOpacity 
+                                        onPress={() => { setIsAdding(true); Vibration.vibrate(5); }} 
+                                        style={styles.addTrigger}
+                                    >
+                                        <MaterialCommunityIcons name="plus-circle" size={20} color={THEME.accent} />
+                                        <Text style={styles.addTriggerText}>Add Custom Color</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
 
-                            <View style={{ height: 16 }} />
+                            <TouchableOpacity onPress={handleReset} style={styles.resetButton}>
+                                <Text style={styles.resetText}>Reset to Defaults</Text>
+                            </TouchableOpacity>
+
+                            <View style={{ height: 100 }} />
                         </ScrollView>
                     </KeyboardAvoidingView>
 
-                    {/* Footer — Unified pattern */}
+                    {/* Simple Bottom Guard */}
                     <View style={styles.footer}>
-                        <TouchableOpacity onPress={handleSave} style={styles.cancelButton}>
-                            <Text style={styles.cancelButtonText}>Close</Text>
-                        </TouchableOpacity>
-                        <View style={{ flex: 1 }} />
-                        <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-                            <Text style={styles.saveButtonText}>Done</Text>
+                        <TouchableOpacity onPress={handleClose} style={styles.doneButton}>
+                            <Text style={styles.doneText}>Done</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -240,171 +268,192 @@ export default function ColorSettingsModal({ visible, onClose, userColors, onSav
 const styles = StyleSheet.create({
     overlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
+        backgroundColor: 'rgba(15, 23, 42, 0.4)', // Slate 900 with transparency
+        justifyContent: 'flex-end',
     },
     container: {
-        width: 340,
-        minHeight: 550,
-        maxHeight: '80%',
+        height: '75%',
         backgroundColor: THEME.bg,
-        borderRadius: 16,
-        overflow: 'hidden',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 25,
+    },
+    header: {
+        paddingTop: 12,
+        paddingBottom: 20,
+        alignItems: 'center',
+    },
+    headerBar: {
+        width: 40,
+        height: 4,
+        backgroundColor: THEME.border,
+        borderRadius: 2,
+        marginBottom: 16,
     },
     title: {
         fontSize: 18,
-        fontWeight: '700',
+        fontWeight: '800',
         color: THEME.textPrimary,
-        textAlign: 'center',
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: THEME.border,
+        letterSpacing: -0.5,
     },
-    toolbar: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 12,
-        paddingBottom: 4,
+    closeIcon: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
     },
-    subtitle: {
-        color: THEME.textSecondary,
+    description: {
         fontSize: 13,
-        flex: 1,
-    },
-    toolBtn: {
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        backgroundColor: THEME.surface,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: THEME.border,
-    },
-    toolBtnText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: THEME.textPrimary,
+        color: THEME.textSecondary,
+        textAlign: 'center',
+        paddingHorizontal: 30,
+        marginBottom: 24,
+        lineHeight: 18,
     },
     content: { flex: 1 },
-    scrollContent: { padding: 16 },
+    scrollContent: { paddingHorizontal: 20 },
     row: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
         backgroundColor: THEME.surface,
-        padding: 8,
-        borderRadius: 8,
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 12,
         borderWidth: 1,
         borderColor: THEME.border,
+        shadowColor: '#64748B',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
-    reorderControls: {
-        flexDirection: 'column',
-        marginRight: 6,
+    dragHandle: {
+        marginRight: 10,
+        justifyContent: 'center',
         alignItems: 'center',
         gap: 2,
     },
-    colorCircle: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        marginRight: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.1)',
+    colorChip: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: 'rgba(0,0,0,0.05)',
+        overflow: 'hidden',
+    },
+    colorGlare: {
+        width: '100%',
+        height: '50%',
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    inputWrapper: {
+        flex: 1,
+        marginHorizontal: 12,
     },
     input: {
-        flex: 1,
-        height: 36,
-        backgroundColor: THEME.bg,
-        borderRadius: 6,
-        paddingHorizontal: 10,
-        fontSize: 14,
+        fontSize: 15,
+        fontWeight: '600',
         color: THEME.textPrimary,
+        height: 40,
+        padding: 0,
     },
-    deleteBtn: {
-        padding: 6,
-        marginLeft: 4,
+    deleteButton: {
+        padding: 8,
     },
     addSection: {
-        marginTop: 6,
+        marginTop: 8,
     },
-    addButton: {
+    addTrigger: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 10,
+        backgroundColor: '#FFF',
         borderWidth: 1,
         borderColor: THEME.border,
-        borderRadius: 8,
-        backgroundColor: THEME.surface,
         borderStyle: 'dashed',
+        borderRadius: 16,
+        paddingVertical: 14,
     },
-    addButtonText: {
-        marginLeft: 6,
+    addTriggerText: {
+        marginLeft: 8,
         fontSize: 14,
-        color: '#38A169',
-        fontWeight: '500',
+        fontWeight: '700',
+        color: THEME.accent,
     },
     addRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 8,
     },
-    hexInputContainer: {
+    hexInputWrapper: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: THEME.surface,
-        borderRadius: 8,
-        paddingHorizontal: 10,
-        marginRight: 6,
-        height: 40,
+        backgroundColor: '#FFF',
         borderWidth: 1,
         borderColor: THEME.border,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        height: 48,
     },
-    hashText: {
-        fontSize: 14,
+    hash: {
+        fontSize: 16,
+        fontWeight: '600',
         color: THEME.textSecondary,
         marginRight: 4,
     },
     hexInput: {
         flex: 1,
-        fontSize: 14,
+        fontSize: 16,
+        fontWeight: '700',
         color: THEME.textPrimary,
     },
-    confirmAddBtn: {
-        backgroundColor: '#38A169',
-        paddingHorizontal: 14,
-        height: 40,
-        borderRadius: 8,
+    addButtonCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: THEME.accent,
         justifyContent: 'center',
-        marginRight: 6,
+        alignItems: 'center',
     },
-    confirmAddText: {
-        color: '#FFF',
-        fontWeight: '600',
+    cancelAdd: {
+        padding: 8,
+    },
+    resetButton: {
+        alignSelf: 'center',
+        marginTop: 32,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    resetText: {
         fontSize: 13,
+        fontWeight: '600',
+        color: THEME.textSecondary,
+        textDecorationLine: 'underline',
     },
-    cancelAddBtn: {
-        padding: 6,
-    },
-
-    // Unified footer
     footer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderTopWidth: 1,
-        borderColor: THEME.border,
+        padding: 20,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+        backgroundColor: THEME.bg,
     },
-    cancelButton: { paddingVertical: 10, paddingRight: 15 },
-    cancelButtonText: { color: '#EF4444', fontWeight: '600' },
-    saveButton: {
-        flex: 1,
+    doneButton: {
+        backgroundColor: THEME.textPrimary,
+        height: 56,
+        borderRadius: 18,
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 12,
-        backgroundColor: '#38A169',
-        borderRadius: 8,
+        shadowColor: THEME.textPrimary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
     },
-    saveButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+    doneText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '800',
+    },
 });

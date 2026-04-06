@@ -1,6 +1,6 @@
 
 // Simplified Reminder Modal based on CalendarModal
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -40,39 +40,63 @@ const VISIBLE_ITEMS = 3; // Show 3 items (1 selected + 1 above + 1 below)
 const WHEEL_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
 
 // ScrollView-based Wheel Picker (same pattern as CalendarModal)
-const WheelPicker = ({ items, selectedValue, onChange, formatLabel }: { items: (string | number)[], selectedValue: string | number, onChange: (val: any) => void, formatLabel?: (val: any) => string }) => {
+const LOOP_COUNT = 3; // 3 repetitions is enough — recenter keeps us in the middle
+
+const WheelPicker = ({ items, selectedValue, onChange, formatLabel, loop = true }: { items: (string | number)[], selectedValue: string | number, onChange: (val: any) => void, formatLabel?: (val: any) => string, loop?: boolean }) => {
     const scrollRef = useRef<ScrollView>(null);
     const momentumStarted = useRef(false);
-    const hasMounted = useRef(false);
+    const isSilentJump = useRef(false); // True when we're programmatically re-centering
 
-    // Only scroll on MOUNT — not on every selectedValue change
-    // This is the critical fix: re-scrolling on selectedValue change causes a feedback loop
+    // Build a looped list: repeat items LOOP_COUNT times if loop = true, otherwise just items
+    const loopedItems = useMemo(() => {
+        if (!loop) return items;
+        const result: (string | number)[] = [];
+        for (let i = 0; i < LOOP_COUNT; i++) result.push(...items);
+        return result;
+    }, [items, loop]);
+
+    // The "home" index: the selected value in the middle repetition (or base index if loop = false)
+    const getHomeIndex = useCallback((val: string | number) => {
+        const baseIndex = items.indexOf(val);
+        if (!loop) return baseIndex >= 0 ? baseIndex : 0;
+        if (baseIndex < 0) return Math.floor(LOOP_COUNT / 2) * items.length;
+        return Math.floor(LOOP_COUNT / 2) * items.length + baseIndex;
+    }, [items, loop]);
+
+    // Silently jump to re-center after each scroll (only if loop = true)
+    const recenter = useCallback((val: string | number) => {
+        if (!loop) return;
+        const homeY = getHomeIndex(val) * ITEM_HEIGHT;
+        isSilentJump.current = true;
+        scrollRef.current?.scrollTo({ y: homeY, animated: false });
+        setTimeout(() => { isSilentJump.current = false; }, 50);
+    }, [getHomeIndex, loop]);
+
+    // Initial scroll to center on mount
     useEffect(() => {
-        if (!hasMounted.current) {
-            hasMounted.current = true;
-            const index = items.indexOf(selectedValue);
-            if (index >= 0) {
-                setTimeout(() => {
-                    scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: false });
-                }, 50);
-            }
-        }
+        const homeY = getHomeIndex(selectedValue) * ITEM_HEIGHT;
+        setTimeout(() => {
+            scrollRef.current?.scrollTo({ y: homeY, animated: false });
+        }, 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleScrollEnd = (e: any) => {
+        if (isSilentJump.current) return;
         const y = e.nativeEvent.contentOffset.y;
         const index = Math.round(y / ITEM_HEIGHT);
-        const clampedIndex = Math.max(0, Math.min(index, items.length - 1));
-        const newValue = items[clampedIndex];
-
-        if (newValue !== undefined && newValue !== selectedValue) {
-            onChange(newValue);
+        const clampedIndex = Math.max(0, Math.min(index, loopedItems.length - 1));
+        const newValue = loopedItems[clampedIndex];
+        if (newValue !== undefined) {
+            if (newValue !== selectedValue) onChange(newValue);
+            // Always re-center after scroll to keep the "infinite" feel (only if loop = true)
+            if (loop) setTimeout(() => recenter(newValue), 20);
         }
         momentumStarted.current = false;
     };
 
     return (
-        <View style={{ height: WHEEL_HEIGHT, width: 90, overflow: 'hidden' }}>
+        <View style={{ height: WHEEL_HEIGHT, width: loop ? 90 : 60, overflow: 'hidden' }}>
             {/* Selection Overlay (Center Highlight) */}
             <View style={{
                 position: 'absolute',
@@ -94,32 +118,26 @@ const WheelPicker = ({ items, selectedValue, onChange, formatLabel }: { items: (
                 decelerationRate="fast"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingVertical: ITEM_HEIGHT }}
-                onScrollBeginDrag={() => {
-                    momentumStarted.current = false;
-                }}
-                onMomentumScrollBegin={() => {
-                    momentumStarted.current = true;
-                }}
+                onScrollBeginDrag={() => { momentumStarted.current = false; }}
+                onMomentumScrollBegin={() => { momentumStarted.current = true; }}
                 onMomentumScrollEnd={handleScrollEnd}
                 onScrollEndDrag={(e) => {
-                    // Fallback if no momentum (short/slow drag)
                     e.persist();
                     setTimeout(() => {
-                        if (!momentumStarted.current) {
-                            handleScrollEnd(e);
-                        }
+                        if (!momentumStarted.current) handleScrollEnd(e);
                     }, 50);
                 }}
             >
-                {items.map((item, index) => {
+                {loopedItems.map((item, index) => {
                     const isSelected = item === selectedValue;
                     return (
                         <TouchableOpacity
                             key={index}
                             style={{ height: ITEM_HEIGHT, justifyContent: 'center', alignItems: 'center' }}
                             onPress={() => {
-                                scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
                                 onChange(item);
+                                if (loop) recenter(item);
+                                else scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
                             }}
                         >
                             <Text style={{
@@ -138,9 +156,11 @@ const WheelPicker = ({ items, selectedValue, onChange, formatLabel }: { items: (
     );
 };
 
+
 const hours24 = Array.from({ length: 24 }, (_, i) => i);
 const hours12 = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const minutes = Array.from({ length: 60 }, (_, i) => i);
+const periods = ['AM', 'PM'];
 
 export default function ReminderModal({ visible, onClose, onSelectReminder, initialOffset = 0, initialTime }: ReminderModalProps) {
     // Offset is now hardcoded to 0 (Same day)
@@ -192,6 +212,15 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
     // Time Helpers
     const isPm = hour >= 12;
     const current12hHour = hour % 12 || 12;
+    const currentPeriod = isPm ? 'PM' : 'AM';
+
+    const handlePeriodChange = (newPeriod: 'AM' | 'PM') => {
+        if (newPeriod === 'PM' && hour < 12) {
+            setHour(h => h + 12);
+        } else if (newPeriod === 'AM' && hour >= 12) {
+            setHour(h => h - 12);
+        }
+    };
 
     const handleHourChange = (val: number) => {
         if (is24h) {
@@ -214,10 +243,10 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
                     <View style={styles.pickersRow}>
                         {/* Time Picker - Now centered and full width */}
                         <View style={[styles.column, { width: '100%' }]}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                                <Text style={styles.label}>Select Time</Text>
-                                <TouchableOpacity onPress={toggle24h} style={{ marginLeft: 8, padding: 2, borderWidth: 1, borderColor: '#CCC', borderRadius: 4 }}>
-                                    <Text style={{ fontSize: 10 }}>{is24h ? '24H' : '12H'}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                                <Text style={[styles.label, { marginBottom: 0 }]}>Select Time</Text>
+                                <TouchableOpacity onPress={toggle24h} style={{ marginLeft: 10, paddingVertical: 3, paddingHorizontal: 6, borderWidth: 1.5, borderColor: '#DDD', borderRadius: 6, backgroundColor: '#F8F9FA' }}>
+                                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#666' }}>{is24h ? '24H' : '12H'}</Text>
                                 </TouchableOpacity>
                             </View>
 
@@ -233,13 +262,8 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
                                         <WheelPicker items={hours12} selectedValue={current12hHour} onChange={handleHourChange} />
                                         <Text style={{ fontSize: 20, fontWeight: 'bold', marginHorizontal: 4 }}>:</Text>
                                         <WheelPicker items={minutes} selectedValue={minute} onChange={setMinute} />
-                                        <View style={{ marginLeft: 4 }}>
-                                            <TouchableOpacity onPress={() => setHour(h => h >= 12 ? h - 12 : h)} style={{ padding: 4, opacity: !isPm ? 1 : 0.3 }}>
-                                                <Text style={{ fontWeight: 'bold' }}>AM</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => setHour(h => h < 12 ? h + 12 : h)} style={{ padding: 4, opacity: isPm ? 1 : 0.3 }}>
-                                                <Text style={{ fontWeight: 'bold' }}>PM</Text>
-                                            </TouchableOpacity>
+                                        <View style={{ marginLeft: 8 }}>
+                                            <WheelPicker items={periods} selectedValue={currentPeriod} onChange={handlePeriodChange} loop={false} />
                                         </View>
                                     </>
                                 )}

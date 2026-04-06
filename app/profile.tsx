@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform, Alert, useWindowDimensions, Animated, Easing } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -151,6 +151,23 @@ export default function ProfileScreen() {
         goals: [],
         antigoals: [],
     });
+
+    const longestActiveGoal = useMemo(() => {
+        const allActive = [
+            ...(profile.goals || []),
+            ...(profile.antigoals || [])
+        ].filter(g => !g.completed && !g.cancelled);
+        
+        if (allActive.length === 0) return null;
+        
+        // Find the one that's been active longest (earliest createdAt)
+        return [...allActive].sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : Date.now();
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : Date.now();
+            return aTime - bTime;
+        })[0];
+    }, [profile.goals, profile.antigoals]);
+
     // Store original profile in case user cancels edits
     const [draftProfile, setDraftProfile] = useState<UserProfile | null>(null);
 
@@ -473,8 +490,12 @@ export default function ProfileScreen() {
                         </View>
                     </View>
                     
-                    {/* Balanced right side */}
-                    <View style={{ width: 44 }} />
+                    {/* Balanced right side with Settings Button */}
+                    <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsBtn}>
+                        <View style={styles.backCircle}>
+                            <Ionicons name="settings-outline" size={20} color="#007AFF" />
+                        </View>
+                    </TouchableOpacity>
                 </View>
 
                 <ScrollView
@@ -619,11 +640,11 @@ export default function ProfileScreen() {
                                                 <Text style={styles.timelineHeroTag}>ACTIVITY & TIMELINE</Text>
                                             </View>
                                             <Text style={styles.timelineHeroTitle}>Goals Timeline</Text>
-                                            {sprintHistory.length > 0 ? (
+                                            {longestActiveGoal ? (
                                                 <View style={styles.timelineHeroInsight}>
                                                     <Ionicons name="trending-up" size={14} color="rgba(255,255,255,0.7)" />
                                                     <Text style={styles.timelineInsightText}>
-                                                        Longest Focus: {sprintHistory[0].primaryTask || 'Focus Session'}
+                                                        Longest goal: {longestActiveGoal.title}
                                                     </Text>
                                                 </View>
                                             ) : (
@@ -1081,6 +1102,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12, // More space to the selector
+    },
+    settingsBtn: {
+        width: 44,
+        alignItems: 'flex-end',
+        justifyContent: 'center',
     },
     backCircle: {
         width: 30,

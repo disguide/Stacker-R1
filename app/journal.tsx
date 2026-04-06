@@ -88,6 +88,16 @@ export default function JournalScreen() {
     const [loading, setLoading] = useState(true);
     const [logDays, setLogDays] = useState<LogDay[]>([]);
     const [todayData, setTodayData] = useState<LogDay | null>(null);
+    const [selectedSprint, setSelectedSprint] = useState<any | null>(null);
+    const [savedSprintIds, setSavedSprintIds] = useState<Set<string>>(new Set());
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+    const formatDuration = (seconds: number) => {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        if (h > 0) return `${h}h ${m}m`;
+        return `${m}m`;
+    };
 
     // Shared Element Entry Animation
     const entryTranslateY = useRef(new Animated.Value(-25)).current;
@@ -103,6 +113,8 @@ export default function JournalScreen() {
         const sprintHistory = await StorageService.loadSprintHistory();
         const taskHistory = await StorageService.loadHistory();
         const activeTasks = await StorageService.loadActiveTasks();
+        const savedSprints = await StorageService.loadSavedSprints();
+        setSavedSprintIds(new Set(savedSprints.map(s => s.id)));
 
         // Helper to safely normalize any date value to YYYY-MM-DD
         const normalize = (val: any) => {
@@ -206,6 +218,54 @@ export default function JournalScreen() {
         dataToSave.isStarred = newStatus;
         dataToSave.updatedAt = new Date().toISOString();
         await StorageService.saveDailyData(dayDate, dataToSave);
+    };
+
+    const handleDeleteTask = async (taskId: string, dayDate: string) => {
+        // Optimistic UI update - remove immediately from view
+        setLogDays(prev => prev.map(d =>
+            d.date === dayDate
+                ? { ...d, tasks: d.tasks.filter(t => t.id !== taskId) }
+                : d
+        ));
+        // Permanently delete from history storage
+        await StorageService.removeFromHistory(taskId);
+        // Also clean up from active tasks if it's there
+        const activeTasks = await StorageService.loadActiveTasks();
+        const filtered = activeTasks.filter((t: any) => t.id !== taskId);
+        if (filtered.length !== activeTasks.length) {
+            await StorageService.saveActiveTasks(filtered);
+        }
+    };
+
+    const handleDeleteSprint = async (sprintId: string, dayDate: string) => {
+        // Optimistic UI update - remove immediately
+        setLogDays(prev => prev.map(d =>
+            d.date === dayDate
+                ? { ...d, sprints: d.sprints.filter((s: any) => s.id !== sprintId) }
+                : d
+        ));
+        // Close modal if this sprint was open
+        if (selectedSprint?.id === sprintId) setSelectedSprint(null);
+        // Permanently delete from sprint history
+        await StorageService.deleteSprintHistory(sprintId);
+    };
+
+    const handleToggleSaveSprint = async (sprint: any) => {
+        if (!sprint.id) return;
+        const isSaved = savedSprintIds.has(sprint.id);
+        const newSavedIds = new Set(savedSprintIds);
+        
+        if (isSaved) {
+            newSavedIds.delete(sprint.id);
+            await StorageService.deleteSavedSprint(sprint.id);
+            setToastMessage(null);
+        } else {
+            newSavedIds.add(sprint.id);
+            await StorageService.saveSavedSprint(sprint);
+            setToastMessage("It's been saved!");
+            setTimeout(() => setToastMessage(null), 2500);
+        }
+        setSavedSprintIds(newSavedIds);
     };
 
     const toggleTaskCompletion = async (taskId: string, dayDate: string) => {
@@ -363,7 +423,7 @@ export default function JournalScreen() {
                                     <Ionicons 
                                         name={"star"} 
                                         size={20} 
-                                        color={day.isStarred ? "#C19A6B" : "#E8E2D8"} 
+                                        color={day.isStarred ? "#F59E0B" : "#E8E2D8"} 
                                     />
                                 </TouchableOpacity>
                             </View>
@@ -414,21 +474,29 @@ export default function JournalScreen() {
                                     <Text style={styles.sectionHeading}>Tasks Completed</Text>
                                     <View style={{ gap: 10 }}>
                                         {day.tasks.map((task) => (
-                                            <TouchableOpacity 
-                                                key={task.id} 
-                                                style={styles.taskItemRow}
-                                                onPress={() => toggleTaskCompletion(task.id, day.date)}
-                                                activeOpacity={0.5}
-                                            >
-                                                <Ionicons 
-                                                    name="checkmark-circle" 
-                                                    size={24} 
-                                                    color="#84CC16" 
-                                                />
-                                                <Text style={[styles.taskItemText, { color: '#8C7E6E' }]} numberOfLines={1}>
-                                                    {task.title}
-                                                </Text>
-                                            </TouchableOpacity>
+                                            <View key={task.id} style={styles.taskItemRow}>
+                                                <TouchableOpacity
+                                                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                                                    onPress={() => toggleTaskCompletion(task.id, day.date)}
+                                                    activeOpacity={0.5}
+                                                >
+                                                    <Ionicons 
+                                                        name="checkmark-circle" 
+                                                        size={24} 
+                                                        color="#84CC16" 
+                                                    />
+                                                    <Text style={[styles.taskItemText, { color: '#8C7E6E' }]} numberOfLines={1}>
+                                                        {task.title}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    onPress={() => handleDeleteTask(task.id, day.date)}
+                                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                    style={styles.rowDeleteBtn}
+                                                >
+                                                    <Ionicons name="trash-outline" size={16} color="#C4B7A6" />
+                                                </TouchableOpacity>
+                                            </View>
                                         ))}
                                     </View>
                                 </View>
@@ -441,14 +509,27 @@ export default function JournalScreen() {
                                     <View style={{ gap: 8 }}>
                                     {day.sprints.map((sprint, sIdx) => (
                                         <View key={sprint.id || sIdx} style={styles.sprintItemRow}>
-                                            <View style={styles.sprintIconWrap}>
-                                                <Ionicons name="flash-outline" size={16} color="#C19A6B" />
-                                            </View>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
-                                                {sprint.note && <Text style={styles.sprintLogNote}>"{sprint.note}"</Text>}
-                                            </View>
-                                            <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}m</Text>
+                                            <TouchableOpacity
+                                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                                                activeOpacity={0.7}
+                                                onPress={() => setSelectedSprint(sprint)}
+                                            >
+                                                <View style={styles.sprintIconWrap}>
+                                                    <Ionicons name="flash-outline" size={16} color="#C19A6B" />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
+                                                    {sprint.note && <Text style={styles.sprintLogNote}>"{sprint.note}"</Text>}
+                                                </View>
+                                                <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}m</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                onPress={() => handleDeleteSprint(sprint.id, day.date)}
+                                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                                style={styles.rowDeleteBtn}
+                                            >
+                                                <Ionicons name="trash-outline" size={16} color="#C4B7A6" />
+                                            </TouchableOpacity>
                                         </View>
                                     ))}
                                     </View>
@@ -464,6 +545,88 @@ export default function JournalScreen() {
             </ScrollView>
 
             {/* Vault moved to a dedicated active screen. */}
+
+            {/* Selected Sprint Modal - Floating Tab format */}
+            {selectedSprint && (
+                <View style={[styles.modalBackdrop, StyleSheet.absoluteFillObject]}>
+                    <TouchableOpacity style={styles.modalDismissArea} activeOpacity={1} onPress={() => setSelectedSprint(null)} />
+                    <View style={styles.sprintModalContent}>
+                        <View style={styles.sprintModalHeader}>
+                            <TouchableOpacity 
+                                style={[styles.sprintModalIconBox, savedSprintIds.has(selectedSprint?.id || '') && { backgroundColor: '#FEF3C7' }]}
+                                activeOpacity={0.7}
+                                onPress={() => handleToggleSaveSprint(selectedSprint)}
+                            >
+                                <Ionicons 
+                                    name={savedSprintIds.has(selectedSprint?.id || '') ? "flash" : "flash-outline"} 
+                                    size={24} 
+                                    color={savedSprintIds.has(selectedSprint?.id || '') ? "#F59E0B" : "#94A3B8"} 
+                                />
+                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <TouchableOpacity 
+                                    onPress={() => selectedSprint && handleDeleteSprint(selectedSprint.id, selectedSprint.date)}
+                                    style={[styles.sprintCloseBtn, { backgroundColor: '#FEF2F2' }]}
+                                >
+                                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setSelectedSprint(null)} style={styles.sprintCloseBtn}>
+                                    <Ionicons name="close" size={24} color="#94A3B8" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        <ScrollView style={{maxHeight: Dimensions.get('window').height * 0.6}} showsVerticalScrollIndicator={false}>
+                            <Text style={styles.sprintModalDate}>
+                                {new Date(selectedSprint.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                            </Text>
+                            <Text style={styles.sprintModalTitle}>{selectedSprint.primaryTask || 'Focus Session'}</Text>
+                            
+                            <View style={styles.sprintModalStatsRow}>
+                                <View style={styles.sprintModalStatBox}>
+                                    <Ionicons name="time-outline" size={18} color="#3B82F6" />
+                                    <Text style={styles.sprintModalStatLabel}>{formatDuration(selectedSprint.durationSeconds)}</Text>
+                                </View>
+                                {selectedSprint.taskCount ? (
+                                    <View style={styles.sprintModalStatBox}>
+                                        <Ionicons name="checkmark-done" size={18} color="#10B981" />
+                                        <Text style={[styles.sprintModalStatLabel, { color: '#10B981' }]}>{selectedSprint.taskCount} Tasks</Text>
+                                    </View>
+                                ) : null}
+                            </View>
+
+                            {selectedSprint.note ? (
+                                <View style={styles.sprintModalNoteBox}>
+                                    <Text style={styles.sprintModalNoteLabel}>SESSION NOTE</Text>
+                                    <Text style={styles.sprintModalNoteText}>"{selectedSprint.note}"</Text>
+                                </View>
+                            ) : null}
+
+                            {selectedSprint.timelineEvents && selectedSprint.timelineEvents.length > 0 && (
+                                <View style={styles.sprintModalTimeline}>
+                                    <Text style={styles.sprintModalNoteLabel}>TIMELINE</Text>
+                                    {selectedSprint.timelineEvents.map((evt: any, i: number, arr: any[]) => (
+                                        <View key={i} style={styles.sprintTimelineRow}>
+                                            <View style={styles.sprintTimelineVisuals}>
+                                                <View style={[styles.sprintTimelineDot, { backgroundColor: evt.type === 'break' ? '#10B981' : '#3B82F6' }]} />
+                                                {i < arr.length - 1 && <View style={styles.sprintTimelineLine} />}
+                                            </View>
+                                            <View style={styles.sprintTimelineEventContent}>
+                                                <Text style={styles.sprintTimelineEventText} numberOfLines={1}>{evt.title}</Text>
+                                                <Text style={styles.sprintTimelineEventDuration}>{formatDuration(evt.durationSeconds)}</Text>
+                                            </View>
+                                        </View>
+                                    ))}
+                                </View>
+                            )}
+                        </ScrollView>
+                    </View>
+                    {toastMessage && (
+                        <View style={styles.sprintToast}>
+                            <Text style={styles.sprintToastText}>{toastMessage}</Text>
+                        </View>
+                    )}
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -524,7 +687,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         fontFamily: 'Georgia',
-        color: '#3E362E',
+        color: '#000000',
         letterSpacing: 0.5,
     },
     starCircleButton: {
@@ -549,7 +712,11 @@ const styles = StyleSheet.create({
     taskItemRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 0,
+    },
+    rowDeleteBtn: {
+        padding: 6,
+        marginLeft: 4,
     },
     taskItemText: {
         flex: 1,
@@ -561,9 +728,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#F2F0E9',
         paddingVertical: 10,
-        paddingHorizontal: 12,
+        paddingLeft: 12,
+        paddingRight: 8,
         borderRadius: 12,
-        gap: 12,
+        gap: 4,
     },
     sprintIconWrap: {
         width: 28,
@@ -712,5 +880,169 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 40,
         fontStyle: 'italic',
+    },
+
+    // Sprint Floating Modal Styles inside Journal
+    modalBackdrop: {
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+        zIndex: 100,
+    },
+    modalDismissArea: {
+        position: 'absolute',
+        top: 0, left: 0, right: 0, bottom: 0,
+    },
+    sprintModalContent: {
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        width: '100%',
+        padding: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        elevation: 10,
+        maxHeight: '80%',
+    },
+    sprintModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    sprintModalIconBox: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#FEF3C7',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    sprintCloseBtn: {
+        padding: 8,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 16,
+    },
+    sprintModalDate: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#94A3B8',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 8,
+    },
+    sprintModalTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#0F172A',
+        lineHeight: 30,
+        marginBottom: 20,
+    },
+    sprintModalStatsRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 24,
+    },
+    sprintModalStatBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8FAFC',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        gap: 6,
+    },
+    sprintModalStatLabel: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#3B82F6',
+    },
+    sprintModalNoteBox: {
+        backgroundColor: '#F8FAFC',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginBottom: 24,
+    },
+    sprintModalNoteLabel: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: '#64748B',
+        letterSpacing: 1,
+        marginBottom: 8,
+    },
+    sprintModalNoteText: {
+        fontSize: 15,
+        color: '#1E293B',
+        fontStyle: 'italic',
+        lineHeight: 22,
+    },
+    sprintModalTimeline: {
+        marginTop: 8,
+    },
+    sprintTimelineRow: {
+        flexDirection: 'row',
+        minHeight: 40,
+    },
+    sprintTimelineVisuals: {
+        width: 16,
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    sprintTimelineDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginTop: 4,
+        zIndex: 2,
+    },
+    sprintTimelineLine: {
+        width: 2,
+        flex: 1,
+        backgroundColor: '#E2E8F0',
+        marginTop: 4,
+        marginBottom: -4,
+        zIndex: 1,
+    },
+    sprintTimelineEventContent: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingBottom: 16,
+    },
+    sprintTimelineEventText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#1E293B',
+        flex: 1,
+        marginRight: 8,
+    },
+    sprintTimelineEventDuration: {
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: 'bold',
+    },
+    sprintToast: {
+        position: 'absolute',
+        bottom: 40,
+        backgroundColor: '#3E362E',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 6,
+    },
+    sprintToastText: {
+        color: '#FFFDF5',
+        fontSize: 14,
+        fontWeight: '700',
     }
 });

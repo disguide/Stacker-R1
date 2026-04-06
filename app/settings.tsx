@@ -1,10 +1,19 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput, KeyboardAvoidingView, Platform, Alert, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import { StorageService, ColorDefinition, SprintSettings } from '../src/services/storage';
 import ColorSettingsModal from '../src/components/ColorSettingsModal';
+
+const SettingsGroup = ({ title, children }: { title?: string, children: React.ReactNode }) => (
+    <View style={styles.groupContainer}>
+        {title && <Text style={styles.groupTitle}>{title.toUpperCase()}</Text>}
+        <View style={styles.groupBlock}>
+            {children}
+        </View>
+    </View>
+);
 
 export default function SettingsScreen() {
     const insets = useSafeAreaInsets();
@@ -13,7 +22,6 @@ export default function SettingsScreen() {
     const [userColors, setUserColors] = useState<ColorDefinition[]>([]);
     const [sprintSettings, setSprintSettings] = useState<SprintSettings>({ showTimer: true, allowPause: true });
     
-    // Local string state to allow "empty" inputs while typing
     const [workTimeStr, setWorkTimeStr] = useState('25');
     const [breakTimeStr, setBreakTimeStr] = useState('5');
     const [maxTimeStr, setMaxTimeStr] = useState('60');
@@ -54,10 +62,9 @@ export default function SettingsScreen() {
 
     const handleTextUpdate = (key: keyof SprintSettings, text: string, setter: (s: string) => void) => {
         setter(text);
-        if (text === '') return; // Allow deletion
+        if (text === '') return;
         const num = parseInt(text);
         if (!isNaN(num)) {
-            // Even if 0, we update but the logic in sprint.tsx will skip processing it
             handleUpdateSprintSetting(key, num);
         }
     };
@@ -82,16 +89,13 @@ export default function SettingsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header with Back Button */}
             <View style={styles.header}>
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => router.back()}
-                >
-                    <Text style={styles.backButtonText}>‹ Back</Text>
+                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                    <Ionicons name="chevron-back" size={24} color="#007AFF" />
+                    <Text style={styles.backButtonText}>Back</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Settings</Text>
-                <View style={styles.placeholder} />
+                <View style={{ width: 70 }} />
             </View>
 
             <KeyboardAvoidingView 
@@ -105,155 +109,141 @@ export default function SettingsScreen() {
                     keyboardShouldPersistTaps="handled"
                 >
 
-                <Text style={styles.sectionHeader}>Sprint Configuration</Text>
-
-                <View style={styles.settingRow}>
-                    <View style={styles.settingInfo}>
-                        <Text style={styles.settingLabel}>Show Timer</Text>
-                        <Text style={styles.settingSubLabel}>Display elapsed time during sprint</Text>
-                    </View>
-                    <Switch
-                        value={sprintSettings.showTimer}
-                        onValueChange={() => handleToggleSprintSetting('showTimer')}
-                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
-                    />
-                </View>
-
-                <View style={[styles.settingRow, { borderBottomWidth: 1 }]}>
-                    <View style={styles.settingInfo}>
-                        <Text style={styles.settingLabel}>Allow Pause</Text>
-                        <Text style={styles.settingSubLabel}>Enable pausing sprints mid-session</Text>
-                    </View>
-                    <Switch
-                        value={sprintSettings.allowPause}
-                        onValueChange={() => handleToggleSprintSetting('allowPause')}
-                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
-                    />
-                </View>
-
-                {/* Automatic Break Settings */}
-                <View style={[styles.settingRow, { borderBottomWidth: sprintSettings.autoBreakMode ? 1 : 0 }]}>
-                    <View style={styles.settingInfo}>
-                        <Text style={styles.settingLabel}>Automatic Breaks</Text>
-                        <Text style={styles.settingSubLabel}>Automatically trigger breaks after a set work duration</Text>
-                    </View>
-                    <Switch
-                        value={!!sprintSettings.autoBreakMode}
-                        onValueChange={() => handleToggleSprintSetting('autoBreakMode')}
-                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
-                    />
-                </View>
-
-                {sprintSettings.autoBreakMode && (
-                    <>
-                        <View style={styles.settingRow}>
-                            <View style={styles.settingInfo}>
-                                <Text style={styles.settingLabel}>Work Duration (min)</Text>
+                    {/* TOP ACCOUNT CARD */}
+                    <SettingsGroup>
+                        <View style={styles.accountCard}>
+                            <View style={styles.accountHeader}>
+                                <View style={styles.avatarPlaceholder}>
+                                    <Text style={{ fontSize: 24 }}>👤</Text>
+                                </View>
+                                <View style={styles.accountInfo}>
+                                    <Text style={styles.accountName}>Guest</Text>
+                                    <Text style={styles.accountStatus}>Unregistered Account</Text>
+                                </View>
                             </View>
-                            <TextInput
-                                style={styles.timeInput}
-                                keyboardType="number-pad"
-                                value={workTimeStr}
-                                onChangeText={(text) => handleTextUpdate('autoBreakWorkTime', text, setWorkTimeStr)}
-                                maxLength={3}
-                            />
-                        </View>
-                        <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
-                            <View style={styles.settingInfo}>
-                                <Text style={styles.settingLabel}>Break Duration (min)</Text>
+                            
+                            <View style={styles.authButtons}>
+                                <TouchableOpacity style={[styles.authButton, { backgroundColor: '#000' }]} onPress={() => Alert.alert('Coming Soon', 'Sign in with Apple will be available in the next update.')}>
+                                    <Ionicons name="logo-apple" size={18} color="#FFF" style={styles.authIcon} />
+                                    <Text style={[styles.authText, { color: '#FFF' }]}>Sign in with Apple</Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity style={[styles.authButton, { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#D1D5DB' }]} onPress={() => Alert.alert('Coming Soon', 'Sign in with Google will be available in the next update.')}>
+                                    <Ionicons name="logo-google" size={18} color="#333" style={styles.authIcon} />
+                                    <Text style={[styles.authText, { color: '#333' }]}>Sign in with Google</Text>
+                                </TouchableOpacity>
                             </View>
-                            <TextInput
-                                style={styles.timeInput}
-                                keyboardType="number-pad"
-                                value={breakTimeStr}
-                                onChangeText={(text) => handleTextUpdate('autoBreakDuration', text, setBreakTimeStr)}
-                                maxLength={3}
-                            />
+                            <Text style={styles.authDisclaimer}>Sign in to sync your goals, sprints, and history across all your devices.</Text>
                         </View>
-                    </>
-                )}
+                    </SettingsGroup>
 
-                <View style={styles.divider} />
-                
-                <Text style={styles.sectionHeader}>Sprint Goal</Text>
-                
-                <View style={[styles.settingRow, { borderBottomWidth: sprintSettings.maxDurationEnabled ? 1 : 0 }]}>
-                    <View style={styles.settingInfo}>
-                        <Text style={styles.settingLabel}>Automatic Sprint End</Text>
-                        <Text style={styles.settingSubLabel}>Automatically finish the sprint when time is up</Text>
-                    </View>
-                    <Switch
-                        value={!!sprintSettings.maxDurationEnabled}
-                        onValueChange={() => handleToggleSprintSetting('maxDurationEnabled')}
-                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
-                    />
-                </View>
-
-                {sprintSettings.maxDurationEnabled && (
-                    <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
-                        <View style={styles.settingInfo}>
-                            <Text style={styles.settingLabel}>Max Duration (min)</Text>
+                    {/* SPRINT CONFIGURATION */}
+                    <SettingsGroup title="Sprint Configuration">
+                        <View style={styles.row}>
+                            <View style={[styles.iconWrapper, { backgroundColor: '#3B82F6' }]}>
+                                <Ionicons name="timer" size={18} color="#FFF" />
+                            </View>
+                            <View style={styles.rowTextContainer}>
+                                <Text style={styles.rowLabel}>Show Timer</Text>
+                            </View>
+                            <Switch value={sprintSettings.showTimer} onValueChange={() => handleToggleSprintSetting('showTimer')} />
                         </View>
-                        <TextInput
-                            style={styles.timeInput}
-                            keyboardType="number-pad"
-                            value={maxTimeStr}
-                            onChangeText={(text) => handleTextUpdate('maxDurationMinutes', text, setMaxTimeStr)}
-                            maxLength={3}
-                        />
-                    </View>
-                )}
-
-                <View style={styles.divider} />
-                
-                <Text style={styles.sectionHeader}>Time Preference</Text>
-                
-                <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
-                    <View style={styles.settingInfo}>
-                        <Text style={styles.settingLabel}>24-Hour Time Format</Text>
-                        <Text style={styles.settingSubLabel}>Use 24-hour clock (e.g. 14:00) instead of AM/PM</Text>
-                    </View>
-                    <Switch
-                        value={!!sprintSettings.use24HourFormat}
-                        onValueChange={() => handleToggleSprintSetting('use24HourFormat')}
-                        trackColor={{ false: '#E2E8F0', true: '#3B82F6' }}
-                    />
-                </View>
-
-                <View style={styles.divider} />
-
-                <Text style={styles.sectionHeader}>Tags & Categories</Text>
-
-                {/* Manage Color Meanings Button */}
-                <TouchableOpacity style={styles.menuItem} onPress={() => setIsColorModalVisible(true)}>
-                    <View style={styles.menuItemLeft}>
-                        <View style={[styles.iconContainer, { backgroundColor: '#F3F4F6' }]}>
-                            <Ionicons name="color-palette-outline" size={20} color="#333" />
+                        <View style={styles.divider} />
+                        
+                        <View style={styles.row}>
+                            <View style={[styles.iconWrapper, { backgroundColor: '#F59E0B' }]}>
+                                <Ionicons name="pause" size={18} color="#FFF" />
+                            </View>
+                            <View style={styles.rowTextContainer}>
+                                <Text style={styles.rowLabel}>Allow Pause</Text>
+                            </View>
+                            <Switch value={sprintSettings.allowPause} onValueChange={() => handleToggleSprintSetting('allowPause')} />
                         </View>
-                        <View>
-                            <Text style={styles.menuItemText}>Color Meanings</Text>
-                            <Text style={styles.menuItemSubText}>Assign text to colors (e.g. Red = School)</Text>
+                        <View style={styles.divider} />
+
+                        <View style={[styles.row, !sprintSettings.autoBreakMode && styles.rowDisabled]}>
+                            <View style={[styles.iconWrapper, { backgroundColor: '#10B981' }]}>
+                                <Ionicons name="cafe" size={18} color="#FFF" />
+                            </View>
+                            <View style={styles.rowTextContainer}>
+                                <Text style={styles.rowLabel}>Automatic Breaks</Text>
+                            </View>
+                            <Switch value={!!sprintSettings.autoBreakMode} onValueChange={() => handleToggleSprintSetting('autoBreakMode')} />
                         </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#CCC" />
-                </TouchableOpacity>
 
-                {/* Placeholder for other settings */}
-                <View style={styles.divider} />
-                
-                <View style={styles.resetSection}>
-                    <Text style={styles.sectionHeaderRed}>DANGER ZONE</Text>
-                    <TouchableOpacity style={styles.resetFullBtn} onPress={handleResetEverything}>
-                        <Ionicons name="trash-bin-outline" size={20} color="#EF4444" />
-                        <Text style={styles.resetFullText}>Reset All Data & Statistics</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.resetSubtext}>
-                        This action is permanent and will clear your entire profile, including all goals and history.
-                    </Text>
-                </View>
+                        {sprintSettings.autoBreakMode && (
+                            <>
+                                <View style={styles.dividerIndent} />
+                                <View style={styles.inputRow}>
+                                    <Text style={styles.inputLabel}>Work Duration (min)</Text>
+                                    <TextInput style={styles.numInput} keyboardType="number-pad" value={workTimeStr} onChangeText={t => handleTextUpdate('autoBreakWorkTime', t, setWorkTimeStr)} maxLength={3} />
+                                </View>
+                                <View style={styles.dividerIndent} />
+                                <View style={styles.inputRow}>
+                                    <Text style={styles.inputLabel}>Break Duration (min)</Text>
+                                    <TextInput style={styles.numInput} keyboardType="number-pad" value={breakTimeStr} onChangeText={t => handleTextUpdate('autoBreakDuration', t, setBreakTimeStr)} maxLength={3} />
+                                </View>
+                            </>
+                        )}
+                    </SettingsGroup>
 
-                <View style={styles.divider} />
-                <Text style={styles.versionText}>Version 1.1.0</Text>
+                    {/* SPRINT GOAL */}
+                    <SettingsGroup title="Sprint Goal">
+                        <View style={[styles.row, !sprintSettings.maxDurationEnabled && styles.rowDisabled]}>
+                            <View style={[styles.iconWrapper, { backgroundColor: '#8B5CF6' }]}>
+                                <Ionicons name="flag" size={18} color="#FFF" />
+                            </View>
+                            <View style={styles.rowTextContainer}>
+                                <Text style={styles.rowLabel}>Automatic Sprint End</Text>
+                            </View>
+                            <Switch value={!!sprintSettings.maxDurationEnabled} onValueChange={() => handleToggleSprintSetting('maxDurationEnabled')} />
+                        </View>
+
+                        {sprintSettings.maxDurationEnabled && (
+                            <>
+                                <View style={styles.dividerIndent} />
+                                <View style={styles.inputRow}>
+                                    <Text style={styles.inputLabel}>Max Duration (min)</Text>
+                                    <TextInput style={styles.numInput} keyboardType="number-pad" value={maxTimeStr} onChangeText={t => handleTextUpdate('maxDurationMinutes', t, setMaxTimeStr)} maxLength={3} />
+                                </View>
+                            </>
+                        )}
+                    </SettingsGroup>
+
+                    {/* TIME PREFERENCE */}
+                    <SettingsGroup title="Time Preference">
+                        <View style={styles.row}>
+                            <View style={[styles.iconWrapper, { backgroundColor: '#6366F1' }]}>
+                                <Ionicons name="time" size={18} color="#FFF" />
+                            </View>
+                            <View style={styles.rowTextContainer}>
+                                <Text style={styles.rowLabel}>24-Hour Time Format</Text>
+                            </View>
+                            <Switch value={!!sprintSettings.use24HourFormat} onValueChange={() => handleToggleSprintSetting('use24HourFormat')} />
+                        </View>
+                    </SettingsGroup>
+
+                    {/* TAGS & CATEGORIES */}
+                    <SettingsGroup title="Tags & Categories">
+                        <TouchableOpacity style={styles.navRow} onPress={() => setIsColorModalVisible(true)}>
+                            <View style={[styles.iconWrapper, { backgroundColor: '#EC4899' }]}>
+                                <Ionicons name="color-palette" size={18} color="#FFF" />
+                            </View>
+                            <View style={styles.rowTextContainer}>
+                                <Text style={styles.rowLabel}>Color Meanings</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                        </TouchableOpacity>
+                    </SettingsGroup>
+                    
+                    {/* DANGER ZONE */}
+                    <SettingsGroup>
+                        <TouchableOpacity style={styles.dangerRow} onPress={handleResetEverything}>
+                            <Text style={styles.dangerText}>Delete All Data & Statistics</Text>
+                        </TouchableOpacity>
+                    </SettingsGroup>
+
+                    <Text style={styles.versionText}>Version 1.1.0</Text>
 
                 </ScrollView>
             </KeyboardAvoidingView>
@@ -271,157 +261,180 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#F2F2F7', // Standard iOS Settings Background
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        paddingHorizontal: 8,
+        paddingTop: 8,
+        paddingBottom: 16,
     },
     backButton: {
-        paddingVertical: 4,
-        paddingRight: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: 70,
     },
     backButtonText: {
-        fontSize: 16,
+        fontSize: 17,
         color: '#007AFF',
-        fontWeight: '500',
     },
     headerTitle: {
         fontSize: 17,
         fontWeight: '600',
-        color: '#000000',
-    },
-    placeholder: {
-        width: 60,
+        color: '#000',
     },
     content: {
         flex: 1,
     },
     scrollContent: {
-        paddingBottom: 120, // Extra space for keyboard and comfort
+        paddingHorizontal: 16,
+        paddingBottom: 60,
     },
-    sectionHeader: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#94A3B8',
-        marginTop: 24,
-        marginBottom: 8,
+    groupContainer: {
+        marginBottom: 24,
+    },
+    groupTitle: {
+        fontSize: 13,
+        color: '#6B7280',
         marginLeft: 16,
-        textTransform: 'uppercase',
-        letterSpacing: 1
+        marginBottom: 6,
     },
-    menuItem: {
+    groupBlock: {
+        backgroundColor: '#FFF',
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        minHeight: 50,
+    },
+    navRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        minHeight: 50,
+    },
+    rowDisabled: {
+        opacity: 0.9,
+    },
+    inputRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 12,
+        paddingVertical: 10,
         paddingHorizontal: 16,
-        backgroundColor: '#FFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        minHeight: 50,
+        paddingLeft: 54, // Align with text
     },
-    menuItemLeft: {
+    iconWrapper: {
+        width: 28,
+        height: 28,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 14,
+    },
+    rowTextContainer: {
+        flex: 1,
+    },
+    rowLabel: {
+        fontSize: 16,
+        color: '#000',
+    },
+    inputLabel: {
+        fontSize: 16,
+        color: '#000',
+    },
+    numInput: {
+        fontSize: 16,
+        color: '#6B7280',
+        textAlign: 'right',
+        minWidth: 40,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#E5E5EA',
+        marginLeft: 54, // Starts after icon
+    },
+    dividerIndent: {
+        height: 1,
+        backgroundColor: '#E5E5EA',
+        marginLeft: 54,
+    },
+    
+    // Auth Custom Elements
+    accountCard: {
+        padding: 16,
+    },
+    accountHeader: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginBottom: 16,
     },
-    iconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
+    avatarPlaceholder: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#E5E5EA',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 12,
     },
-    menuItemText: {
-        fontSize: 16,
-        color: '#333',
+    accountInfo: {
+        flex: 1,
     },
-    menuItemSubText: {
+    accountName: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#000',
+    },
+    accountStatus: {
+        fontSize: 14,
+        color: '#6B7280',
+        marginTop: 2,
+    },
+    authButtons: {
+        gap: 10,
+    },
+    authButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 10,
+    },
+    authIcon: {
+        marginRight: 8,
+    },
+    authText: {
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    authDisclaimer: {
         fontSize: 12,
-        color: '#999',
-        marginTop: 2
+        color: '#9CA3AF',
+        textAlign: 'center',
+        marginTop: 12,
     },
-    divider: {
-        height: 20,
+
+    dangerRow: {
+        paddingVertical: 14,
+        alignItems: 'center',
+    },
+    dangerText: {
+        fontSize: 16,
+        color: '#FF3B30',
     },
     versionText: {
         textAlign: 'center',
-        color: '#999',
-        fontSize: 12,
-        marginBottom: 20
-    },
-    settingRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        backgroundColor: '#FFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
-    },
-    settingInfo: {
-        flex: 1,
-        marginRight: 16
-    },
-    settingLabel: {
-        fontSize: 16,
-        color: '#333',
-        marginBottom: 2
-    },
-    settingSubLabel: {
-        fontSize: 12,
-        color: '#94A3B8'
-    },
-    timeInput: {
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        fontSize: 16,
-        color: '#333',
-        width: 60,
-        textAlign: 'center',
-    },
-    // Reset Styles
-    resetSection: {
-        marginHorizontal: 16,
+        color: '#9CA3AF',
+        fontSize: 13,
         marginTop: 8,
-        marginBottom: 24,
-    },
-    sectionHeaderRed: {
-        fontSize: 12,
-        fontWeight: '900',
-        color: '#EF4444',
-        letterSpacing: 1.5,
-        marginBottom: 12,
-    },
-    resetFullBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        backgroundColor: '#FEF2F2',
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#FEE2E2',
-    },
-    resetFullText: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#EF4444',
-    },
-    resetSubtext: {
-        fontSize: 12,
-        color: '#94A3B8',
-        marginTop: 10,
-        fontWeight: '500',
-        lineHeight: 18,
-    },
+    }
 });

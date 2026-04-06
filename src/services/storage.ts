@@ -207,10 +207,8 @@ export const StorageService = {
 
     async saveUIState(state: any) {
         try {
-            const current = await this.loadUIState() || {};
-            const next = { ...current, ...state };
-            if (__DEV__) console.log('[StorageService] Saving UI State:', next);
-            await AsyncStorage.setItem(STORAGE_KEYS.UI_STATE, JSON.stringify(next));
+            if (__DEV__) console.log('[StorageService] Saving UI State:', state);
+            await AsyncStorage.setItem(STORAGE_KEYS.UI_STATE, JSON.stringify(state));
         } catch (e) {
             console.error('Failed to save UI state', e);
         }

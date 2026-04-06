@@ -53,14 +53,16 @@ export function useHomeState() {
         _cachedIsClumped = val;
         _cacheLoaded = true;
         setIsClumped(val);
-        StorageService.saveUIState({ isClumped: val });
+        // Write the FULL state to avoid race conditions with concurrent saves
+        StorageService.saveUIState({ isClumped: val, sortOption: _cachedSortOption });
     }, []);
 
     const setSortOptionWithSave = useCallback((val: string | null) => {
         _cachedSortOption = val;
         _cacheLoaded = true;
         setSortOption(val);
-        StorageService.saveUIState({ sortOption: val });
+        // Write the FULL state to avoid race conditions with concurrent saves
+        StorageService.saveUIState({ isClumped: _cachedIsClumped, sortOption: val });
     }, []);
 
     const switchViewMode = useCallback((mode: ViewMode) => {

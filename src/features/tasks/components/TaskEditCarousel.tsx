@@ -58,55 +58,7 @@ export default function TaskEditCarousel({
     updateReminder,
     onRequestColorSettings,
 }: TaskEditCarouselProps) {
-    const carouselPanResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true, // Own the touch in the bottom zone
-            onStartShouldSetPanResponderCapture: () => false,
-            // Capture phase: let children handle their own touches first.
-            onMoveShouldSetPanResponderCapture: () => false,
-            // Bubbling phase: if child didn't claim, we claim if it's a solid upward swipe.
-            onMoveShouldSetPanResponder: (_, gestureState) => {
-                 // Make swipe up more responsive (threshold -15)
-                 return gestureState.dy < -15 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.5;
-            },
-            onPanResponderGrant: () => {
-                carouselPanY.setOffset((carouselPanY as any)._value);
-                carouselPanY.setValue(0);
-            },
-            onPanResponderMove: (_, gestureState) => {
-                // Only allow upward translation
-                if (gestureState.dy < 0) {
-                    carouselPanY.setValue(gestureState.dy);
-                }
-            },
-            onPanResponderRelease: (_, gestureState) => {
-                carouselPanY.flattenOffset();
-                if (gestureState.dy < -100 || gestureState.vy < -1.2) {
-                    // Swiped up far enough -> save and close EVERYTHING simultaneously
-                    Animated.parallel([
-                        Animated.timing(carouselPanY, {
-                            toValue: -SCREEN_HEIGHT,
-                            duration: 200,
-                            useNativeDriver: true,
-                        }),
-                        Animated.timing(panY, {
-                            toValue: SCREEN_HEIGHT,
-                            duration: 200, // Sync the background dim fade and main drawer slide down perfectly
-                            useNativeDriver: true,
-                        })
-                    ]).start(() => {
-                        handleSaveRef.current(true); // Save and return to home WITHOUT second delay
-                    });
-                } else {
-                    // Snap back
-                    Animated.spring(carouselPanY, {
-                        toValue: 0,
-                        useNativeDriver: true,
-                    }).start();
-                }
-            },
-        })
-    ).current;
+    const closeAndSaveRef = useRef<() => void>(() => {});
 
     const closeAndSave = () => {
         Animated.parallel([
@@ -125,6 +77,61 @@ export default function TaskEditCarousel({
         });
     };
 
+    // Keep ref in sync for PanResponder closure
+    useEffect(() => {
+        closeAndSaveRef.current = closeAndSave;
+    });
+
+    // PanResponder for the bottom swipe zone ONLY
+    const swipeZonePanResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true, // Own all touches in this zone
+            onStartShouldSetPanResponderCapture: () => true,
+            onMoveShouldSetPanResponder: () => true,
+            onPanResponderGrant: () => {
+                carouselPanY.setOffset((carouselPanY as any)._value);
+                carouselPanY.setValue(0);
+            },
+            onPanResponderMove: (_, gestureState) => {
+                // Allow both up and down so the user can cancel mid-swipe
+                carouselPanY.setValue(gestureState.dy < 0 ? gestureState.dy : 0);
+            },
+            onPanResponderRelease: (_, gestureState) => {
+                carouselPanY.flattenOffset();
+                const isTap = Math.abs(gestureState.dx) < 5 && Math.abs(gestureState.dy) < 5;
+                if (isTap) {
+                    closeAndSaveRef.current();
+                    return;
+                }
+                if (gestureState.dy < -80 || gestureState.vy < -1.0) {
+                    // Committed swipe-up → save and close
+                    Animated.parallel([
+                        Animated.timing(carouselPanY, {
+                            toValue: -SCREEN_HEIGHT,
+                            duration: 200,
+                            useNativeDriver: true,
+                        }),
+                        Animated.timing(panY, {
+                            toValue: SCREEN_HEIGHT,
+                            duration: 200,
+                            useNativeDriver: true,
+                        })
+                    ]).start(() => {
+                        handleSaveRef.current(true);
+                    });
+                } else {
+                    // Not far enough / dragged back down → cancel, snap back
+                    Animated.spring(carouselPanY, {
+                        toValue: 0,
+                        useNativeDriver: true,
+                        tension: 80,
+                        friction: 10,
+                    }).start();
+                }
+            },
+        })
+    ).current;
+
     if (!activeFeature) return null;
 
     return (
@@ -134,7 +141,6 @@ export default function TaskEditCarousel({
                     styles.carouselSheet,
                     { transform: [{ translateY: carouselPanY }] }
                 ]}
-                {...carouselPanResponder.panHandlers}
             >
                 <View style={styles.carouselHeader}>
                     <TouchableOpacity onPress={() => setActiveFeature(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -168,8 +174,14 @@ export default function TaskEditCarousel({
                     userColors={userColors}
                     onRequestColorSettings={onRequestColorSettings}
                 />
-                
+
+                {/* Swipe-up zone: covers the confirm button / action bar area at the bottom */}
+                <View
+                    style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, zIndex: 9999 }}
+                    {...swipeZonePanResponder.panHandlers}
+                />
             </Animated.View>
         </View>
     );
 }
+

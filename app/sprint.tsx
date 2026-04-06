@@ -132,6 +132,13 @@ export default function SprintScreen() {
         currentSegmentStartTimeRef.current = now;
         timelineRef.current = []; // RESET timeline for new sprint
         
+        // Reset timing refs
+        workSecondsRef.current = 0;
+        breakSecondsRef.current = 0;
+        totalSecondsRef.current = 0;
+        intervalWorkSecondsRef.current = 0;
+        setElapsedSeconds(0);
+        
         loadSettings();
         loadSprintTasks();
         requestNotificationPermissions();
@@ -313,7 +320,7 @@ export default function SprintScreen() {
                 workSecondsRef.current += gapSeconds;
                 intervalWorkSecondsRef.current += gapSeconds;
             }
-            setElapsedSeconds(workSecondsRef.current);
+            setElapsedSeconds(totalSecondsRef.current);
         } else {
             // BREAK SYNC
             const totalBreakElapsed = pauseElapsedRef.current + gapSeconds;

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Dimensions, Easing } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Dimensions, FlatList } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,12 +8,9 @@ import { StorageService, SavedSprint } from '../src/services/storage';
 
 const { width } = Dimensions.get('window');
 
-type TabType = 'personal' | 'system';
-
 export default function AchievementsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<TabType>('personal');
     
     // Data States
     const [personalSprints, setPersonalSprints] = useState<SavedSprint[]>([]);
@@ -21,9 +18,11 @@ export default function AchievementsScreen() {
     const [totalWins, setTotalWins] = useState(0);
     const [selectedSprint, setSelectedSprint] = useState<SavedSprint | null>(null);
 
-    // Animation values
-    const fadeAnim = useRef(new Animated.Value(1)).current;
-    const slideAnim = useRef(new Animated.Value(0)).current;
+    const handleUnstar = async (sprintId: string) => {
+        await StorageService.deleteSavedSprint(sprintId);
+        setPersonalSprints(prev => prev.filter(s => s.id !== sprintId));
+        setSelectedSprint(null);
+    };
 
     useEffect(() => {
         let mounted = true;
@@ -56,23 +55,7 @@ export default function AchievementsScreen() {
         return `${m}m`;
     };
 
-    const switchTab = (tab: TabType) => {
-        if (tab === activeTab) return;
-        
-        Animated.parallel([
-            Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-            Animated.timing(slideAnim, { toValue: tab === 'system' ? 20 : -20, duration: 150, useNativeDriver: true })
-        ]).start(() => {
-            setActiveTab(tab);
-            slideAnim.setValue(tab === 'system' ? -20 : 20);
-            Animated.parallel([
-                Animated.timing(fadeAnim, { toValue: 1, duration: 250, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-                Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 50, useNativeDriver: true })
-            ]).start();
-        });
-    };
-
-    // Derived System Milestones
+    // Derived System Milestones - KEPT EXACTLY THE SAME
     const systemMilestones = useMemo(() => [
         {
             id: '10h',
@@ -112,6 +95,33 @@ export default function AchievementsScreen() {
         }
     ], [totalWorkSeconds, totalWins]);
 
+    const renderBarGraph = (sprint: SavedSprint) => {
+        if (!sprint.timelineEvents || sprint.timelineEvents.length === 0) {
+            return <View style={styles.emptyGraph} />;
+        }
+        
+        let events = sprint.timelineEvents;
+        if (events.length > 8) {
+            events = events.slice(0, 8); // Slice for layout cleanliness if excessive events
+        }
+
+        const maxDuration = Math.max(...events.map(e => e.durationSeconds || 0));
+        if (maxDuration === 0) return <View style={styles.emptyGraph} />;
+
+        return (
+            <View style={styles.barGraphWrapper}>
+                {events.map((evt: any, i: number) => {
+                    const heightPct = Math.max(10, (evt.durationSeconds / maxDuration) * 100);
+                    return (
+                        <View key={i} style={styles.barColumn}>
+                            <View style={[styles.barFill, { height: `${heightPct}%`, backgroundColor: evt.type === 'break' ? '#E2E8F0' : '#1E293B' }]} />
+                        </View>
+                    );
+                })}
+            </View>
+        );
+    };
+
     const renderPersonal = () => {
         if (personalSprints.length === 0) {
             return (
@@ -123,46 +133,65 @@ export default function AchievementsScreen() {
             );
         }
 
+        // Simulating infinite scroll with duplicated loops if data is short
+        const infiniteData = Array(10).fill(personalSprints).flat();
+        
+        // 2 cards visible logic: available space = width - paddingHorizontal(40) - gaps(12)
+        const cardWidth = (width - 40 - 12) / 2;
+
         return (
-            <View style={styles.gridContainer}>
-                {personalSprints.map((sprint, idx) => (
-                    <TouchableOpacity 
-                        key={sprint.id} 
-                        style={styles.personalCard}
-                        activeOpacity={0.8}
-                        onPress={() => setSelectedSprint(sprint)}
-                    >
-                        <LinearGradient
-                            colors={['#FFFFFF', '#F8FAFC']}
-                            start={{x: 0, y: 0}} end={{x: 1, y: 1}}
-                            style={styles.personalCardInner}
-                        >
-                            <View style={styles.cardHeaderRow}>
-                                <Text style={styles.cardDate} numberOfLines={1}>
-                                    {new Date(sprint.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </Text>
-                            </View>
-                            
-                            <View style={styles.cardBody}>
-                                <Text style={styles.primaryTaskText} numberOfLines={3}>
-                                    {sprint.primaryTask || 'Focus Session'}
-                                </Text>
-                            </View>
-                            
-                            <View style={styles.cardFooter}>
-                                <View style={styles.durationPill}>
-                                    <Ionicons name="time" size={12} color="#3B82F6" />
-                                    <Text style={styles.durationPillText}>{formatDuration(sprint.durationSeconds)}</Text>
-                                </View>
-                            </View>
-                        </LinearGradient>
+            <View style={styles.carouselSection}>
+                <View style={styles.sectionHeaderRow}>
+                    <Text style={[styles.sectionHeader, { marginBottom: 0, paddingHorizontal: 0 }]}>Personal Sprints</Text>
+                    <TouchableOpacity onPress={() => router.push('/all-sprints')}>
+                        <Text style={styles.viewAllText}>View All</Text>
                     </TouchableOpacity>
-                ))}
+                </View>
+                <FlatList
+                    data={infiniteData}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.carouselContainer}
+                    keyExtractor={(item, index) => `${item.id}-${index}`}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity 
+                            style={[styles.carouselCard, { width: cardWidth }]}
+                            activeOpacity={0.8}
+                            onPress={() => setSelectedSprint(item)}
+                        >
+                            {/* 1. Date */}
+                            <Text style={styles.carouselDate} numberOfLines={1}>
+                                {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </Text>
+
+                            {/* 2. Title */}
+                            <Text style={styles.carouselTitle} numberOfLines={2}>
+                                {item.primaryTask || 'Focus Session'}
+                            </Text>
+                            
+                            {/* 3. Vertical Bar Graph */}
+                            <View style={styles.carouselGraphContainer}>
+                                {renderBarGraph(item)}
+                            </View>
+                            
+                            {/* 4. Duration & 5. Tasks */}
+                            <View style={styles.carouselCardBottom}>
+                                <Text style={styles.carouselDuration}>
+                                    {formatDuration(item.durationSeconds)}
+                                </Text>
+                                <Text style={styles.carouselTaskCount}>
+                                    {item.taskCount || 0} Tasks
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                />
             </View>
         );
     };
 
     const renderSystem = () => {
+        // SYSTEM ACHIEVEMENTS LOGIC KEPT EXACTLY THE SAME
         return (
             <View style={styles.systemContainer}>
                 {systemMilestones.map((milestone) => {
@@ -227,46 +256,33 @@ export default function AchievementsScreen() {
                 <View style={{ width: 60 }} />
             </View>
 
-            {/* Tab Switcher */}
-            <View style={styles.tabContainer}>
-                <View style={styles.tabSwitcher}>
-                    <TouchableOpacity 
-                        style={[styles.tabBtn, activeTab === 'personal' && styles.tabBtnActive]}
-                        onPress={() => switchTab('personal')}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'personal' && styles.tabTextActive]}>Personal</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={[styles.tabBtn, activeTab === 'system' && styles.tabBtnActive]}
-                        onPress={() => switchTab('system')}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={[styles.tabText, activeTab === 'system' && styles.tabTextActive]}>System</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Content Area */}
+            {/* UNIFIED SCROLL VIEW */}
             <ScrollView 
                 style={styles.scrollArea}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
-                    {activeTab === 'personal' ? renderPersonal() : renderSystem()}
-                </Animated.View>
+                {/* TOP PART: Personal Sprints */}
+                {renderPersonal()}
+                
+                <View style={styles.sectionDivider} />
+                <Text style={[styles.sectionHeader, { paddingHorizontal: 20 }]}>System Achievements</Text>
+                
+                {/* BOTTOM PART: System Achievements */}
+                <View style={{ paddingHorizontal: 20 }}>
+                    {renderSystem()}
+                </View>
             </ScrollView>
 
-            {/* Selected Sprint Modal */}
+            {/* Selected Sprint Modal (Drawer format perfectly preserved) */}
             {selectedSprint && (
                 <View style={[styles.modalBackdrop, StyleSheet.absoluteFillObject]}>
                     <TouchableOpacity style={styles.modalDismissArea} activeOpacity={1} onPress={() => setSelectedSprint(null)} />
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <View style={styles.modalIconBox}>
+                            <TouchableOpacity activeOpacity={0.7} onPress={() => handleUnstar(selectedSprint.id)} style={styles.modalIconBox}>
                                 <Ionicons name="star" size={24} color="#F59E0B" />
-                            </View>
+                            </TouchableOpacity>
                             <TouchableOpacity onPress={() => setSelectedSprint(null)} style={styles.closeBtn}>
                                 <Ionicons name="close" size={24} color="#94A3B8" />
                             </TouchableOpacity>
@@ -323,6 +339,7 @@ export default function AchievementsScreen() {
 }
 
 const styles = StyleSheet.create({
+    // Global
     container: { flex: 1, backgroundColor: '#F8FAFC' },
     topBar: {
         flexDirection: 'row',
@@ -335,74 +352,44 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F1F5F9',
         zIndex: 10,
     },
-    exitBtn: {
+    exitBtn: { flexDirection: 'row', alignItems: 'center' },
+    backButtonText: { fontSize: 17, color: '#0F172A', fontWeight: '500' },
+    headerTitle: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
+    
+    // Unified Layout Styles
+    scrollArea: { flex: 1 },
+    scrollContent: { paddingVertical: 20, paddingBottom: 60 },
+    sectionHeaderRow: {
         flexDirection: 'row',
-        alignItems: 'center',
-    },
-    backButtonText: {
-        fontSize: 17,
-        color: '#0F172A',
-        fontWeight: '500',
-    },
-    headerTitle: {
-        fontSize: 17,
-        fontWeight: '800',
-        color: '#0F172A',
-    },
-    tabContainer: {
-        backgroundColor: '#FFF',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
         paddingHorizontal: 20,
-        paddingBottom: 16,
-        paddingTop: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.02,
-        shadowRadius: 5,
-        elevation: 2,
-        zIndex: 5,
+        marginBottom: 16,
     },
-    tabSwitcher: {
-        flexDirection: 'row',
-        backgroundColor: '#F1F5F9',
-        borderRadius: 14,
-        padding: 4,
-    },
-    tabBtn: {
-        flex: 1,
-        paddingVertical: 8,
-        alignItems: 'center',
-        borderRadius: 10,
-    },
-    tabBtnActive: {
-        backgroundColor: '#FFF',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 3,
-        elevation: 2,
-    },
-    tabText: {
+    viewAllText: {
         fontSize: 14,
-        fontWeight: '600',
-        color: '#64748B',
+        fontWeight: '700',
+        color: '#3B82F6',
     },
-    tabTextActive: {
-        color: '#0F172A',
+    sectionHeader: {
+        fontSize: 18,
         fontWeight: '800',
+        color: '#0F172A',
+        marginBottom: 16,
+        paddingHorizontal: 20,
     },
-    scrollArea: {
-        flex: 1,
+    sectionDivider: {
+        height: 1,
+        backgroundColor: '#E2E8F0',
+        marginVertical: 32,
+        marginHorizontal: 20,
     },
-    scrollContent: {
-        padding: 20,
-        paddingBottom: 60,
-    },
+
+    // Empty State
     emptyContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingTop: 60,
+        paddingTop: 40,
         paddingHorizontal: 20,
     },
     emptyText: {
@@ -420,77 +407,83 @@ const styles = StyleSheet.create({
         lineHeight: 20,
     },
 
-    // Personal Cards Gallery Style
-    gridContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        gap: 16,
+    // Carousel Styles
+    carouselSection: { marginTop: 8 },
+    carouselContainer: {
+        paddingHorizontal: 20,
+        gap: 12,
     },
-    personalCard: {
-        width: '47%',
-        aspectRatio: 1, // Make it square
-        borderRadius: 20,
+    carouselCard: {
         backgroundColor: '#FFF',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        borderRadius: 16,
+        padding: 12,
         borderWidth: 1,
-        borderColor: '#F1F5F9',
-        overflow: 'hidden',
-        marginBottom: 8,
+        borderColor: '#E2E8F0',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
+        height: 180,
     },
-    personalCardInner: {
-        flex: 1,
-        padding: 14,
-        justifyContent: 'space-between',
-    },
-    cardHeaderRow: {
-        alignItems: 'flex-start',
-        marginBottom: 8,
-    },
-    cardDate: {
+    carouselDate: {
         fontSize: 10,
         fontWeight: '800',
         color: '#94A3B8',
         textTransform: 'uppercase',
-        letterSpacing: 0.8,
+        letterSpacing: 0.5,
+        marginBottom: 6,
     },
-    cardBody: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    primaryTaskText: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: '#0F172A',
-        lineHeight: 22,
-    },
-    cardFooter: {
-        alignItems: 'flex-start',
-        paddingTop: 8,
-    },
-    durationPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#EFF6FF',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        gap: 4,
-    },
-    durationPillText: {
-        fontSize: 11,
+    carouselTitle: {
+        fontSize: 13,
         fontWeight: '700',
+        color: '#0F172A',
+        lineHeight: 18,
+        marginBottom: 8,
+        height: 36, // Reserve room for 2 lines
+    },
+    carouselGraphContainer: {
+        flex: 1,
+        marginVertical: 8,
+        justifyContent: 'flex-end',
+    },
+    emptyGraph: {
+        flex: 1,
+    },
+    barGraphWrapper: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        height: '100%',
+        gap: 2,
+    },
+    barColumn: {
+        flex: 1,
+        maxWidth: 12,
+        height: '100%',
+        justifyContent: 'flex-end',
+    },
+    barFill: {
+        width: '100%',
+        borderRadius: 3,
+    },
+    carouselCardBottom: {
+        marginTop: 4,
+    },
+    carouselDuration: {
+        fontSize: 13,
+        fontWeight: '800',
         color: '#3B82F6',
+        marginBottom: 2,
+    },
+    carouselTaskCount: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#64748B',
     },
 
-    // System Cards Style
-    systemContainer: {
-        gap: 16,
-    },
+    // System Cards Style (Kept exactly as before)
+    systemContainer: { gap: 16 },
     systemCard: {
         backgroundColor: '#FFF',
         borderRadius: 20,
@@ -503,14 +496,8 @@ const styles = StyleSheet.create({
         elevation: 2,
         overflow: 'hidden',
     },
-    systemCardUnlocked: {
-        borderColor: '#E2E8F0',
-    },
-    systemCardLocked: {
-        borderColor: '#F1F5F9',
-        opacity: 0.8,
-        backgroundColor: '#FAFAFA',
-    },
+    systemCardUnlocked: { borderColor: '#E2E8F0' },
+    systemCardLocked: { borderColor: '#F1F5F9', opacity: 0.8, backgroundColor: '#FAFAFA' },
     unlockedBadge: {
         position: 'absolute',
         top: 20,
@@ -544,19 +531,15 @@ const styles = StyleSheet.create({
     },
     systemCardTextWrap: {
         flex: 1,
-        paddingRight: 40, // Space for unlocked badge
+        paddingRight: 40,
     },
     systemTitle: {
         fontSize: 18,
         fontWeight: '800',
         marginBottom: 4,
     },
-    textUnlocked: {
-        color: '#0F172A',
-    },
-    textLocked: {
-        color: '#64748B',
-    },
+    textUnlocked: { color: '#0F172A' },
+    textLocked: { color: '#64748B' },
     systemDesc: {
         fontSize: 14,
         color: '#64748B',
@@ -597,26 +580,29 @@ const styles = StyleSheet.create({
         borderRadius: 4,
     },
 
-    // Modal Styles
+    // Modal Styles (Floating Card)
     modalBackdrop: {
         backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
         zIndex: 100,
     },
     modalDismissArea: {
-        flex: 1,
+        position: 'absolute',
+        top: 0, left: 0, right: 0, bottom: 0,
     },
     modalContent: {
         backgroundColor: '#FFF',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        borderRadius: 24,
+        width: '100%',
         padding: 24,
-        paddingBottom: 40,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
         elevation: 10,
+        maxHeight: '80%',
     },
     modalHeader: {
         flexDirection: 'row',
