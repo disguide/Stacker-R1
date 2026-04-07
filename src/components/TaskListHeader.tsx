@@ -114,15 +114,29 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                             {unreadCount > 0 && (
                                 <View style={{
                                     position: 'absolute',
-                                    top: 0,
-                                    right: -2,
-                                    width: 10,
-                                    height: 10,
-                                    borderRadius: 5,
+                                    top: -4,
+                                    right: -8,
                                     backgroundColor: '#007AFF', // Stacker Blue
+                                    borderRadius: 10,
+                                    minWidth: 18,
+                                    height: 18,
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    paddingHorizontal: 4,
                                     borderWidth: 1.5,
-                                    borderColor: '#FFF'
-                                }} />
+                                    borderColor: '#FFF',
+                                    zIndex: 10
+                                }}>
+                                    <Text style={{
+                                        color: '#FFF',
+                                        fontSize: 10,
+                                        fontWeight: '800',
+                                        textAlign: 'center',
+                                        lineHeight: 14,
+                                    }}>
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                    </Text>
+                                </View>
                             )}
                         </View>
                     </TouchableOpacity>

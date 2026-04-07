@@ -29,6 +29,12 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "stacker"
+    "scheme": "stacker",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e2b4ac1f-887a-408e-a853-2322b5ffa5a4"
+      }
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { StorageService, MailMessage } from '../../services/storage';
 
 const WELCOME_MESSAGE: MailMessage = {
@@ -59,6 +60,13 @@ export function useMail() {
     useEffect(() => {
         loadMessages();
     }, [loadMessages]);
+
+    // Also refresh when screen comes into focus (e.g. returning from a message)
+    useFocusEffect(
+        useCallback(() => {
+            loadMessages();
+        }, [loadMessages])
+    );
 
     // Ensure unread count only applies to inbox
     const inboxMessages = messages.filter(m => !m.trashed);

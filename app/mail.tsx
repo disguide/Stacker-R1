@@ -83,6 +83,9 @@ export default function MailScreen() {
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Inbox</Text>
                 <View style={styles.headerRightGroup}>
+                    <TouchableOpacity onPress={markAllAsRead} style={styles.headerIconBtn}>
+                        <MaterialCommunityIcons name="email-check-outline" size={24} color="#64748B" />
+                    </TouchableOpacity>
                     <TouchableOpacity onPress={() => router.push('/trash')} style={styles.headerIconBtn}>
                         <MaterialCommunityIcons name="trash-can-outline" size={24} color="#64748B" />
                     </TouchableOpacity>

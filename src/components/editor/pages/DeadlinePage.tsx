@@ -4,6 +4,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { THEME } from '../constants';
 import { ActionBar } from '../common/ActionBar';
 import { TimeWheelPanel } from '../common/TimeWheelPanel';
+import { StorageService } from '../../../services/storage';
 
 const ROW_HEIGHT = 36;
 
@@ -21,7 +22,19 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
     const [showTimeWheel, setShowTimeWheel] = useState(false);
     const [tempHour, setTempHour] = useState(9);
     const [tempMinute, setTempMinute] = useState(0);
-    const [is24h, setIs24h] = useState(false);
+    const [is24h, setIs24h] = useState(true);
+
+    // ─── Load 24h preference from storage on mount ──────────────────
+    useEffect(() => {
+        StorageService.loadSprintSettings().then(s => setIs24h(!!s.use24HourFormat));
+    }, []);
+
+    const toggle24h = async () => {
+        const newMode = !is24h;
+        setIs24h(newMode);
+        const settings = await StorageService.loadSprintSettings();
+        await StorageService.saveSprintSettings({ ...settings, use24HourFormat: newMode });
+    };
 
     // ─── Initialize from prop ONCE on mount ─────────────────────────
     const hasInitialized = useRef(false);
@@ -163,7 +176,7 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
                     </TouchableOpacity>
                     <Text style={st.timeHeaderTitle}>Due Time</Text>
                     {/* 24h toggle */}
-                    <TouchableOpacity onPress={() => setIs24h(!is24h)} style={st.formatToggle}>
+                    <TouchableOpacity onPress={toggle24h} style={st.formatToggle}>
                         <Text style={[st.formatToggleText, is24h && { color: THEME.accent, fontWeight: '700' }]}>
                             {is24h ? '24h' : '12h'}
                         </Text>
