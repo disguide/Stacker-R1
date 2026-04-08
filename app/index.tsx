@@ -412,8 +412,6 @@ export default function TaskListScreen() {
             <CalendarModal
                 visible={ui.isCalendarVisible}
                 onClose={() => ui.setIsCalendarVisible(false)}
-                showTimePicker={ui.calendarMode !== 'move'}
-                autoConfirm={ui.calendarMode === 'move'}
                 onSelectDate={(date: any, hasTime?: boolean) => {
                     let dateStr: string | null = null;
                     if (date) {
@@ -452,7 +450,6 @@ export default function TaskListScreen() {
                         ? form.newTaskDeadline
                         : (ui.calendarTempDate !== null ? ui.calendarTempDate : ui.editingTask?.deadline)
                 }
-                initialPage={ui.calendarInitialPage}
             />
 
             <OrganizeMenu
