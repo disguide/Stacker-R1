@@ -845,6 +845,8 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                 renderItem={renderItem}
                 // @ts-ignore
                 estimatedItemSize={70}
+                // ⚡ Bolt: Provide `getItemType` so FlashList can efficiently recycle views of different types
+                getItemType={(item: any) => item.type}
             />
         </View>
     );

@@ -106,6 +106,7 @@ export default function ProfileScreen() {
     };
 
     useFocusEffect(
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         useCallback(() => {
             let mounted = true;
             const today = toISODateString(new Date());
