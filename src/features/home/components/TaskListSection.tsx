@@ -843,6 +843,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                 keyExtractor={(item: any) => item.key}
                 contentContainerStyle={styles.scrollContent}
                 renderItem={renderItem}
+                getItemType={(item: any) => item.type}
                 // @ts-ignore
                 estimatedItemSize={70}
             />
