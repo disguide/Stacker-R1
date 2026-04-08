@@ -129,7 +129,7 @@ export default function ProfileScreen() {
                 }
             });
             return () => { mounted = false; };
-        }, [])
+        }, [setDailyData])
     );
 
     // Career Stats Calculation

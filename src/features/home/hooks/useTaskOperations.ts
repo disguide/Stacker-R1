@@ -45,7 +45,7 @@ export function useTaskOperations(
         completionTimeouts.current = {};
         pendingItems.current = {};
         setCompletingTaskIds(new Set());
-    }, [toggleTask]);
+    }, [toggleTask, tasks]);
 
     useEffect(() => {
         return () => {
@@ -101,7 +101,7 @@ export function useTaskOperations(
                 });
             }, 2000);
         }
-    }, [completingTaskIds, toggleTask]);
+    }, [completingTaskIds, toggleTask, tasks]);
 
     const handleConfirmDelete = useCallback((taskId: string, todayString: string, onSuccess: () => void) => {
         let dateString = todayString;
@@ -158,7 +158,7 @@ export function useTaskOperations(
             addTask(newTask);
             setHistoryTasks(prev => prev.filter(t => t.id !== taskId));
         }
-    }, [addTask]);
+    }, [addTask, setHistoryTasks]);
 
     const sortTasks = useCallback((tasksToSort: any[], criteria: string | null) => {
         const sorted = [...tasksToSort];
