@@ -1,0 +1,3 @@
+## 2026-04-01 - Missing `getItemType` in `FlashList` causes recycling inefficiencies
+**Learning:** The `TaskListSection` uses `@shopify/flash-list` for high-performance rendering of a list containing multiple varied item types (headers, tasks, and footers). However, omitting the `getItemType` prop forces the `FlashList` to guess item types or treat them all the same, leading to sub-optimal view recycling when scrolling through these mixed items, potentially causing lag or layout glitches as views of the wrong shape are inappropriately reused and deeply re-rendered.
+**Action:** Always provide `getItemType` when rendering heterogeneous list items with `FlashList` so the native layer can correctly categorize and reuse view structures, keeping frame rates high.

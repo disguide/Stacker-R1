@@ -27,6 +27,7 @@ export function useTaskOperations(
     const handleSwipeStart = useCallback(() => setIsListScrollEnabled(false), []);
     const handleSwipeEnd = useCallback(() => setIsListScrollEnabled(true), []);
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const flushCompletions = useCallback(() => {
         const itemIds = Object.keys(completionTimeouts.current);
         itemIds.forEach(itemId => {
@@ -45,7 +46,7 @@ export function useTaskOperations(
         completionTimeouts.current = {};
         pendingItems.current = {};
         setCompletingTaskIds(new Set());
-    }, [toggleTask]);
+    }, [tasks, toggleTask]);
 
     useEffect(() => {
         return () => {
@@ -101,7 +102,8 @@ export function useTaskOperations(
                 });
             }, 2000);
         }
-    }, [completingTaskIds, toggleTask]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [completingTaskIds, toggleTask, tasks]);
 
     const handleConfirmDelete = useCallback((taskId: string, todayString: string, onSuccess: () => void) => {
         let dateString = todayString;
