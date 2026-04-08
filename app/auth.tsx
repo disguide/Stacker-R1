@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/services/supabase';
 import { StorageService } from '../src/services/storage';
+import { SyncService } from '../src/services/SyncService';
 
 export default function AuthScreen() {
     const router = useRouter();
@@ -17,7 +18,7 @@ export default function AuthScreen() {
         try {
             const state = await StorageService.loadUIState() || {};
             await StorageService.saveUIState({ ...state, hasSeenAuth: true });
-        } catch (e) {
+        } catch (_e) {
             // ignore
         }
         if (router.canGoBack()) {
@@ -41,6 +42,8 @@ export default function AuthScreen() {
         if (error) {
             Alert.alert('Error', error.message);
         } else {
+            // Trigger migration logic to stamp local data with current timestamp and push to new account
+            await SyncService.migrateGuestToCloud();
             if (isSignUp) {
                 Alert.alert('Success', 'Check your email for the confirmation link!', [
                     { text: 'OK', onPress: markAuthSeenAndProceed }
