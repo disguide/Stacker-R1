@@ -137,7 +137,7 @@ const calculateRemainingTime = (estimatedTime: string, progress: number) => {
     }
 };
 
-export default function SwipeableTaskRow({
+function SwipeableTaskRow({
     id,
     title,
     completed,
@@ -763,3 +763,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     }
 });
+
+
+// By removing the custom comparator, React.memo relies on shallow equality.
+// However, since we've now stabilized the parent callbacks in `useTaskOperations`
+// (or rather, we shouldn't intentionally drop function references otherwise we cause stale closures),
+// we will export React.memo(SwipeableTaskRow).
+// But actually, FlashList provides its own optimizations and React.memo alone (with reference updates on functions) is safe.
+export default React.memo(SwipeableTaskRow);

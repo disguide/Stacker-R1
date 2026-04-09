@@ -129,7 +129,7 @@ export default function ProfileScreen() {
                 }
             });
             return () => { mounted = false; };
-        }, [])
+        }, [setDailyData])
     );
 
     // Career Stats Calculation
@@ -186,7 +186,7 @@ export default function ProfileScreen() {
         loadData();
 
         return () => { mounted = false; };
-    }, []);
+    }, [setDailyData]);
 
     const handleEditToggle = async () => {
         if (isEditing) {
