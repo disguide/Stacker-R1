@@ -1,0 +1,16 @@
+export const STORAGE_KEYS = {
+    ACTIVE_TASKS: '@stacker_tasks_active',
+    HISTORY: '@stacker_tasks_history_v1',
+    SPRINT_TASKS: '@stacker_sprint_tasks_temp',
+    TAGS: '@stacker_tags_v1',
+    COLOR_LABELS: '@stacker_color_labels_v1',
+    USER_PROFILE: '@stacker_user_profile_v1',
+    USER_COLORS: '@stacker_user_colors_v1',
+    SPRINT_SETTINGS: '@stacker_sprint_settings_v1',
+    SAVED_SPRINTS: '@stacker_saved_sprints_v1',
+    SPRINT_HISTORY: '@stacker_sprint_history_v1',
+    MAIL: '@stacker_mail_v1',
+    DAILY_DATA: '@stacker_daily_data_v1',
+    UI_STATE: '@stacker_ui_state_v1',
+    COLOR_SETTINGS: '@stacker_color_settings_v1',
+};

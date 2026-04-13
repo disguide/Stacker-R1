@@ -531,7 +531,7 @@ export default function SwipeableTaskRow({
                                 {deadline && (
                                     <View style={styles.metaItem}>
                                         <Ionicons name="calendar-outline" size={14} color={getDeadlineUrgencyColor(deadline) || THEME.textSecondary} />
-                                        <Text style={[styles.metaText, getDeadlineUrgencyColor(deadline) && { color: getDeadlineUrgencyColor(deadline) }]}>
+                                        <Text style={[styles.metaText, getDeadlineUrgencyColor(deadline) && { color: getDeadlineUrgencyColor(deadline) ?? undefined }]}>
                                             {(() => {
                                                 try {
                                                     return formatDeadline(deadline);

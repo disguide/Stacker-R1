@@ -191,8 +191,8 @@ export default function SprintScreen() {
         await cancelTimerNotifications();
 
         // 1. Schedule Goal End Notification
-        if (settings.maxDurationEnabled && settings.maxDurationMinutes > 0) {
-            const limitSec = settings.maxDurationMinutes * 60;
+        if (settings.maxDurationEnabled && settings.maxDurationMinutes && settings.maxDurationMinutes > 0) {
+            const limitSec = (settings.maxDurationMinutes || 0) * 60;
             const remainingSec = limitSec - totalSecondsRef.current;
             if (remainingSec > 0) {
                 await Notifications.scheduleNotificationAsync({
@@ -211,8 +211,8 @@ export default function SprintScreen() {
         }
 
         // 2. Schedule Auto-Break Notification
-        if (!isPaused && settings.autoBreakMode && settings.autoBreakWorkTime > 0) {
-            const limitSec = settings.autoBreakWorkTime * 60;
+        if (!isPaused && settings.autoBreakMode && settings.autoBreakWorkTime && settings.autoBreakWorkTime > 0) {
+            const limitSec = (settings.autoBreakWorkTime || 0) * 60;
             const remainingSec = limitSec - (intervalWorkSecondsRef.current % limitSec);
             if (remainingSec > 0) {
                 await Notifications.scheduleNotificationAsync({
@@ -267,8 +267,8 @@ export default function SprintScreen() {
         totalSecondsRef.current += gapSeconds;
 
         // 2. Check if Goal End was reached while away
-        if (settings.maxDurationEnabled && settings.maxDurationMinutes > 0) {
-            const limitSec = settings.maxDurationMinutes * 60;
+        if (settings.maxDurationEnabled && settings.maxDurationMinutes && settings.maxDurationMinutes > 0) {
+            const limitSec = (settings.maxDurationMinutes || 0) * 60;
             if (totalSecondsRef.current >= limitSec) {
                 // Record the "away" segment before ending
                 recordCurrentSegment(now, isPaused ? "Break (Background)" : "Work (Background)");

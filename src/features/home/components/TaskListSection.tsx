@@ -85,7 +85,7 @@ function ReorderableList({
     renderDateHeader: (date: Date) => React.ReactNode;
     onDragStateChange?: (isDragging: boolean) => void;
     scrollY: React.MutableRefObject<number>;
-    scrollRef: React.RefObject<ScrollView>;
+    scrollRef: React.RefObject<ScrollView | null>;
     isClumped: boolean;
     sortOption: string | null;
 }) {

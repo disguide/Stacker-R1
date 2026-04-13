@@ -26,7 +26,7 @@ export class Sanitizer {
             time: Sanitizer.extractTime(raw.date) || raw.time, // Recover time if it was stuck in date
 
             // Optional Dates
-            deadline: raw.deadline ? Sanitizer.stripTime(raw.deadline) : undefined,
+            deadline: raw.deadline ? Sanitizer.stripTime(raw.deadline) ?? undefined : undefined,
 
             // Recurrence
             rrule: raw.rrule || undefined,

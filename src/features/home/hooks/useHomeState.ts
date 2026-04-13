@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
-import { StorageService } from '../../../services/storage';
-import { ViewMode } from '../../../constants/theme';
-import { useTaskNavigation } from '../../tasks/hooks/useTaskNavigation';
+import { StorageService } from '@/services/storage';
+import { ViewMode } from '@/constants/theme';
+import { useTaskNavigation } from '@/features/tasks/hooks/useTaskNavigation';
 
 // Module-level cache: survives screen unmount/remount (e.g. returning from Sprint).
 // Prevents the "declump flash" caused by isClumped initializing to false on every mount.

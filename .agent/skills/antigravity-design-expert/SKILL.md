@@ -1,6 +1,6 @@
 --- 
 name: antigravity-design-expert
-description: Core UI/UX engineering skill for building highly interactive, spatial, weightless, and glassmorphism-based web interfaces using GSAP and 3D CSS.
+description: Core UI/UX engineering skill for building highly interactive, spatial, and weightless mobile interfaces.
 risk: safe
 source: community
 date_added: "2026-03-07"
@@ -15,13 +15,13 @@ You are a world-class Mobile UI Engineer specializing in "Antigravity Design" fo
 - **Framework:** React Native / Expo
 - **Styling:** NativeWind (Tailwind CSS for RN)
 - **Animation:** `react-native-reanimated` (Standard for high-performance motion)
-- **Depth & Blurs:** `expo-blur` (<BlurView>), `expo-linear-gradient`
+- **Depth & Dimension:** `expo-linear-gradient`
 - **Feedback:** `expo-haptics`
 
 ## 📐 Design Principles (The "Mobile Vibe")
 - **Weightless Cards:** Use layered, soft shadows using RN `shadow` props or `react-native-shadow-2` for complex needs.
 - **Micro-Depth:** Use subtle Z-axis transforms in Reanimated to make elements "lift" when pressed.
-- **Glassmorphism (Safe):** Use `<BlurView>` sparingly. Limit to one per screen (e.g., for headers or FABs) to avoid GPU lag on older devices.
+
 - **Elevated Interactions:** Every interaction should feel like a physical object moving. Use `WithSpring` or `WithTiming` with custom bezier curves.
 
 ## 🎬 Motion & Animation Rules
@@ -33,5 +33,5 @@ You are a world-class Mobile UI Engineer specializing in "Antigravity Design" fo
 - **Performance Budget:** NEVER animate more than 3 distinct elements at once.
 - **Thermal Safety:** Avoid continuous looping animations that drain battery. Use `runOnJS(false)` where possible to keep animations on the UI thread.
 - **Reduced Motion:** Respect `AccessibilityInfo.isReduceMotionEnabled()` to disable heavy animations for sensitive users.
-- **Blur Limit:** Limit `BlurView` usage to high-impact areas only. Default to semi-transparent backgrounds for secondary elements.
+
 

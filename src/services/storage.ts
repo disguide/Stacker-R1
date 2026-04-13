@@ -1,20 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-export const STORAGE_KEYS = {
-    ACTIVE_TASKS: '@stacker_tasks_active',
-    HISTORY: '@stacker_tasks_history_v1',
-    SPRINT_TASKS: '@stacker_sprint_tasks_temp',
-    TAGS: '@stacker_tags_v1',
-    COLOR_LABELS: '@stacker_color_labels_v1',
-    USER_PROFILE: '@stacker_user_profile_v1',
-    USER_COLORS: '@stacker_user_colors_v1',
-    SPRINT_SETTINGS: '@stacker_sprint_settings_v1', // New Key
-    SAVED_SPRINTS: '@stacker_saved_sprints_v1',
-    SPRINT_HISTORY: '@stacker_sprint_history_v1',
-    MAIL: '@stacker_mail_v1',
-    DAILY_DATA: '@stacker_daily_data_v1', // New Key
-    UI_STATE: '@stacker_ui_state_v1', // New Key
-};
+import { STORAGE_KEYS } from './storage.types';
+import { triggerSync } from './SyncService';
 
 export interface SprintSettings {
     showTimer: boolean;
@@ -41,6 +27,8 @@ export interface SavedSprint {
     note?: string;
     intensity?: number; // 0-100 score
     sortOrder?: number;
+    updated_at?: number;
+    deleted_at?: number;
 }
 
 export type GoalCategory = 'traits' | 'habits' | 'environment' | 'outcomes';
@@ -101,6 +89,7 @@ export interface UserProfile {
             legs?: string;
         };
     };
+    updated_at?: number;
 }
 
 export type ColorLabelMap = Record<string, string>; // Color Hex -> Label
@@ -109,6 +98,11 @@ export interface ColorDefinition {
     id: string;
     color: string; // Hex
     label: string;
+    keywords?: string[]; // Auto-color trigger words
+}
+
+export interface ColorSettings {
+    // Reserved for future keyword/detection settings
 }
 
 // Red, Orange, Amber, Emerald, Blue, Violet
@@ -131,7 +125,9 @@ export interface DailyData {
     date: string; // ISO Date YYYY-MM-DD
     rating?: number;
     reflection?: string;
-    updatedAt: string;
+    updatedAt: string; // Keep for legacy
+    updated_at?: number; // Sync standard
+    deleted_at?: number;
     isStarred?: boolean;
 }
 
@@ -143,27 +139,12 @@ export const StorageService = {
             const jsonValue = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_TASKS);
             let tasks: Task[] = jsonValue != null ? JSON.parse(jsonValue) : [];
 
-            // CLEANUP: Remove accidentally saved "Ghost" instances (Projected tasks).
-            // A genuine task id is simple UUID. A Ghost ID is "UUID_YYYY-MM-DD".
-            // Only "Detached" tasks (exceptions) should remain, and they should have new unique IDs.
-            // If we find an ID that looks like "ID_Date" AND doesn't have its own unique properties distinct from master...
-            // Safest heuristic: If it has an originalTaskId that matches the prefix of its ID?
-            // Actually, we shouldn't save ghosts ever.
-            // Filter out any task where ID contains "_" followed by a date pattern, UNLESS it's explicitly marked as a "detach" (which we handle by giving new IDs in useTaskActions).
+            // Filter out soft-deleted tasks
+            tasks = tasks.filter(t => !t.deleted_at);
 
             const originalLength = tasks.length;
             tasks = tasks.filter(t => {
-                // Check if ID looks like "uuid_2024-01-01"
-                // And check if it's NOT a master (masters might use UUIDs? No, usually generated).
-                // Actually, if it has `rrule`, it's a master. Keep it.
                 if (t.rrule) return true;
-
-                // If it's a simple task (no rrule), check ID.
-                // If ID matches ".*_\d{4}-\d{2}-\d{2}$" it MIGHT be a ghost.
-                // But detached tasks might use that format?
-                // In `useTaskActions`, detached tasks get `${masterTask.id}_detach_${Date.now()}`.
-                // So "UUID_YYYY-MM-DD" is definitely a temporary ghost ID.
-
                 if (!t) return false;
                 const isGhostId = /_(\d{4}-\d{2}-\d{2})$/.test(t.id);
                 if (isGhostId) {
@@ -174,7 +155,6 @@ export const StorageService = {
             });
 
             if (tasks.length !== originalLength) {
-                // Save the cleaned list back to storage execution
                 await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_TASKS, JSON.stringify(tasks));
             }
 
@@ -187,8 +167,14 @@ export const StorageService = {
 
     async saveActiveTasks(tasks: Task[]) {
         try {
-            const jsonValue = JSON.stringify(tasks);
+            const timestamp = Date.now();
+            const updatedTasks = tasks.map(t => ({
+                ...t,
+                updated_at: t.updated_at || timestamp
+            }));
+            const jsonValue = JSON.stringify(updatedTasks);
             await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_TASKS, jsonValue);
+            triggerSync();
         } catch (e) {
             console.error('Failed to save active tasks', e);
         }
@@ -247,9 +233,10 @@ export const StorageService = {
     async addToHistory(task: Task) {
         try {
             const currentHistory = await this.loadHistory();
-            // Add to start of array
+            task.updated_at = Date.now();
             const updatedHistory = [task, ...currentHistory];
             await AsyncStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(updatedHistory));
+            triggerSync();
         } catch (e) {
             console.error('Failed to add to history', e);
         }
@@ -296,6 +283,7 @@ export const StorageService = {
     async saveTags(tags: TagDefinition[]) {
         try {
             await AsyncStorage.setItem(STORAGE_KEYS.TAGS, JSON.stringify(tags));
+            triggerSync();
         } catch (e) {
             console.error('Failed to save tags', e);
         }
@@ -315,6 +303,7 @@ export const StorageService = {
     async saveColorLabels(labels: ColorLabelMap) {
         try {
             await AsyncStorage.setItem(STORAGE_KEYS.COLOR_LABELS, JSON.stringify(labels));
+            triggerSync();
         } catch (e) {
             console.error('Failed to save color labels', e);
         }
@@ -362,8 +351,28 @@ export const StorageService = {
         try {
             this._userColorsCache = colors; // Update cache immediately
             await AsyncStorage.setItem(STORAGE_KEYS.USER_COLORS, JSON.stringify(colors));
+            triggerSync();
         } catch (e) {
             console.error('Failed to save user colors', e);
+        }
+    },
+
+    // COLOR SETTINGS (Auto-color preferences)
+    async loadColorSettings(): Promise<ColorSettings> {
+        try {
+            const jsonValue = await AsyncStorage.getItem(STORAGE_KEYS.COLOR_SETTINGS);
+            return jsonValue != null ? JSON.parse(jsonValue) : {};
+        } catch (e) {
+            console.error('Failed to load color settings', e);
+            return {};
+        }
+    },
+
+    async saveColorSettings(settings: ColorSettings) {
+        try {
+            await AsyncStorage.setItem(STORAGE_KEYS.COLOR_SETTINGS, JSON.stringify(settings));
+        } catch (e) {
+            console.error('Failed to save color settings', e);
         }
     },
 
@@ -380,7 +389,9 @@ export const StorageService = {
 
     async saveProfile(profile: UserProfile) {
         try {
+            profile.updated_at = Date.now();
             await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
+            triggerSync();
         } catch (e) {
             console.error('Failed to save profile', e);
         }
@@ -414,6 +425,7 @@ export const StorageService = {
     async saveSprintSettings(settings: SprintSettings) {
         try {
             await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_SETTINGS, JSON.stringify(settings));
+            triggerSync();
         } catch (e) {
             console.error('Failed to save sprint settings', e);
         }
@@ -433,8 +445,10 @@ export const StorageService = {
     async saveSavedSprint(sprint: SavedSprint) {
         try {
             const currentSprints = await this.loadSavedSprints();
+            sprint.updated_at = Date.now();
             const updatedSprints = [sprint, ...currentSprints];
             await AsyncStorage.setItem(STORAGE_KEYS.SAVED_SPRINTS, JSON.stringify(updatedSprints));
+            triggerSync();
         } catch (e) {
             console.error('Failed to save saved sprint', e);
         }
@@ -443,6 +457,7 @@ export const StorageService = {
     async updateSavedSprints(sprints: SavedSprint[]) {
         try {
             await AsyncStorage.setItem(STORAGE_KEYS.SAVED_SPRINTS, JSON.stringify(sprints));
+            triggerSync();
         } catch (e) {
             console.error('Failed to update saved sprints array', e);
         }
@@ -453,6 +468,7 @@ export const StorageService = {
             const currentSprints = await this.loadSavedSprints();
             const updated = currentSprints.filter(s => s.id !== sprintId);
             await AsyncStorage.setItem(STORAGE_KEYS.SAVED_SPRINTS, JSON.stringify(updated));
+            triggerSync();
         } catch (e) {
             console.error('Failed to delete saved sprint', e);
         }
@@ -471,9 +487,11 @@ export const StorageService = {
 
     async addToSprintHistory(sprint: SavedSprint) {
         try {
+            sprint.updated_at = Date.now();
             const currentHistory = await this.loadSprintHistory();
             const updatedHistory = [sprint, ...currentHistory];
             await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_HISTORY, JSON.stringify(updatedHistory));
+            triggerSync();
         } catch (e) {
             console.error('Failed to add to sprint history', e);
         }
@@ -484,6 +502,7 @@ export const StorageService = {
             const currentHistory = await this.loadSprintHistory();
             const updated = currentHistory.filter(s => s.id !== sprintId);
             await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_HISTORY, JSON.stringify(updated));
+            triggerSync();
         } catch (e) {
             console.error('Failed to delete from sprint history', e);
         }
@@ -492,6 +511,7 @@ export const StorageService = {
     async updateSprintHistory(history: SavedSprint[]) {
         try {
             await AsyncStorage.setItem(STORAGE_KEYS.SPRINT_HISTORY, JSON.stringify(history));
+            triggerSync();
         } catch (e) {
             console.error('Failed to update sprint history array', e);
         }
@@ -510,7 +530,9 @@ export const StorageService = {
 
     async saveDailyData(date: string, data: DailyData) {
         try {
+            data.updated_at = Date.now();
             await AsyncStorage.setItem(`${STORAGE_KEYS.DAILY_DATA}_${date}`, JSON.stringify(data));
+            triggerSync();
         } catch (e) {
             console.error('Failed to save daily data', e);
         }
@@ -547,6 +569,7 @@ export const StorageService = {
     async saveMail(messages: MailMessage[]): Promise<void> {
         try {
             await AsyncStorage.setItem(STORAGE_KEYS.MAIL, JSON.stringify(messages));
+            triggerSync();
         } catch (e) {
             console.error('[Storage] Error saving mail', e);
         }

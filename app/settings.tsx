@@ -26,6 +26,11 @@ export default function SettingsScreen() {
     
     const [workTimeStr, setWorkTimeStr] = useState('25');
     
+    // Account Security State
+    const [newPassword, setNewPassword] = useState('');
+    const [newEmail, setNewEmail] = useState('');
+    const [isSecurityLoading, setIsSecurityLoading] = useState(false);
+    
     // Auth State
     const { user } = useAuth();
 
@@ -131,6 +136,38 @@ export default function SettingsScreen() {
                 }
             ]
         );
+    };
+
+    const handleUpdatePassword = async () => {
+        if (!newPassword || newPassword.length < 6) {
+            Alert.alert('Error', 'Password must be at least 6 characters.');
+            return;
+        }
+        setIsSecurityLoading(true);
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        setIsSecurityLoading(false);
+        if (error) {
+            Alert.alert('Error', error.message);
+        } else {
+            Alert.alert('Success', 'Password updated successfully!');
+            setNewPassword('');
+        }
+    };
+
+    const handleUpdateEmail = async () => {
+        if (!newEmail || !newEmail.includes('@')) {
+            Alert.alert('Error', 'Please enter a valid email address.');
+            return;
+        }
+        setIsSecurityLoading(true);
+        const { error } = await supabase.auth.updateUser({ email: newEmail });
+        setIsSecurityLoading(false);
+        if (error) {
+            Alert.alert('Error', error.message);
+        } else {
+            Alert.alert('Verification Sent', 'Please check both your old and new email addresses for confirmation links.');
+            setNewEmail('');
+        }
     };
 
     return (
@@ -300,7 +337,54 @@ export default function SettingsScreen() {
                         </TouchableOpacity>
                     </SettingsGroup>
                     
-                    {/* DANGER ZONE */}
+                    {/* ACCOUNT SECURITY */}
+                    {user && (
+                        <SettingsGroup title="Account Security">
+                            <View style={styles.securityItem}>
+                                <Text style={styles.securityLabel}>Change Password</Text>
+                                <View style={styles.securityInputRow}>
+                                    <TextInput 
+                                        style={styles.securityInput} 
+                                        placeholder="New Password" 
+                                        secureTextEntry 
+                                        value={newPassword}
+                                        onChangeText={setNewPassword}
+                                    />
+                                    <TouchableOpacity 
+                                        style={[styles.securityButton, isSecurityLoading && styles.rowDisabled]} 
+                                        onPress={handleUpdatePassword}
+                                        disabled={isSecurityLoading}
+                                    >
+                                        <Text style={styles.securityButtonText}>Update</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            <View style={styles.dividerIndent} />
+
+                            <View style={styles.securityItem}>
+                                <Text style={styles.securityLabel}>Update Email</Text>
+                                <View style={styles.securityInputRow}>
+                                    <TextInput 
+                                        style={styles.securityInput} 
+                                        placeholder="New Email Address" 
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
+                                        value={newEmail}
+                                        onChangeText={setNewEmail}
+                                    />
+                                    <TouchableOpacity 
+                                        style={[styles.securityButton, isSecurityLoading && styles.rowDisabled]} 
+                                        onPress={handleUpdateEmail}
+                                        disabled={isSecurityLoading}
+                                    >
+                                        <Text style={styles.securityButtonText}>Update</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <Text style={styles.securityNote}>Requires verification link sent to your new email.</Text>
+                            </View>
+                        </SettingsGroup>
+                    )}
                     <SettingsGroup>
                         <TouchableOpacity style={styles.dangerRow} onPress={handleResetEverything}>
                             <Text style={styles.dangerText}>Delete All Data & Statistics</Text>
@@ -527,5 +611,42 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         paddingVertical: 8,
         textAlign: 'center',
+    },
+    securityItem: {
+        padding: 16,
+    },
+    securityLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: 8,
+    },
+    securityInputRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    securityInput: {
+        flex: 1,
+        height: 44,
+        backgroundColor: '#F3F4F6',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        fontSize: 15,
+    },
+    securityButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 16,
+        justifyContent: 'center',
+        borderRadius: 8,
+    },
+    securityButtonText: {
+        color: '#FFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    securityNote: {
+        fontSize: 12,
+        color: '#9CA3AF',
+        marginTop: 6,
     }
 });

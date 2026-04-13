@@ -3,8 +3,9 @@ import { Alert } from 'react-native';
 import { Task, Subtask } from '../../tasks/types';
 import { resolveId } from '../../../utils/taskHelpers';
 import { RRule } from 'rrule';
-import { RecurrenceRule, RecurrenceFrequency } from '../../../services/storage';
+import { RecurrenceRule, RecurrenceFrequency, ColorDefinition, ColorSettings } from '../../../services/storage';
 import { parseRRuleString } from '../../../utils/recurrence';
+import { detectAutoColor } from '../../../utils/autoColor';
 
 interface UseTaskCreationProps {
     tasks: Task[];
@@ -16,6 +17,9 @@ interface UseTaskCreationProps {
     setAddingSubtaskToParentId: (id: string | null) => void;
     setEditingSubtask: (task: any) => void;
     setInitialActiveFeature: (feature: any) => void;
+    // Auto-color
+    userColors?: ColorDefinition[];
+    colorSettings?: ColorSettings;
 }
 
 export function useTaskCreation({
@@ -27,7 +31,9 @@ export function useTaskCreation({
     setIsDrawerVisible,
     setAddingSubtaskToParentId,
     setEditingSubtask,
-    setInitialActiveFeature
+    setInitialActiveFeature,
+    userColors = [],
+    colorSettings = {},
 }: UseTaskCreationProps) {
 
     const {
@@ -109,9 +115,21 @@ export function useTaskCreation({
             rruleString = generateRRuleString(newTaskRecurrence, date);
         }
 
+        // AUTO-COLOR: scan the title for keyword matches against the user's palette
+        const rawTitle = newTaskTitle.trim();
+        const autoColorResult = detectAutoColor(rawTitle, userColors);
+        const resolvedColor = autoColorResult?.color;
+        const resolvedTitle = rawTitle;
+
+        if (__DEV__ && autoColorResult) {
+            console.log(
+                `[AutoColor] Matched "${autoColorResult.matchedKeyword}" → ${autoColorResult.color}`
+            );
+        }
+
         const newTask: Task = {
             id: taskId,
-            title: newTaskTitle.trim(),
+            title: resolvedTitle,
             date: date,
             completedDates: [],
             exceptionDates: [],
@@ -120,17 +138,28 @@ export function useTaskCreation({
             reminderTime: newTaskReminderTime || undefined,
             rrule: rruleString,
             subtasks: [],
-            progress: 0
+            progress: 0,
+            color: resolvedColor, // undefined when no keyword matched
         };
 
         addTask(newTask);
         cancelAddingTask();
-    }, [newTaskTitle, newTaskDeadline, newTaskEstimatedTime, newTaskRecurrence, newTaskReminderTime, tasks, addTask, updateTask, cancelAddingTask, setNewTaskTitle]);
+    }, [newTaskTitle, newTaskDeadline, newTaskEstimatedTime, newTaskRecurrence, newTaskReminderTime, tasks, addTask, updateTask, cancelAddingTask, setNewTaskTitle, userColors, colorSettings]);
 
     const saveEditedTask = useCallback((updatedTask: Task, shouldClose: boolean = true, editingTask: any) => {
         // 1. HANDLE NEW TASK CREATION
         if (updatedTask.id.startsWith('new_temp_')) {
-            const finalTask = { ...updatedTask, id: Date.now().toString() };
+            let finalTitle = updatedTask.title.trim();
+            let finalColor = updatedTask.color;
+
+            const autoColorResult = detectAutoColor(finalTitle, userColors);
+            if (autoColorResult) {
+                // If they didn't manually pick a color in the drawer, or we strictly want to override:
+                // Let's override to give the "magic" feeling.
+                finalColor = autoColorResult.color;
+            }
+
+            const finalTask = { ...updatedTask, id: Date.now().toString(), title: finalTitle, color: finalColor };
             if (finalTask.recurrence) {
                 const rrule = generateRRuleString(finalTask.recurrence, finalTask.date);
                 if (rrule) finalTask.rrule = rrule;

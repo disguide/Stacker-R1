@@ -6,12 +6,14 @@ type AuthContextType = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  authEvent: string | null;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   isLoading: true,
+  authEvent: null,
 });
 
 export const useAuth = () => {
@@ -22,6 +24,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authEvent, setAuthEvent] = useState<string | null>(null);
 
   useEffect(() => {
     // Check active session
@@ -33,7 +36,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        setAuthEvent(event);
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
@@ -46,7 +50,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading }}>
+    <AuthContext.Provider value={{ user, session, isLoading, authEvent }}>
       {children}
     </AuthContext.Provider>
   );

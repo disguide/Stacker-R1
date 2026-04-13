@@ -564,7 +564,7 @@ export default function ProfileScreen() {
                                             <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
                                         ) : (
                                             <View style={styles.avatarPlaceholder}>
-                                                <Text style={{ fontSize: 36 }}>👤</Text>
+                                                <Text style={{ fontSize: 36, opacity: 0.5 }}>👤</Text>
                                             </View>
                                         )}
                                         {isEditing && (
@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     avatarImage: { width: 100, height: 100, borderRadius: 16 },
-    avatarPlaceholder: { width: 100, height: 100, borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#000000' },
     avatarEditOverlay: {
         position: 'absolute',
         top: 0, left: 0, right: 0, bottom: 0,

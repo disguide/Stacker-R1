@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "stacker_temp",
+    "name": "Stacker",
     "slug": "stacker_temp",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.disguide.stacker"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,20 +22,24 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "softwareKeyboardLayoutMode": "adjustResize"
+      "softwareKeyboardLayoutMode": "adjustResize",
+      "package": "com.disguide.stacker",
+      "versionCode": 3
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-secure-store"
     ],
     "scheme": "stacker",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "e2b4ac1f-887a-408e-a853-2322b5ffa5a4"
+        "projectId": "01964494-369a-45a6-a5c3-b238abcce7e8"
       }
-    }
+    },
+    "owner": "1disguide"
   }
 }

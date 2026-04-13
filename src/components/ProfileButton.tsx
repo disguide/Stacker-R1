@@ -35,10 +35,12 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: 12,
-        backgroundColor: '#000000',
+        backgroundColor: '#F1F5F9', // Soft Grey
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
+        borderWidth: 2,
+        borderColor: '#000000', // Thicker Black Border
     },
     avatarImage: {
         width: 60,
@@ -48,7 +50,7 @@ const styles = StyleSheet.create({
         width: 18,
         height: 18,
         borderRadius: 9,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#94A3B8', // Slate Grey
         marginBottom: 5,
     },
     body: {
@@ -56,6 +58,6 @@ const styles = StyleSheet.create({
         height: 18,
         borderTopLeftRadius: 18,
         borderTopRightRadius: 18,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#94A3B8', // Slate Grey
     },
 });

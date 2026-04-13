@@ -5,13 +5,25 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/services/supabase';
 import { StorageService } from '../src/services/storage';
+import { SyncService } from '../src/services/SyncService';
+import { useAuth } from '../src/providers/AuthProvider';
 
 export default function AuthScreen() {
     const router = useRouter();
+    const { user, authEvent } = useAuth();
     const [emailFlow, setEmailFlow] = useState(false);
+    const [recoveryMode, setRecoveryMode] = useState(false);
     const [authEmail, setAuthEmail] = useState('');
     const [authPassword, setAuthPassword] = useState('');
     const [authLoading, setAuthLoading] = useState(false);
+
+    // Detect if we opened from a recovery link
+    React.useEffect(() => {
+        if (authEvent === 'PASSWORD_RECOVERY') {
+            setEmailFlow(true);
+            setRecoveryMode(true);
+        }
+    }, [authEvent]);
 
     const markAuthSeenAndProceed = async () => {
         try {
@@ -28,11 +40,29 @@ export default function AuthScreen() {
     };
 
     const handleEmailAuth = async (isSignUp: boolean) => {
-        if (!authEmail || !authPassword) {
+        if (!authEmail || (!recoveryMode && !authPassword)) {
             Alert.alert('Error', 'Please enter email and password');
             return;
         }
         setAuthLoading(true);
+
+        if (recoveryMode) {
+            // Handle password update after recovery
+            const { error } = await supabase.auth.updateUser({ password: authPassword });
+            setAuthLoading(false);
+            if (error) {
+                Alert.alert('Error', error.message);
+            } else {
+                Alert.alert('Success', 'Password updated successfully!', [
+                    { text: 'OK', onPress: () => {
+                        setRecoveryMode(false);
+                        markAuthSeenAndProceed();
+                    }}
+                ]);
+            }
+            return;
+        }
+
         const { error } = isSignUp 
             ? await supabase.auth.signUp({ email: authEmail, password: authPassword })
             : await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
@@ -46,8 +76,27 @@ export default function AuthScreen() {
                     { text: 'OK', onPress: markAuthSeenAndProceed }
                 ]);
             } else {
+                SyncService.migrateGuestToCloud();
                 markAuthSeenAndProceed();
             }
+        }
+    };
+
+    const handleForgotPassword = async () => {
+        if (!authEmail) {
+            Alert.alert('Error', 'Please enter your email address first.');
+            return;
+        }
+        setAuthLoading(true);
+        const { error } = await supabase.auth.resetPasswordForEmail(authEmail, {
+            redirectTo: 'stacker://auth'
+        });
+        setAuthLoading(true);
+        setAuthLoading(false);
+        if (error) {
+            Alert.alert('Error', error.message);
+        } else {
+            Alert.alert('Success', 'Reset link sent! Check your inbox.');
         }
     };
 
@@ -57,8 +106,12 @@ export default function AuthScreen() {
                 <Ionicons name="arrow-back" size={24} color="#000" />
             </TouchableOpacity>
             
-            <Text style={styles.headerTitle}>Sign In with Email</Text>
-            <Text style={styles.subtitle}>Enter your email and password to continue.</Text>
+            <Text style={styles.headerTitle}>{recoveryMode ? 'Reset Password' : 'Sign In with Email'}</Text>
+            <Text style={styles.subtitle}>
+                {recoveryMode 
+                    ? 'Enter a new password for your account.' 
+                    : 'Enter your email and password to continue.'}
+            </Text>
 
             <TextInput 
                 style={styles.input} 
@@ -70,11 +123,17 @@ export default function AuthScreen() {
             />
             <TextInput 
                 style={styles.input} 
-                placeholder="Password" 
+                placeholder={recoveryMode ? "New Password" : "Password"} 
                 value={authPassword} 
                 onChangeText={setAuthPassword} 
                 secureTextEntry 
             />
+
+            {!recoveryMode && (
+                <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordButton}>
+                    <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+            )}
             
             <View style={styles.actionButtons}>
                 <TouchableOpacity 
@@ -82,16 +141,18 @@ export default function AuthScreen() {
                     onPress={() => handleEmailAuth(false)}
                     disabled={authLoading}
                 >
-                    {authLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryButtonText}>Sign In</Text>}
+                    {authLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryButtonText}>{recoveryMode ? 'Save Password' : 'Sign In'}</Text>}
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                    style={[styles.secondaryButton, authLoading && styles.buttonDisabled]} 
-                    onPress={() => handleEmailAuth(true)}
-                    disabled={authLoading}
-                >
-                    {authLoading ? <ActivityIndicator color="#007AFF" /> : <Text style={styles.secondaryButtonText}>Create Account</Text>}
-                </TouchableOpacity>
+                {!recoveryMode && (
+                    <TouchableOpacity 
+                        style={[styles.secondaryButton, authLoading && styles.buttonDisabled]} 
+                        onPress={() => handleEmailAuth(true)}
+                        disabled={authLoading}
+                    >
+                        {authLoading ? <ActivityIndicator color="#007AFF" /> : <Text style={styles.secondaryButtonText}>Create Account</Text>}
+                    </TouchableOpacity>
+                )}
             </View>
         </View>
     );
@@ -329,5 +390,16 @@ const styles = StyleSheet.create({
     },
     buttonDisabled: {
         opacity: 0.6,
+    },
+    forgotPasswordButton: {
+        alignSelf: 'flex-end',
+        marginTop: -8,
+        marginBottom: 24,
+        paddingHorizontal: 4,
+    },
+    forgotPasswordText: {
+        color: '#007AFF',
+        fontSize: 14,
+        fontWeight: '600',
     }
 });

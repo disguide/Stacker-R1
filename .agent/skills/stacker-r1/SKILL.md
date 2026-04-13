@@ -13,7 +13,7 @@ These skills ensure the app looks premium and feels weightless.
 | Skill | Purpose | Key Focus |
 | :--- | :--- | :--- |
 | **`stacker-design-consistency`** | Guardian of Brand DNA | Maintaining the Cream/Ink/3D-Border "Stacker" look. |
-| **`antigravity-design-expert`** | Spatial UI & Motion | High-performance Reanimated motion & blurs. |
+| **`antigravity-design-expert`** | Spatial UI & Motion | High-performance Reanimated motion & depth. |
 | **`design-spells`** | Micro-interactions | "Magic" UI details, haptics, and tactical delight. |
 | **`frontend-design`** | High Craft UI | Distinctive visual identity, premium component design. |
 | **`baseline-ui`** | Standards & A11y | NativeWind rules, accessibility, standard spacing. |
@@ -42,12 +42,20 @@ These skills control how I think and respond to you.
 
 | Skill | Purpose | Key Focus |
 | :--- | :--- | :--- |
-| **`agent-operating-modes`** | Reasoning Depth | Switching between **Regular** and **Economy** modes. |
+| **`agent-operating-modes`** | Reasoning Depth | Switching between **Regular**, **Economy**, and **Deep Dive** modes. |
 | **`interaction-v2`** | Magic Keywords | Triggers for mode switches and workflow control. |
+
+## 🚀 5. Release & Operations
+Preparing the app for the real world.
+
+| Skill | Purpose | Key Focus |
+| :--- | :--- | :--- |
+| **`launch-readiness`** | Store Submission | App/Play Store checklists, EAS builds, and assets. |
 
 ---
 
 ### How to use this catalog:
 1.  **For Economy**: Mention **`economy`** to trigger the strict Clarification/Planning workflow.
 2.  **For Vibe**: Mention **`regular`** to trigger high-reasoning models and creative freedom.
-3.  **For Scale**: Combine with **Gemini CLI** or **Jules** for massive changes.
+3.  **For Alignment**: Mention **`deepdive`** to trigger exhaustive inquiry before any implementation.
+4.  **For Scale**: Combine with **Gemini CLI** or **Jules** for massive changes.

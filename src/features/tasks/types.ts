@@ -49,6 +49,10 @@ export interface Task {
 
     // Archival Metadata
     completedAt?: string;
+
+    // Sync Metadata
+    updated_at?: number;
+    deleted_at?: number;
 }
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';

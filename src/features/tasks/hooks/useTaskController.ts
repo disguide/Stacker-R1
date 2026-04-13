@@ -182,7 +182,7 @@ export const useTaskController = () => {
             };
 
             // Calculate simple diff for details
-            const diffKeys = Object.keys(safeUpdates).filter(k => safeUpdates[k as keyof Task] !== currentTask[k as keyof Task]);
+            const diffKeys = Object.keys(safeUpdates).filter(k => (safeUpdates as unknown as Record<string, unknown>)[k] !== (currentTask as unknown as Record<string, unknown>)[k]);
             if (diffKeys.length > 0) {
                 HistoryRepository.addLog({
                     id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

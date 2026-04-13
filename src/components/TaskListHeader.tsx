@@ -189,6 +189,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                     <Ionicons name="chevron-forward" size={24} color="#333" />
                 </TouchableOpacity>
 
+                <View style={{ flex: 1 }} />
 
                 <TouchableOpacity
                     style={[
@@ -209,11 +210,11 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
 
                 <TouchableOpacity
                     ref={organizeBtnRef as any}
-                    style={styles.toolbarButton}
+                    style={styles.organizeHeaderButton}
                     onPress={handleOrganizePress}
                 >
                     <Animated.View style={{ transform: [{ rotate: rotation }] }}>
-                        <MaterialCommunityIcons name="sort-variant" size={24} color="#333" />
+                        <MaterialCommunityIcons name="sort-variant" size={28} color="#333" />
                     </Animated.View>
                 </TouchableOpacity>
             </View>

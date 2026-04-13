@@ -4,7 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/providers/AuthProvider';
 import { StorageService } from '../src/services/storage';
+import { SyncService } from '../src/services/SyncService';
 import { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 
 // Prevent the splash screen from auto-hiding before asset/data loading is complete
 SplashScreen.preventAutoHideAsync();
@@ -33,8 +35,21 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     return <>{children}</>;
 }
-
 export default function Layout() {
+    useEffect(() => {
+        // Initial sync
+        SyncService.sync();
+
+        // Sync when coming back to app
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (nextAppState === 'active') {
+                SyncService.sync();
+            }
+        });
+
+        return () => subscription.remove();
+    }, []);
+
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>

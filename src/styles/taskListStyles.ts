@@ -35,6 +35,13 @@ export const styles = StyleSheet.create({
     toolbarButtonActive: {
         backgroundColor: '#E3F2FD',
     },
+    organizeHeaderButton: {
+        width: 42,
+        height: 42,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 8,
+    },
 
     toolbarIcon: {
         fontSize: 18,
@@ -82,9 +89,11 @@ export const styles = StyleSheet.create({
     viewNavRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
+        paddingTop: 4,
+        paddingBottom: 12,
         paddingHorizontal: 20,
         gap: 8,
+        marginTop: -6,
     },
     arrowButton: {
         width: 32,

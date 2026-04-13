@@ -23,7 +23,6 @@ Enforces an opinionated UI baseline to prevent AI-generated interface slop.
 - MUST use NativeWind (Tailwind CSS for React Native) for all styling.
 - MUST use `react-native-reanimated` for all animations.
 - MUST use `expo-haptics` for tactile feedback on interactions.
-- MUST use `expo-blur` for translucency.
 
 ## Animation
 
@@ -33,7 +32,6 @@ Enforces an opinionated UI baseline to prevent AI-generated interface slop.
 - SHOULD use "Spring" configurations (e.g., `withSpring`) for natural motion.
 - NEVER exceed `200ms` for interaction feedback.
 - MUST respect `AccessibilityInfo.isReduceMotionEnabled()`.
-- SHOULD avoid animating large `BlurView` surfaces.
 
 
 ## Typography
@@ -50,7 +48,6 @@ Enforces an opinionated UI baseline to prevent AI-generated interface slop.
 
 ## Performance
 
-- NEVER animate large `blur()` or `backdrop-filter` surfaces
 - NEVER apply `will-change` outside an active animation
 - NEVER use `useEffect` for anything that can be expressed as render logic
 

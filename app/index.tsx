@@ -5,37 +5,38 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 
-import { NotificationService } from '../src/services/notifications';
-import { TaskListHeader } from '../src/components/TaskListHeader';
-import { TaskListSection } from '../src/features/home/components/TaskListSection';
-import TaskEditDrawer from '../src/components/TaskEditDrawer';
-import TaskMenu from '../src/components/TaskMenu';
-import CalendarModal from '../src/components/CalendarModal';
-import DurationPickerModal from '../src/components/DurationPickerModal';
-import RecurrencePickerModal from '../src/components/RecurrencePickerModal';
-import TimePickerModal from '../src/components/TimePickerModal';
-import ColorSettingsModal from '../src/components/ColorSettingsModal';
-import { FeatureKey } from '../src/components/editor/constants';
-import { OrganizeMenu } from '../src/components/OrganizeMenu';
-import { ViewMenu } from '../src/components/ViewMenu';
-import RemindersManagerModal from '../src/components/RemindersManagerModal';
-import { TaskQuickAdd } from '../src/components/TaskQuickAdd';
+import { NotificationService } from '@/services/notifications';
+import { TaskListHeader } from '@/components/TaskListHeader';
+import { TaskListSection } from '@/features/home/components/TaskListSection';
+import TaskEditDrawer from '@/components/TaskEditDrawer';
+import TaskMenu from '@/components/TaskMenu';
+import CalendarModal from '@/components/CalendarModal';
+import DurationPickerModal from '@/components/DurationPickerModal';
+import RecurrencePickerModal from '@/components/RecurrencePickerModal';
+import TimePickerModal from '@/components/TimePickerModal';
+import ColorSettingsModal from '@/components/ColorSettingsModal';
+import { FeatureKey } from '@/components/editor/constants';
+import { OrganizeMenu } from '@/components/OrganizeMenu';
+import { ViewMenu } from '@/components/ViewMenu';
+import RemindersManagerModal from '@/components/RemindersManagerModal';
+import { TaskQuickAdd } from '@/components/TaskQuickAdd';
 
 // Hooks
-import { useTaskController } from '../src/features/tasks/hooks/useTaskController';
-import { useTaskForm } from '../src/features/tasks/hooks/useTaskForm';
-import { useTaskUI } from '../src/features/tasks/hooks/useTaskUI';
-import { useSprintMode } from '../src/features/tasks/hooks/useSprintMode';
-import { useHomeState } from '../src/features/home/hooks/useHomeState';
-import { useTaskOperations } from '../src/features/home/hooks/useTaskOperations';
-import { useTaskCreation } from '../src/features/home/hooks/useTaskCreation';
+import { useTaskController } from '@/features/tasks/hooks/useTaskController';
+import { useTaskForm } from '@/features/tasks/hooks/useTaskForm';
+import { useTaskUI } from '@/features/tasks/hooks/useTaskUI';
+import { useSprintMode } from '@/features/tasks/hooks/useSprintMode';
+import { useHomeState } from '@/features/home/hooks/useHomeState';
+import { useTaskOperations } from '@/features/home/hooks/useTaskOperations';
+import { useTaskCreation } from '@/features/home/hooks/useTaskCreation';
+import { useAutoColor } from '@/hooks/useAutoColor';
 
 // Services & Utils
-import { StorageService } from '../src/services/storage';
-import { RecurrenceEngine } from '../src/features/tasks/logic/recurrenceEngine';
-import { toISODateString, parseEstimatedTime, formatMinutesAsTime } from '../src/utils/dateHelpers';
-import { VIEW_CONFIG } from '../src/constants/theme';
-import { styles } from '../src/styles/taskListStyles';
+import { StorageService } from '@/services/storage';
+import { RecurrenceEngine } from '@/features/tasks/logic/recurrenceEngine';
+import { toISODateString, parseEstimatedTime, formatMinutesAsTime } from '@/utils/dateHelpers';
+import { VIEW_CONFIG } from '@/constants/theme';
+import { styles } from '@/styles/taskListStyles';
 
 const formatDateShort = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -113,8 +114,9 @@ export default function TaskListScreen() {
         if (timePart) return timePart;
         return `${tasksWithoutTimeCount} tasks`;
     }, [sprintMode.isSprintSelectionMode, sprintMode.selectedSprintTaskIds, calendarItems]);
-    const [userColors, setUserColors] = useState<any[]>([]); // Add userColors state
-    const [userProfile, setUserProfile] = useState<any>(null); // Add userProfile state
+    const [userColors, setUserColors] = useState<any[]>([]);
+    const [userProfile, setUserProfile] = useState<any>(null);
+    const autoColor = useAutoColor();
 
     // 3. Derived Logic Hooks
     const ops = useTaskOperations(tasks, {
@@ -135,7 +137,9 @@ export default function TaskListScreen() {
         setIsDrawerVisible: ui.setIsDrawerVisible,
         setAddingSubtaskToParentId: form.setAddingSubtaskToParentId,
         setEditingSubtask: ui.setEditingSubtask,
-        setInitialActiveFeature: ui.setInitialActiveFeature
+        setInitialActiveFeature: ui.setInitialActiveFeature,
+        userColors: autoColor.userColors,
+        colorSettings: autoColor.colorSettings,
     });
 
     useFocusEffect(
@@ -218,7 +222,7 @@ export default function TaskListScreen() {
 
     const handleSaveUserColors = (colors: any) => {
         StorageService.saveUserColors(colors);
-        // Trigger re-render or context update if needed
+        autoColor.refreshColors();
     };
 
     return (
@@ -412,8 +416,6 @@ export default function TaskListScreen() {
             <CalendarModal
                 visible={ui.isCalendarVisible}
                 onClose={() => ui.setIsCalendarVisible(false)}
-                showTimePicker={ui.calendarMode !== 'move'}
-                autoConfirm={ui.calendarMode === 'move'}
                 onSelectDate={(date: any, hasTime?: boolean) => {
                     let dateStr: string | null = null;
                     if (date) {
@@ -432,7 +434,7 @@ export default function TaskListScreen() {
                     if (ui.calendarMode === 'new') {
                         form.setNewTaskDeadline(dateStr);
                     } else if (ui.calendarMode === 'pre-add') {
-                        form.startAddingTask(dateStr);
+                        if (dateStr) form.startAddingTask(dateStr);
                     } else if (ui.calendarMode === 'move') {
                         // Phase 4: Move task to new date
                         if (ui.activeMenuTask && dateStr) {
@@ -440,11 +442,9 @@ export default function TaskListScreen() {
                             ui.setActiveMenuTask(null);
                         }
                     } else if (ui.editingSubtask) {
-                        // ... complex update logic to editingSubtask state
-                        // ui.setEditingSubtask({...})
-                        ui.setEditingSubtask(prev => prev ? ({ ...prev, subtask: { ...prev.subtask, deadline: dateStr } }) : null);
+                        ui.setEditingSubtask((prev: { parentId: string; subtask: { id: string; title: string; completed: boolean; deadline?: string; estimatedTime?: string; progress?: number } } | null) => prev ? ({ ...prev, subtask: { ...prev.subtask, deadline: dateStr ?? undefined } }) : null);
                     } else if (ui.editingTask) {
-                        ui.setEditingTask(prev => prev ? ({ ...prev, deadline: dateStr }) : null);
+                        ui.setEditingTask((prev: any) => prev ? ({ ...prev, deadline: dateStr }) : null);
                     }
                 }}
                 selectedDate={
@@ -452,14 +452,13 @@ export default function TaskListScreen() {
                         ? form.newTaskDeadline
                         : (ui.calendarTempDate !== null ? ui.calendarTempDate : ui.editingTask?.deadline)
                 }
-                initialPage={ui.calendarInitialPage}
             />
 
             <OrganizeMenu
                 visible={homeState.isOrganizeMenuVisible}
                 onClose={() => homeState.setIsOrganizeMenuVisible(false)}
                 isClumped={homeState.isClumped}
-                anchor={homeState.organizeMenuAnchor}
+                anchor={homeState.organizeMenuAnchor ?? undefined}
                 onSelectFilter={(filter) => {
                     if (filter === 'manual_reorder') {
                         homeState.setIsReorderMode(!homeState.isReorderMode);
@@ -544,9 +543,14 @@ export default function TaskListScreen() {
                 visible={ui.isColorSettingsVisible}
                 onClose={() => ui.setIsColorSettingsVisible(false)}
                 userColors={userColors}
+                colorSettings={autoColor.colorSettings}
                 onSave={(newColors) => {
                     handleSaveUserColors(newColors);
                     setUserColors(newColors);
+                }}
+                onSaveSettings={(newSettings) => {
+                    StorageService.saveColorSettings(newSettings);
+                    autoColor.refreshColors();
                 }}
             />
 

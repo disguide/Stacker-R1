@@ -219,8 +219,8 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
                             showsVerticalScrollIndicator={false}
                             decelerationRate="fast"
                             getItemLayout={(data, index) => ({
-                                length: data[index].height,
-                                offset: data[index].offset,
+                                length: data![index].height,
+                                offset: data![index].offset,
                                 index,
                             })}
                             contentContainerStyle={{ paddingBottom: 30 }}

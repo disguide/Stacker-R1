@@ -19,8 +19,17 @@ Use this skill to determine your reasoning depth, tool selection, and implementa
 
 ### **Economy Mode** (Disciplined / 3.0 Flash)
 *   **Model**: **Gemini 3.0 Flash** only.
-*   **Behavior**: High speed, lower reasoning depth. Strict protocol required to prevent hallucinations and feature creep.
-*   **Goal**: "One-and-done" task execution with extreme precision and ZERO over-implementation.
+*   **Behavior**: High speed, lower reasoning depth.
+*   **Capacity**: High / Abundant. Use for 90% of routine work.
+
+### **Deep Dive Mode** (Quality Shield for Flash)
+*   **Models**: Gemini 3.0 Flash (with high-reasoning logic).
+*   **Behavior**: Exhaustive questioning and edge-case discovery to ensure Flash accuracy.
+*   **Goal**: Pro-level output using Flash resources through rigorous alignment.
+
+### **Pro / Opus Mode** (High Stakes / Escalation)
+*   **Models**: Gemini 3.1 Pro, Claude 4.6 (Opus/Sonnet).
+*   **Protocol**: Switch only when requested or recommended for complex refactors. **Must switch back to Flash** immediately after the implementation turn.
 
 ### **NC (No Coding)** (One-Shot Lock)
 *   **Trigger**: Use when the keyword "**nc**" is mentioned in a request.
@@ -35,7 +44,7 @@ Trigger this procedure when the keyword "**analyze**" or "**analyse**" is used.
 Evaluate the request against the following criteria:
 1.  **Platform Constraints**: Does this violate "Expo Go Only"? (e.g., trying to use native non-compatible modules).
 2.  **Logical Consistency**: Are the requirements contradictory? (e.g., "fast but perfect").
-3.  **Performance Risk**: Will this cause memory leaks or UI lag (e.g., too many `BlurView`s)?
+3.  **Performance Risk**: Will this cause memory leaks or UI lag (e.g., heavy looping animations)?
 4.  **Tooling Readiness**: Do I have the correct MCP servers (GitHub, etc.) to finish this?
 
 **Required Output Status**:
@@ -58,7 +67,27 @@ When in **Economy** mode, you **MUST** follow this sequence:
 
 ---
 
-## ⚡ 4. Quick Protocol (Low Friction)
+## 🔎 4. The Deep Dive Protocol v2.0 (Inquiry-First)
+When in **Deep Dive** mode, you **MUST** prioritize discovery and future-proofing over immediate delivery:
+
+1.  **Phase 1: Exhaustive Discovery & "The Why"**: 
+    - Do not modify files. 
+    - Ask 3-5 clarifying questions about the task, architecture, and edge cases.
+    - **Rule**: Every question/suggestion MUST include a **Rationale** section explaining why you are asking it or suggesting it.
+2.  **Phase 2: Alignment Check**: 
+    - Summarize your understanding back to the user.
+    - Wait for a "Go", "Confirmed", or "Crystal Clear" before starting the Implementation Plan.
+3.  **Phase 3: Deep Planning & "v2.0 Vision"**: 
+    - Create an implementation plan that covers the "How" and "Why".
+    - **Rule**: Every plan must include a **v2.0 / Future Vision** section describing what the next iteration or "perfect" version of this feature would look like.
+4.  **Phase 4: Execution**: 
+    - Proceed only after explicit confirmation.
+5.  **Phase 5: Reevaluate**: 
+    - If assumptions fail or the scope changes significantly, trigger the **reevaluate** procedure to loop back to Phase 1.
+
+---
+
+## ⚡ 5. Quick Protocol (Low Friction)
 Trigger this when the keyword "**quick**" is used.
 
 **Criteria**:
@@ -89,8 +118,9 @@ Regardless of mode, you must prioritize the **Fastest** and **Cheapest** executi
 
 ---
 
-## 📋 4. Usage Instructions for the Agent
-1.  **Detect Mode**: Always check the user's message for the keywords "**economy**" or "**regular**".
-2.  **Mode Confirmation**: At the start of your response, state: "Active Mode: [Economy/Regular]".
-3.  **Halt Policy**: In **Economy** mode, return an error or a request for clarification if asked to implement a feature without an approved plan.
-4.  **CLI/Jules Recommendation**: At the end of every task or plan, explicitly recommend the CLI or Jules command template.
+## 📋 7. Usage Instructions for the Agent
+1.  **Detect Mode**: Always check the user's message for the keywords "**economy**", "**regular**", or "**deepdive**".
+2.  **Mode Confirmation**: At the start of your response, state: "Active Mode: [Economy/Regular/Deep Dive]".
+3.  **Halt Policy**: In **Economy** and **Deep Dive** modes, you are restricted until specific criteria (Plan approval or Alignment confirmation) are met.
+4.  **Reevaluate Trigger**: If the user mentions "**reevaluate**", immediately pause the current phase and return to Phase 1 Discovery.
+5.  **CLI/Jules Recommendation**: At the end of every task or plan, explicitly recommend the CLI or Jules command template.
