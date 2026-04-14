@@ -32,7 +32,7 @@ import { useTaskCreation } from '@/features/home/hooks/useTaskCreation';
 import { useAutoColor } from '@/hooks/useAutoColor';
 
 // Services & Utils
-import { StorageService } from '@/services/storage';
+import { StorageService, UserProfile, GoalCategory, SavedSprint, Task, DailyData } from '@/services/storage';
 import { RecurrenceEngine } from '@/features/tasks/logic/recurrenceEngine';
 import { toISODateString, parseEstimatedTime, formatMinutesAsTime } from '@/utils/dateHelpers';
 import { VIEW_CONFIG } from '@/constants/theme';

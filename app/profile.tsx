@@ -129,7 +129,7 @@ export default function ProfileScreen() {
                 }
             });
             return () => { mounted = false; };
-        }, [])
+        }, [setDailyData])
     );
 
     // Career Stats Calculation
@@ -162,8 +162,9 @@ export default function ProfileScreen() {
         
         // Find the one that's been active longest (earliest createdAt)
         return [...allActive].sort((a, b) => {
-            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : Date.now();
-            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : Date.now();
+            const nowTime = Number.MAX_SAFE_INTEGER;
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : nowTime;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : nowTime;
             return aTime - bTime;
         })[0];
     }, [profile.goals, profile.antigoals]);
@@ -186,7 +187,7 @@ export default function ProfileScreen() {
         loadData();
 
         return () => { mounted = false; };
-    }, []);
+    }, [setDailyData]);
 
     const handleEditToggle = async () => {
         if (isEditing) {

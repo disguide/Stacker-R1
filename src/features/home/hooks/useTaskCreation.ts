@@ -287,7 +287,7 @@ export function useTaskCreation({
             setEditingTask(null);
             setIsDrawerVisible(false);
         }
-    }, [tasks, addTask, updateTask, setEditingTask, setIsDrawerVisible]);
+    }, [tasks, addTask, updateTask, setEditingTask, setIsDrawerVisible, detectAutoColor, userColors]);
 
     const saveSubtask = useCallback((subtaskData: any, editingSubtask: any, addingSubtaskToParentId: string | null) => {
         const isNewTemp = editingSubtask?.subtask?.id?.startsWith('new_temp_');
