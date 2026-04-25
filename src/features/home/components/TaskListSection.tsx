@@ -845,6 +845,10 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                 renderItem={renderItem}
                 // @ts-ignore
                 estimatedItemSize={70}
+                // ⚡ Bolt Optimization: Provide getItemType for heterogeneous lists.
+                // Impact: Allows FlashList to recycle separate pools for headers vs tasks,
+                // preventing expensive re-renders and reducing memory churn during scroll.
+                getItemType={(item: any) => item.type}
             />
         </View>
     );
