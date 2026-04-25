@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform, Alert, useWindowDimensions, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, SafeAreaView, KeyboardAvoidingView, Platform, Alert, useWindowDimensions, Animated, Easing, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,10 @@ import { toISODateString } from '../src/utils/dateHelpers';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import * as ImagePicker from 'expo-image-picker';
+import { ImageUploadService } from '../src/services/ImageUploadService';
+import { useAuth } from '../src/providers/AuthProvider';
+import Slider from '@react-native-community/slider';
+import SwipeableTaskRow from '../src/components/SwipeableTaskRow';
 
 const GOAL_PALETTE = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#06B6D4', '#F97316'];
 
@@ -49,12 +53,19 @@ const MoodCounterButton = ({ rating, onPress }: { rating: number, onPress: () =>
 export default function ProfileScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { user } = useAuth();
 
     const [isEditing, setIsEditing] = useState(false);
     const [activeSection, setActiveSection] = useState<'profile' | 'goals' | 'sprints'>('profile');
     const [activeTab, setActiveTab] = useState<'goals' | 'antigoals'>('goals');
     const [quickAddText, setQuickAddText] = useState('');
+    const [quickAddTargetCount, setQuickAddTargetCount] = useState<string>('1');
     const [isAddingGoal, setIsAddingGoal] = useState(false);
+    const [isScrollEnabled, setIsScrollEnabled] = useState(true);
+    const [editingGoal, setEditingGoal] = useState<{item: any, listType: 'goals' | 'antigoals'} | null>(null);
+    const [editGoalTitle, setEditGoalTitle] = useState('');
+    const [editGoalTarget, setEditGoalTarget] = useState('100');
+    const [editGoalCategory, setEditGoalCategory] = useState('');
     const [expandedSprintId, setExpandedSprintId] = useState<string | null>(null);
     const [noteVisibleIds, setNoteVisibleIds] = useState<Set<string>>(new Set());
     const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -78,14 +89,14 @@ export default function ProfileScreen() {
         const todayStr = toISODateString(new Date());
         const nextRating = (dailyData?.rating || 0) + 1;
         const nextStarred = nextRating >= 10 ? true : (dailyData?.isStarred || false);
-        const newData = { ...(dailyData || { date: todayStr }), date: todayStr, rating: nextRating, isStarred: nextStarred, updatedAt: new Date().toISOString() } as DailyData;
+        const newData = { ...(dailyData || { date: todayStr }), date: todayStr, rating: nextRating, isStarred: nextStarred, updated_at: Date.now() } as DailyData;
         setDailyData(newData);
         await StorageService.saveDailyData(todayStr, newData);
     };
 
     const handleUpdateReflection = async (text: string) => {
         const todayStr = toISODateString(new Date());
-        const newData = { ...(dailyData || { date: todayStr }), date: todayStr, reflection: text, updatedAt: new Date().toISOString() } as DailyData;
+        const newData = { ...(dailyData || { date: todayStr }), date: todayStr, reflection: text, updated_at: Date.now() } as DailyData;
         setDailyData(newData);
         await StorageService.saveDailyData(todayStr, newData);
     };
@@ -93,7 +104,7 @@ export default function ProfileScreen() {
     const handleToggleStarDay = async () => {
         const todayStr = toISODateString(new Date());
         const newStatus = !(dailyData?.isStarred);
-        const newData = { ...(dailyData || { date: todayStr }), date: todayStr, isStarred: newStatus, updatedAt: new Date().toISOString() } as DailyData;
+        const newData = { ...(dailyData || { date: todayStr }), date: todayStr, isStarred: newStatus, updated_at: Date.now() } as DailyData;
         setDailyData(newData);
         await StorageService.saveDailyData(todayStr, newData);
     };
@@ -124,7 +135,7 @@ export default function ProfileScreen() {
             });
             StorageService.loadActiveTasks().then(tasks => {
                 if (mounted) {
-                    const completedToday = tasks.filter(t => t.completed && t.date === today);
+                    const completedToday = tasks.filter(t => t.isCompleted && t.date === today);
                     setTodayTasks(completedToday);
                 }
             });
@@ -156,14 +167,14 @@ export default function ProfileScreen() {
         const allActive = [
             ...(profile.goals || []),
             ...(profile.antigoals || [])
-        ].filter(g => !g.completed && !g.cancelled);
+        ].filter(g => !g.isCompleted && !g.cancelled);
         
         if (allActive.length === 0) return null;
         
-        // Find the one that's been active longest (earliest createdAt)
+        // Find the one that's been active longest (earliest created_at)
         return [...allActive].sort((a, b) => {
-            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : Date.now();
-            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : Date.now();
+            const aTime = a.created_at || Date.now();
+            const bTime = b.created_at || Date.now();
             return aTime - bTime;
         })[0];
     }, [profile.goals, profile.antigoals]);
@@ -225,12 +236,28 @@ export default function ProfileScreen() {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsEditing: true,
-            aspect: type === 'banner' ? [16, 6] : [1, 1], // YouTube style wide banner
-            quality: 1,
+            aspect: type === 'banner' ? [16, 6] : [1, 1],
+            quality: 0.8,
         });
 
         if (!result.canceled) {
-            updateProfile({ [type]: result.assets[0].uri });
+            const localUri = result.assets[0].uri;
+
+            // Show the image IMMEDIATELY using the local URI
+            updateProfile({ [type]: localUri });
+
+            // Then upload in the background (if authenticated)
+            if (user?.id) {
+                ImageUploadService.upload(localUri, user.id, type).then(publicUrl => {
+                    if (publicUrl) {
+                        // Silently swap local URI → public URL for sync
+                        setProfile(prev => ({ ...prev, [type]: publicUrl }));
+                        if (__DEV__) console.log(`[Profile] ${type} uploaded → ${publicUrl}`);
+                    }
+                }).catch(err => {
+                    if (__DEV__) console.warn(`[Profile] ${type} background upload failed:`, err);
+                });
+            }
         }
     };
 
@@ -263,16 +290,21 @@ export default function ProfileScreen() {
         const goalTitle = title?.trim() || '';
         if (!goalTitle) return;
 
+        const target = parseInt(quickAddTargetCount, 10);
+        const validTarget = isNaN(target) || target < 1 ? 1 : target;
+
         const newId = Date.now().toString();
-        const now = new Date().toISOString();
+        const now = Date.now();
         const newItem = {
             id: newId,
             title: goalTitle,
-            completed: false,
-            createdAt: now,
+            isCompleted: false,
+            created_at: now,
             category: selectedCategory,
             color: '#3B82F6', // Neutral default
-            events: [{ id: newId, type: 'added' as const, date: now }]
+            events: [{ id: newId, type: 'added' as const, date: now }],
+            targetCount: validTarget,
+            currentCount: 0
         };
         if (activeTab === 'goals') {
             updateProfile({ goals: [...(profile.goals || []), newItem] });
@@ -281,6 +313,7 @@ export default function ProfileScreen() {
         }
 
         setQuickAddText('');
+        setQuickAddTargetCount('1');
         setIsAddingGoal(false);
 
         // Auto-scroll to bottom after a small delay to allow item to render
@@ -290,7 +323,7 @@ export default function ProfileScreen() {
     };
 
     const updateGoalItem = (id: string, newTitle: string, listType: 'goals' | 'antigoals') => {
-        const now = new Date().toISOString();
+        const now = Date.now();
         const updater = (g: any) => g.id === id && g.title !== newTitle
             ? { ...g, title: newTitle, events: [...(g.events || []), { id: Date.now().toString(), type: 'modified' as const, date: now }] }
             : g;
@@ -301,6 +334,183 @@ export default function ProfileScreen() {
         } else {
             const updated = (profile.antigoals || []).map(updater);
             updateProfile({ antigoals: updated });
+        }
+    };
+
+    const openEditGoalModal = (item: any, listType: 'goals' | 'antigoals') => {
+        setEditingGoal({item, listType});
+        setEditGoalTitle(item.title);
+        setEditGoalTarget((item.targetCount || 100).toString());
+        setEditGoalCategory(item.category || '');
+    };
+
+    const saveGoalEdit = () => {
+        if (!editingGoal) return;
+        const tgt = parseInt(editGoalTarget, 10);
+        const validTgt = isNaN(tgt) || tgt < 1 ? 100 : tgt; 
+        
+        let newProfile = { ...profile };
+        const updater = (g: any) => g.id === editingGoal.item.id ? { 
+            ...g, 
+            title: editGoalTitle,
+            targetCount: validTgt,
+            category: editGoalCategory
+        } : g;
+
+        if (editingGoal.listType === 'goals') {
+            newProfile.goals = (newProfile.goals || []).map(updater);
+        } else {
+            newProfile.antigoals = (newProfile.antigoals || []).map(updater);
+        }
+        
+        setProfile(newProfile);
+        StorageService.saveProfile(newProfile);
+        setEditingGoal(null);
+    };
+
+    const renderGoal = (item: any, listType: 'goals' | 'antigoals', color: string) => {
+        const isFocus = listType === 'goals';
+        return (
+            <View key={item.id} style={[styles.goalCard, { shadowOpacity: 0, elevation: 0, paddingRight: 8, paddingBottom: 16, borderLeftColor: color }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, marginLeft: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1, marginRight: 8 }}>
+                        <TouchableOpacity
+                            style={[
+                                styles.checkbox,
+                                { marginTop: 2, marginRight: 12, borderColor: color },
+                                item.isCompleted && [styles.checkboxCompleted, { backgroundColor: color }]
+                            ]}
+                            onPress={() => toggleGoalCompletion(item.id, !item.isCompleted, listType)}
+                        >
+                            {item.isCompleted && <Ionicons name="checkmark" size={16} color="#FFF" />}
+                        </TouchableOpacity>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.goalCardCategory, { color, marginBottom: 4 }]}>
+                                {item.category ? item.category.toUpperCase() : (isFocus ? 'HIGH FOCUS' : 'FRICTION')}
+                            </Text>
+                            <Text style={[
+                                styles.goalCardTitle,
+                                item.isCompleted && { color: '#94A3B8', textDecorationLine: 'line-through' }
+                            ]}>
+                                {item.title}
+                            </Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity 
+                        onPress={() => {
+                            Alert.alert(
+                                'Manage Goal',
+                                item.title,
+                                [
+                                    { text: 'Edit', onPress: () => openEditGoalModal(item, listType) },
+                                    { text: 'Delete', onPress: () => deleteGoalItem(item.id, listType), style: 'destructive' },
+                                    { text: 'Cancel', style: 'cancel' }
+                                ]
+                            );
+                        }}
+                        style={{ padding: 4 }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <MaterialCommunityIcons name="dots-horizontal" size={24} color="#94A3B8" />
+                    </TouchableOpacity>
+                </View>
+
+                {!item.isCompleted && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 36, marginRight: 8 }}>
+                        <Slider
+                            style={{ flex: 1, height: 40 }}
+                            minimumValue={0}
+                            maximumValue={item.targetCount || 100}
+                            value={item.currentCount || 0}
+                            onSlidingStart={() => setIsScrollEnabled(false)}
+                            onSlidingComplete={() => setIsScrollEnabled(true)}
+                            onValueChange={(val) => updateGoalProgress(item.id, listType, val)}
+                            minimumTrackTintColor={color}
+                            maximumTrackTintColor="#F8FAFC"
+                            thumbTintColor={color}
+                        />
+                        <Text style={{ 
+                            fontFamily: 'Inter_600SemiBold', 
+                            fontSize: 13, 
+                            color: '#64748B', 
+                            width: 50, 
+                            textAlign: 'right' 
+                        }}>
+                            {Math.round(((item.currentCount || 0) / (item.targetCount || 100)) * 100)}%
+                        </Text>
+                    </View>
+                )}
+            </View>
+        );
+    };
+
+    const incrementGoalCount = async (id: string, listType: 'goals' | 'antigoals') => {
+        let newProfile = { ...profile };
+        let showNoteModal = false;
+
+        const updater = (g: any) => {
+            if (g.id !== id || g.isCompleted) return g;
+            
+            const tgt = g.targetCount || 10;
+            const current = (g.currentCount || 0) + 1;
+            const isCompleted = current >= tgt;
+            
+            if (isCompleted) {
+                showNoteModal = true;
+            }
+
+            return {
+                ...g,
+                currentCount: current,
+            };
+        };
+
+        if (listType === 'goals') {
+            newProfile.goals = (newProfile.goals || []).map(updater);
+        } else {
+            newProfile.antigoals = (newProfile.antigoals || []).map(updater);
+        }
+        
+        setProfile(newProfile);
+        await StorageService.saveProfile(newProfile);
+
+        if (showNoteModal) {
+            toggleGoalCompletion(id, true, listType);
+        }
+    };
+
+    const updateGoalProgress = async (id: string, listType: 'goals' | 'antigoals', newValue: number) => {
+        let newProfile = { ...profile };
+        let showNoteModal = false;
+
+        const updater = (g: any) => {
+            if (g.id !== id || g.isCompleted) return g;
+            
+            const tgt = g.targetCount || 10;
+            const current = Math.floor(Math.max(0, Math.min(newValue, tgt)));
+            const isCompleted = current >= tgt;
+
+            if (isCompleted) {
+                showNoteModal = true;
+            }
+
+            return {
+                ...g,
+                currentCount: current,
+            };
+        };
+
+        if (listType === 'goals') {
+            newProfile.goals = (newProfile.goals || []).map(updater);
+        } else {
+            newProfile.antigoals = (newProfile.antigoals || []).map(updater);
+        }
+        
+        setProfile(newProfile);
+        await StorageService.saveProfile(newProfile);
+
+        if (showNoteModal) {
+            toggleGoalCompletion(id, true, listType);
         }
     };
 
@@ -324,7 +534,7 @@ export default function ProfileScreen() {
         let newProfile = { ...profile };
         const updater = (g: any) => {
             if (g.id !== id) return g;
-            const now = new Date().toISOString();
+            const now = Date.now();
             const baseEvents = g.events || [];
             const events = isCompleted
                 ? [...baseEvents, { id: Date.now().toString(), type: 'achieved' as const, date: now }]
@@ -332,7 +542,7 @@ export default function ProfileScreen() {
 
             return {
                 ...g,
-                completed: isCompleted,
+                isCompleted: isCompleted,
                 completedAt: isCompleted ? now : undefined,
                 note: note || g.note,
                 events
@@ -371,7 +581,7 @@ export default function ProfileScreen() {
                     style: "destructive",
                     onPress: async () => {
                         let newProfile = { ...profile };
-                        const now = new Date().toISOString();
+                        const now = Date.now();
                         const updater = (g: any) => {
                             if (g.id !== id) return g;
                             return {
@@ -397,7 +607,7 @@ export default function ProfileScreen() {
     };
 
     // Split active tasks into pending and completed for the view mode
-    const pendingItems = activeList.filter(item => !item.completed && !item.cancelled);
+    const pendingItems = activeList.filter(item => !item.isCompleted && !item.cancelled);
 
     const handleUndoTask = async (taskId: string) => {
         const task = await StorageService.removeFromHistory(taskId);
@@ -405,7 +615,7 @@ export default function ProfileScreen() {
             const activeTasks = await StorageService.loadActiveTasks();
             await StorageService.saveActiveTasks([{ 
                 ...task, 
-                completed: false, 
+                isCompleted: false, 
                 completedAt: undefined,
                 date: toISODateString(new Date()),
                 daysRolled: undefined,
@@ -455,7 +665,7 @@ export default function ProfileScreen() {
         <SafeAreaView style={styles.container}>
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
                 {/* Top Bar (Exit Button with Top Gap before Banner) */}
                 {/* Top Navigation Bar */}
@@ -502,6 +712,7 @@ export default function ProfileScreen() {
                     ref={horizontalPagerRef}
                     horizontal
                     pagingEnabled
+                    scrollEnabled={isScrollEnabled}
                     showsHorizontalScrollIndicator={false}
                     onMomentumScrollEnd={handleMomentumScrollEnd}
                     scrollEventThrottle={16}
@@ -660,145 +871,97 @@ export default function ProfileScreen() {
 
                             {/* --- COMBINED LISTS --- */}
                             <View style={styles.combinedListContainer}>
-                                <Text style={styles.journalSectionHeading}>GOALS</Text>
-                                {(profile.goals || []).filter(g => !g.completed && !g.cancelled).length === 0 ? (
-                                    <Text style={styles.emptyText}>No active goals.</Text>
-                                ) : (
-                                    (profile.goals || []).filter(g => !g.completed && !g.cancelled).map((item) => (
-                                        <View key={item.id} style={styles.inlineEditRow}>
-                                            <TouchableOpacity
-                                                onPress={() => toggleGoalCompletion(item.id, true, 'goals')}
-                                                style={styles.inlineCheckbox}
-                                            >
-                                                <Ionicons
-                                                    name={item.completed ? "checkmark-circle" : "ellipse-outline"}
-                                                    size={24}
-                                                    color="#3B82F6"
-                                                />
-                                            </TouchableOpacity>
-
-                                            <View style={styles.inlineContentWrapper}>
-                                                <TextInput
-                                                    style={styles.inlineInput}
-                                                    value={item.title}
-                                                    onChangeText={(t) => updateGoalItem(item.id, t, 'goals')}
-                                                    onFocus={(e) => {
-                                                        setActiveTab('goals');
-                                                        if (!isEditing) handleEditToggle();
-                                                        e.target.measure((x, y, width, height, pageX, pageY) => {
-                                                            handleFieldFocus(pageY);
-                                                        });
-                                                    }}
-                                                    placeholder="Enter Goal..."
-                                                    placeholderTextColor="#94A3B8"
-                                                />
-
-                                                {!isEditing && (
-                                                    <View style={styles.tagWrapper}>
-                                                        <View style={[styles.listCategoryTag, { backgroundColor: '#3B82F615' }]}>
-                                                            <Text style={[styles.listCategoryTagText, { color: '#3B82F6' }]}>
-                                                                {item.category ? item.category.toUpperCase() : 'GOAL'}
-                                                            </Text>
-                                                        </View>
-                                                    </View>
-                                                )}
-                                            </View>
-
-                                            {!isEditing && (
-                                                <TouchableOpacity onPress={() => cancelGoalItem(item.id, 'goals')} style={styles.inlineCancelBtn}>
-                                                    <Ionicons name="close-circle-outline" size={20} color="#94A3B8" />
-                                                </TouchableOpacity>
-                                            )}
-
-                                            {isEditing && (
-                                                <TouchableOpacity onPress={() => deleteGoalItem(item.id, 'goals')} style={styles.inlineDeleteBtn}>
-                                                    <Ionicons name="close" size={20} color="#94A3B8" />
-                                                </TouchableOpacity>
-                                            )}
+                                
+                                {/* GOALS SECTION */}
+                                <View style={styles.sectionHeaderRow}>
+                                    <View style={styles.sectionHeaderLeft}>
+                                        <MaterialCommunityIcons name="target" size={24} color="#0052FF" />
+                                        <Text style={styles.sectionHeaderTitle}>GOALS</Text>
+                                        <View style={[styles.countBadge, { backgroundColor: '#E0E7FF' }]}>
+                                            <Text style={[styles.countBadgeText, { color: '#0052FF' }]}>
+                                                {(profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).length}/5
+                                            </Text>
                                         </View>
-                                    ))
-                                )}
-                                {(profile.goals || []).filter(g => !g.completed && !g.cancelled).length < 5 ? (
-                                    <TouchableOpacity
-                                        style={styles.addGoalBtnSmall}
-                                        onPress={() => { setActiveTab('goals'); setIsAddingGoal(true); }}
+                                    </View>
+                                    {(profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).length < 5 && (
+                                        <TouchableOpacity style={[styles.actionSquareBtn, { backgroundColor: '#0052FF' }]} onPress={() => { setActiveTab('goals'); setIsAddingGoal(true); }}>
+                                            <Ionicons name="add" size={20} color="#FFF" />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+
+                                {(profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).map(item => renderGoal(item, 'goals', '#0052FF'))}
+
+                                {/* Completed Goals */}
+                                {(profile.goals || []).filter(g => g.isCompleted).slice(0, 3).map((item) => (
+                                    <View 
+                                        key={item.id} 
+                                        style={[styles.goalCard, { backgroundColor: '#F8FAFC', borderLeftColor: '#CBD5E1', shadowOpacity: 0 }]}
                                     >
-                                        <Ionicons name="add" size={18} color="#3B82F6" />
-                                        <Text style={styles.addGoalTextSmall}>Add Goal</Text>
-                                    </TouchableOpacity>
-                                ) : (
-                                    <Text style={styles.capMessage}>Goal limit reached (5)</Text>
-                                )}
-
-                                <Text style={[styles.sectionHeading, { marginTop: 32 }]}>ANTI-GOALS</Text>
-                                {(profile.antigoals || []).filter(g => !g.completed && !g.cancelled).length === 0 ? (
-                                    <Text style={styles.emptyText}>No active anti-goals.</Text>
-                                ) : (
-                                    (profile.antigoals || []).filter(g => !g.completed && !g.cancelled).map((item) => (
-                                        <View key={item.id} style={styles.inlineEditRow}>
-                                            <TouchableOpacity
-                                                onPress={() => toggleGoalCompletion(item.id, true, 'antigoals')}
-                                                style={styles.inlineCheckbox}
-                                            >
-                                                <Ionicons
-                                                    name={item.completed ? "checkmark-circle" : "ellipse-outline"}
-                                                    size={24}
-                                                    color="#EF4444"
-                                                />
-                                            </TouchableOpacity>
-
-                                            <View style={styles.inlineContentWrapper}>
-                                                <TextInput
-                                                    style={styles.inlineInput}
-                                                    value={item.title}
-                                                    onChangeText={(t) => updateGoalItem(item.id, t, 'antigoals')}
-                                                    onFocus={(e) => {
-                                                        setActiveTab('antigoals');
-                                                        if (!isEditing) handleEditToggle();
-                                                        e.target.measure((x, y, width, height, pageX, pageY) => {
-                                                            handleFieldFocus(pageY);
-                                                        });
-                                                    }}
-                                                    placeholder="Enter Anti-Goal..."
-                                                    placeholderTextColor="#94A3B8"
-                                                />
-
-                                                {!isEditing && (
-                                                    <View style={styles.tagWrapper}>
-                                                        <View style={[styles.listCategoryTag, { backgroundColor: '#EF444415' }]}>
-                                                            <Text style={[styles.listCategoryTagText, { color: '#EF4444' }]}>
-                                                                {item.category ? item.category.toUpperCase() : 'ANTI-GOAL'}
-                                                            </Text>
-                                                        </View>
-                                                    </View>
-                                                )}
-                                            </View>
-
-                                            {!isEditing && (
-                                                <TouchableOpacity onPress={() => cancelGoalItem(item.id, 'antigoals')} style={styles.inlineCancelBtn}>
-                                                    <Ionicons name="close-circle-outline" size={20} color="#94A3B8" />
-                                                </TouchableOpacity>
-                                            )}
-
-                                            {isEditing && (
-                                                <TouchableOpacity onPress={() => deleteGoalItem(item.id, 'antigoals')} style={styles.inlineDeleteBtn}>
-                                                    <Ionicons name="close" size={20} color="#94A3B8" />
-                                                </TouchableOpacity>
-                                            )}
+                                        <View style={styles.goalCardContent}>
+                                            <Text style={[styles.goalCardCategory, { color: '#64748B' }]}>
+                                                {item.category ? item.category.toUpperCase() : 'COMPLETED'}
+                                            </Text>
+                                            <Text style={[styles.goalCardTitle, { color: '#94A3B8', textDecorationLine: 'line-through' }]}>
+                                                {item.title}
+                                            </Text>
                                         </View>
-                                    ))
-                                )}
-                                {(profile.antigoals || []).filter(g => !g.completed && !g.cancelled).length < 5 ? (
-                                    <TouchableOpacity
-                                        style={styles.addGoalBtnSmall}
-                                        onPress={() => { setActiveTab('antigoals'); setIsAddingGoal(true); }}
+                                        {isEditing && (
+                                            <TouchableOpacity 
+                                                onPress={() => deleteGoalItem(item.id, 'goals')} 
+                                                style={styles.cardDeleteBtn}
+                                            >
+                                                <Ionicons name="trash-outline" size={20} color="#94A3B8" />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                ))}
+
+                                {/* AVOID SECTION */}
+                                <View style={{ height: 1, backgroundColor: '#F1F5F9', marginTop: 16, marginBottom: 32 }} />
+                                <View style={[styles.sectionHeaderRow, { marginTop: 0 }]}>
+                                    <View style={styles.sectionHeaderLeft}>
+                                        <Ionicons name="remove-circle" size={24} color="#DC2626" />
+                                        <Text style={styles.sectionHeaderTitle}>ANTI GOALS</Text>
+                                        <View style={[styles.countBadge, { backgroundColor: '#FEE2E2' }]}>
+                                            <Text style={[styles.countBadgeText, { color: '#DC2626' }]}>
+                                                {(profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).length}/5
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    {(profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).length < 5 && (
+                                        <TouchableOpacity style={[styles.actionSquareBtn, { backgroundColor: '#DC2626' }]} onPress={() => { setActiveTab('antigoals'); setIsAddingGoal(true); }}>
+                                            <Ionicons name="add" size={20} color="#FFF" />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+
+                                {(profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).map(item => renderGoal(item, 'antigoals', '#DC2626'))}
+
+                                {/* Completed Anti-Goals */}
+                                {(profile.antigoals || []).filter(g => g.isCompleted).slice(0, 3).map((item) => (
+                                    <View 
+                                        key={item.id} 
+                                        style={[styles.goalCard, { backgroundColor: '#F8FAFC', borderLeftColor: '#CBD5E1', shadowOpacity: 0 }]}
                                     >
-                                        <Ionicons name="add" size={18} color="#EF4444" />
-                                        <Text style={[styles.addGoalTextSmall, { color: '#EF4444' }]}>Add Anti-Goal</Text>
-                                    </TouchableOpacity>
-                                ) : (
-                                    <Text style={styles.capMessage}>Anti-goal limit reached (5)</Text>
-                                )}
+                                        <View style={styles.goalCardContent}>
+                                            <Text style={[styles.goalCardCategory, { color: '#64748B' }]}>
+                                                {item.category ? item.category.toUpperCase() : 'COMPLETED'}
+                                            </Text>
+                                            <Text style={[styles.goalCardTitle, { color: '#94A3B8', textDecorationLine: 'line-through' }]}>
+                                                {item.title}
+                                            </Text>
+                                        </View>
+                                        {isEditing && (
+                                            <TouchableOpacity 
+                                                onPress={() => deleteGoalItem(item.id, 'antigoals')} 
+                                                style={styles.cardDeleteBtn}
+                                            >
+                                                <Ionicons name="trash-outline" size={20} color="#94A3B8" />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                ))}
                             </View>
                         </View>
                     </ScrollView>
@@ -899,7 +1062,7 @@ export default function ProfileScreen() {
                                                     <TouchableOpacity 
                                                         onPress={async () => {
                                                             const todayStr = toISODateString(new Date());
-                                                            const newData = { ...(dailyData || { date: todayStr }), rating: 0, updatedAt: new Date().toISOString() } as DailyData;
+                                                            const newData = { ...(dailyData || { date: todayStr }), rating: 0, updated_at: Date.now() } as DailyData;
                                                             setDailyData(newData);
                                                             await StorageService.saveDailyData(todayStr, newData);
                                                         }}
@@ -1030,6 +1193,62 @@ export default function ProfileScreen() {
                             </View>
                         </View>
                     </>
+                )}
+
+                {/* GOAL EDIT MODAL */}
+                {editingGoal && (
+                    <Modal visible={!!editingGoal} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setEditingGoal(null)}>
+                        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#FFF' }}>
+                                <TouchableOpacity onPress={() => setEditingGoal(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                    <Text style={{ fontSize: 16, color: '#64748B' }}>Cancel</Text>
+                                </TouchableOpacity>
+                                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0F172A' }}>Edit Goal</Text>
+                                <TouchableOpacity onPress={saveGoalEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                    <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0052FF' }}>Save</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+                                <ScrollView style={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+                                    <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 12 }}>TITLE</Text>
+                                <TextInput
+                                    style={{ backgroundColor: '#FFF', padding: 12, borderRadius: 12, fontSize: 16, fontFamily: 'Inter_500Medium', color: '#0F172A', borderWidth: 1, borderColor: '#E2E8F0' }}
+                                    value={editGoalTitle}
+                                    onChangeText={setEditGoalTitle}
+                                />
+                                
+                                <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 24 }}>CATEGORY</Text>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                    {([['🧠', 'traits', 'Traits'], ['💪', 'habits', 'Habits'], ['🏠', 'environment', 'Environ.'], ['🎯', 'outcomes', 'Outcomes']] as const).map(([icon, key, label]) => (
+                                        <TouchableOpacity
+                                            key={key}
+                                            onPress={() => setEditGoalCategory(key)}
+                                            style={[
+                                                styles.categoryChip,
+                                                editGoalCategory === key && styles.categoryChipActive,
+                                                { marginBottom: 8 }
+                                            ]}
+                                        >
+                                            <Text style={styles.categoryIcon}>{icon}</Text>
+                                            <Text style={[
+                                                styles.categoryLabel,
+                                                editGoalCategory === key && styles.categoryLabelActive,
+                                            ]}>{label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 16 }}>TARGET COUNT (SLIDER MAX)</Text>
+                                    <TextInput
+                                        style={{ backgroundColor: '#FFF', padding: 12, borderRadius: 12, fontSize: 16, fontFamily: 'Inter_500Medium', color: '#0F172A', borderWidth: 1, borderColor: '#E2E8F0' }}
+                                        value={editGoalTarget}
+                                        onChangeText={setEditGoalTarget}
+                                        keyboardType="numeric"
+                                    />
+                                </ScrollView>
+                            </KeyboardAvoidingView>
+                        </SafeAreaView>
+                    </Modal>
                 )}
 
                 {/* GOAL COMPLETION NOTE MODAL */}
@@ -1312,109 +1531,112 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         marginTop: 24,
     },
-    sectionHeading: {
-        fontSize: 11,
-        fontWeight: '900',
-        color: '#94A3B8',
-        letterSpacing: 1.5,
+    // Section Header 
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: 16,
     },
-    addGoalBtnSmall: {
+    sectionHeaderLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 10,
-        marginTop: 8,
     },
-    addGoalTextSmall: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#3B82F6',
+    sectionHeaderTitle: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: '#111827',
+        letterSpacing: -0.5,
         marginLeft: 8,
     },
-
-    sprintsTabContent: {
-        paddingTop: 12,
-    },
-
-    // Lists
-    listContainer: {
-        minHeight: 100,
-    },
-    emptyText: {
-        textAlign: 'center',
-        color: '#94A3B8',
-        fontStyle: 'italic',
-        marginTop: 20,
-    },
-    capMessage: {
-        fontSize: 12,
-        color: '#94A3B8',
-        fontStyle: 'italic',
-        marginTop: 8,
-        textAlign: 'center',
-    },
-
-    // Archive Button
-    viewTimelineBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#F8FAFC',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        marginBottom: 24,
-    },
-    viewTimelineText: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#1E293B',
+    countBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
         marginLeft: 12,
     },
-
-    // Inline Edit Items (Focus View)
-    inlineEditRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
-    },
-    inlineCheckbox: {
-        marginRight: 12,
-    },
-    tagWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 2,
-    },
-    listCategoryTag: {
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
-    listCategoryTagText: {
-        fontSize: 9,
+    countBadgeText: {
+        fontSize: 12,
         fontWeight: '800',
-        letterSpacing: 0.5,
     },
-    inlineInput: {
-        fontSize: 16,
-        color: '#1E293B',
-        minHeight: 24,
-        paddingTop: 0,
+    actionSquareBtn: {
+        width: 30,
+        height: 30,
+        borderRadius: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    inlineContentWrapper: {
+
+    // Goal Card
+    goalCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 8,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        marginBottom: 12,
+        borderLeftWidth: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    goalCardContent: {
         flex: 1,
         flexDirection: 'column',
     },
-    inlineDeleteBtn: {
-        padding: 4,
-        marginLeft: 4,
+    goalCardCategory: {
+        fontSize: 10,
+        fontWeight: '800',
+        letterSpacing: 1,
+        marginBottom: 4,
     },
-    inlineCancelBtn: {
-        padding: 4,
-        marginLeft: 4,
+    goalCardTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#111827',
+    },
+    goalCardInput: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#111827',
+        padding: 0,
+        margin: 0,
+        minHeight: 24,
+    },
+    cardDeleteBtn: {
+        padding: 8,
+        marginLeft: 8,
+    },
+    plusOneBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#EFF6FF',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    plusOneText: {
+        color: '#0052FF',
+        fontWeight: 'bold',
+        fontSize: 12,
+        marginLeft: 2,
+    },
+    sliderContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 12,
+    },
+    sliderCountText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#0052FF',
+        marginLeft: 8,
+        minWidth: 36,
+        textAlign: 'right',
     },
 
     // Quick Add Button (Traditional)
@@ -1949,4 +2171,18 @@ const styles = StyleSheet.create({
     moodLabelText: { fontSize: 10, fontWeight: '700', color: '#94A3B8', letterSpacing: 1 },
     moodNumberText: { fontSize: 16, fontWeight: '600', color: '#333', fontFamily: 'Georgia' },
     reflectionInput: { fontSize: 16, color: '#475569', lineHeight: 24, textAlignVertical: 'top', minHeight: 80, fontFamily: 'Times New Roman' },
+    checkbox: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        borderWidth: 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checkboxCompleted: {
+        borderWidth: 0,
+    },
+    sprintsTabContent: {
+        paddingTop: 12,
+    },
 });

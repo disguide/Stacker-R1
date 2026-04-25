@@ -20,6 +20,10 @@ export type TaskId = string;
 // RRule String
 export type RecurrenceRuleString = string;
 
+// Recurrence Specifics
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type WeekDay = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
+
 // ---------------------------------------------------------------------------
 // ENUMS & CONSTANTS
 // ---------------------------------------------------------------------------
@@ -27,11 +31,11 @@ export type RecurrenceRuleString = string;
 export type TaskType = 'task' | 'event' | 'work' | 'chore' | 'habit';
 
 export interface RecurrenceConfig {
-    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    frequency: RecurrenceFrequency;
     interval: number;
     endDate?: ISODate;
     occurrenceCount?: number;
-    daysOfWeek?: number[]; // 0=Sunday, 6=Saturday
+    daysOfWeek?: WeekDay[]; 
 }
 
 // ---------------------------------------------------------------------------
@@ -55,23 +59,47 @@ export interface Task {
 
     // State
     isCompleted: boolean;
-    completedDates: ISODate[]; // For Master tasks: which instances are done
-    exceptionDates: ISODate[]; // For Master tasks: which instances are skipped/moved
+    completedAt?: number; // Unix Epoch: The time this task was finalized
+    completedDates?: ISODate[]; // For Master tasks: which instances are done
+    exceptionDates?: ISODate[]; // For Master tasks: which instances are skipped/moved
 
     // Progress
-    progress: number; // 0-100
+    progress?: number; // 0-100
     estimatedTime?: string; // "30m", "1h"
+
+    // Subtasks & More (Adding common feature fields)
+    subtasks?: any[]; 
+    tagIds?: string[];
+    importance?: number; // 0=None, 1=Low, 2=Medium, 3=High
+    sortOrder?: number; // UI Reorder positioning
+
+    // Reminders
+    reminderDate?: ISODate;
+    reminderTime?: ISOTime;
+    reminderEnabled?: boolean;
 
     // Appearance
     color?: string;
     type: TaskType;
 
     // Metadata
-    createdAt: number;
-    updatedAt: number;
+    created_at: number;
+    updated_at: number;    // Local storage always uses Epoch numbers
+    deleted_at?: number;   // Local storage always uses Epoch numbers
+    _isDirty?: boolean;    // Sync flag: true if local change is not yet pushed
     originalTaskId?: string; // Traceability for ghosts/clones
-    importance?: number; // 0=None, 1=Low, 2=Medium, 3=High
-    sortOrder?: number; // UI Reorder positioning
+    daysRolled?: number;
+    originalDate?: ISODate;
+}
+
+export interface DailyData {
+    date: ISODate;
+    rating?: number;
+    reflection?: string;
+    updated_at: number;    // Standardized to number
+    deleted_at?: number;   // Standardized to number
+    _isDirty?: boolean;
+    isStarred?: boolean;
 }
 
 // ---------------------------------------------------------------------------

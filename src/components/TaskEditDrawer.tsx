@@ -134,7 +134,7 @@ export default function TaskEditDrawer({
                 setDeadline(task.deadline || null);
                 setEstimatedTime(task.estimatedTime || null);
                 setRecurrence(task.recurrence || null);
-                setCompleted(task.completed || false);
+                setCompleted(task.isCompleted || false);
                 // Subtasks state removed
                 setColor(task.color);
                 setTaskType(task.type);
@@ -225,11 +225,11 @@ export default function TaskEditDrawer({
             deadline: deadline || undefined,
             estimatedTime: estimatedTime || undefined,
             recurrence: recurrence || undefined,
-            completed: completed,
+            isCompleted: completed,
 
             subtasks: task.subtasks, // Preserve existing subtasks
             color: color,
-            type: taskType,
+            type: taskType || 'task',
             importance: importance, // Include importance
 
 
@@ -339,9 +339,7 @@ export default function TaskEditDrawer({
                         <View style={styles.handleContainer}>
                             <View style={styles.handle} />
                         </View>
-                        <View
-                            style={[styles.content, { paddingBottom: 40 }]}
-                        >
+                        <View style={[styles.content, { paddingBottom: 60 }]}>
                             <View style={styles.header}>
                                 {/* Complete Toggle */}
                                 <TouchableOpacity

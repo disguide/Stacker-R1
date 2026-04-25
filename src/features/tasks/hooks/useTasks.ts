@@ -37,7 +37,7 @@ export function useTasks() {
     }, [tasks]);
 
     const updateTask = useCallback(async (taskId: string, updates: Partial<Task>) => {
-        const updated = tasks.map(t => t.id === taskId ? { ...t, ...updates, updatedAt: Date.now() } : t);
+        const updated = tasks.map(t => t.id === taskId ? { ...t, ...updates, updated_at: Date.now() } : t);
         setTasks(updated);
         await TaskRepository.saveAll(updated);
     }, [tasks]);

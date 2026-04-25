@@ -156,7 +156,7 @@ export default function JournalScreen() {
                 dateSet.add(n);
             }
         });
-        activeTasks.filter(t => t.completed).forEach(t => {
+        activeTasks.filter(t => t.isCompleted).forEach(t => {
             const n = getActionDate(t);
             if (n) {
                 t.date = n;
@@ -172,7 +172,7 @@ export default function JournalScreen() {
             const daySprints = sprintHistory.filter(s => s.date === date);
             const dayTasks = [
                 ...taskHistory.filter(t => t.date === date),
-                ...activeTasks.filter(t => t.completed && t.date === date)
+                ...activeTasks.filter(t => t.isCompleted && t.date === date)
             ];
 
             // Deduplicate tasks by ID
@@ -214,9 +214,9 @@ export default function JournalScreen() {
         
         // Save to Storage
         const extData = await StorageService.loadDailyData(dayDate);
-        const dataToSave = extData || { date: dayDate, updatedAt: new Date().toISOString() };
+        const dataToSave = extData || { date: dayDate, updated_at: Date.now() };
         dataToSave.isStarred = newStatus;
-        dataToSave.updatedAt = new Date().toISOString();
+        dataToSave.updated_at = Date.now();
         await StorageService.saveDailyData(dayDate, dataToSave);
     };
 
@@ -289,20 +289,19 @@ export default function JournalScreen() {
                 task.completedDates = task.completedDates.filter((d: string) => d !== dayDate);
             }
             // Clear legacy single-completion fields
-            task.completed = false;
+            task.isCompleted = false;
             task.completedAt = undefined;
             // DONT change its original date string so it returns to its scheduled slot
-        } else {
+            } else {
             // Task was physically deleted from active memory and only exists in history
             const removedTask = await StorageService.removeFromHistory(taskId);
             if (removedTask) {
-                const taskToRestore = { 
-                    ...removedTask, 
+                const taskToRestore = {
+                    ...removedTask,
                     id: masterId,
-                    completed: false, 
+                    isCompleted: false,
                     completedAt: undefined
-                };
-                if (taskToRestore.completedDates) {
+                };                if (taskToRestore.completedDates) {
                     taskToRestore.completedDates = taskToRestore.completedDates.filter((d: string) => d !== dayDate);
                 }
                 activeTasks.push(taskToRestore);
@@ -324,7 +323,7 @@ export default function JournalScreen() {
             ...day, 
             rating: nextRating, 
             isStarred: nextStarred,
-            updatedAt: new Date().toISOString() 
+            updated_at: Date.now() 
         };
         
         // Update local state for immediate feedback
@@ -338,7 +337,7 @@ export default function JournalScreen() {
     };
 
     const handleUpdateReflection = (day: LogDay, text: string) => {
-        const newData = { ...day, reflection: text, updatedAt: new Date().toISOString() };
+        const newData = { ...day, reflection: text, updated_at: Date.now() };
         setLogDays(prev => prev.map(d => d.date === day.date ? newData : d));
         if (todayData?.date === day.date) setTodayData(newData);
         StorageService.saveDailyData(day.date, newData);
@@ -436,7 +435,7 @@ export default function JournalScreen() {
                                         {day.rating > 0 && (
                                             <TouchableOpacity 
                                                 onPress={() => {
-                                                    const newData = { ...day, rating: 0, updatedAt: new Date().toISOString() };
+                                                    const newData = { ...day, rating: 0, updated_at: Date.now() };
                                                     if (todayData?.date === day.date) setTodayData(newData);
                                                     setLogDays(prev => prev.map(d => d.date === day.date ? newData : d));
                                                     StorageService.saveDailyData(day.date, newData);

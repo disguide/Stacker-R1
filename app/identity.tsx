@@ -75,7 +75,7 @@ export default function IdentityScreen() {
         const filtered = tasks.filter(t => {
             const hasTag = t.tagIds?.includes(identityTagId);
             const isRef = t.id.startsWith('milestone_'); // Fallback check
-            return (hasTag || isRef) && !t.completed;
+            return (hasTag || isRef) && !t.isCompleted;
         });
 
         return filtered.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -102,13 +102,18 @@ export default function IdentityScreen() {
 
             const newTask: Task = {
                 id: `milestone_${Date.now()}`,
+                type: 'task',
                 title: newMilestoneTitle,
                 date: toISODateString(targetDate),
                 originalDate: toISODateString(targetDate),
-                completed: false,
+                isCompleted: false,
+                completedDates: [],
+                exceptionDates: [],
                 tagIds: [identityTagId],
                 subtasks: [],
-                progress: 0
+                progress: 0,
+                created_at: Date.now(),
+                updated_at: Date.now()
             };
 
             addTask(newTask);
@@ -173,7 +178,7 @@ export default function IdentityScreen() {
                                             key={task.id}
                                             id={task.id}
                                             title={task.title}
-                                            completed={task.completed || false}
+                                            completed={task.isCompleted || false}
                                             deadline={task.deadline}
                                             estimatedTime={task.estimatedTime}
                                             progress={task.progress || 0}

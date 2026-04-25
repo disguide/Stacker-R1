@@ -86,7 +86,7 @@ export class Projector {
             if (a.time && !b.time) return -1; // Time comes first? Or last? Usually time-based first.
             if (!a.time && b.time) return 1;
             // Creation fallback
-            return a.createdAt - b.createdAt;
+            return a.created_at - b.created_at;
         });
     }
 

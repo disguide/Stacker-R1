@@ -91,7 +91,7 @@ export default function TaskListScreen() {
                 }
                 if (item.subtasks) {
                     item.subtasks.forEach((sub: any) => {
-                        if (!sub.completed && sub.estimatedTime) {
+                        if (!sub.isCompleted && sub.estimatedTime) {
                             const mins = parseEstimatedTime(sub.estimatedTime);
                             if (mins > 0) {
                                 totalMinutes += mins;
@@ -179,7 +179,7 @@ export default function TaskListScreen() {
             const tempSubtask: any = {
                 id: `new_temp_${Date.now()}`,
                 title: form.newTaskTitle,
-                completed: false,
+                isCompleted: false,
                 deadline: form.newTaskDeadline || undefined,
                 estimatedTime: form.newTaskEstimatedTime || undefined,
             };
@@ -202,7 +202,7 @@ export default function TaskListScreen() {
             id: `new_temp_${Date.now()}`,
             title: form.newTaskTitle,
             date: form.addingTaskForDate || toISODateString(new Date()),
-            completed: false,
+            isCompleted: false,
             deadline: form.newTaskDeadline || undefined,
             estimatedTime: form.newTaskEstimatedTime || undefined,
             recurrence: form.newTaskRecurrence || undefined,
@@ -416,6 +416,7 @@ export default function TaskListScreen() {
             <CalendarModal
                 visible={ui.isCalendarVisible}
                 onClose={() => ui.setIsCalendarVisible(false)}
+                title={ui.calendarMode === 'move' ? 'Move Task to Date' : 'Choose Date for Task'}
                 onSelectDate={(date: any, hasTime?: boolean) => {
                     let dateStr: string | null = null;
                     if (date) {
@@ -442,7 +443,7 @@ export default function TaskListScreen() {
                             ui.setActiveMenuTask(null);
                         }
                     } else if (ui.editingSubtask) {
-                        ui.setEditingSubtask((prev: { parentId: string; subtask: { id: string; title: string; completed: boolean; deadline?: string; estimatedTime?: string; progress?: number } } | null) => prev ? ({ ...prev, subtask: { ...prev.subtask, deadline: dateStr ?? undefined } }) : null);
+                        ui.setEditingSubtask((prev: any) => prev ? ({ ...prev, subtask: { ...prev.subtask, deadline: dateStr ?? undefined } }) : null);
                     } else if (ui.editingTask) {
                         ui.setEditingTask((prev: any) => prev ? ({ ...prev, deadline: dateStr }) : null);
                     }

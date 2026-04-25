@@ -18,7 +18,7 @@ export class ActionService {
         if (!master.rrule) {
             return {
                 isCompleted: !task.isCompleted,
-                updatedAt: Date.now()
+                updated_at: Date.now()
             };
         }
 
@@ -36,7 +36,7 @@ export class ActionService {
 
         return {
             completedDates: Array.from(completedDates),
-            updatedAt: Date.now()
+            updated_at: Date.now()
         };
     }
 
@@ -65,14 +65,14 @@ export class ActionService {
             originalTaskId: master.id,
             completedDates: [],
             exceptionDates: [],
-            updatedAt: Date.now(),
-            createdAt: Date.now()
+            updated_at: Date.now(),
+            created_at: Date.now()
         };
 
         return {
             masterUpdate: {
                 exceptionDates: Array.from(exceptionDates),
-                updatedAt: Date.now()
+                updated_at: Date.now()
             },
             newSingleTask
         };
@@ -89,7 +89,7 @@ export class ActionService {
         if (mode === 'all') {
             // Simple update of the master
             return {
-                oldMasterUpdate: { ...updates, updatedAt: Date.now() }
+                oldMasterUpdate: { ...updates, updated_at: Date.now() }
             };
         }
 
@@ -117,8 +117,8 @@ export class ActionService {
             date: task.date, // Start from THIS date
             completedDates: [], // Reset history
             exceptionDates: [],
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+            created_at: Date.now(),
+            updated_at: Date.now(),
             seriesId: `series_${newSeriesId}`
         };
 
@@ -126,7 +126,7 @@ export class ActionService {
         // Note: consumer needs to generate the valid RRule string based on updates.recurrence
 
         return {
-            oldMasterUpdate: { rrule: oldRRuleStr, updatedAt: Date.now() },
+            oldMasterUpdate: { rrule: oldRRuleStr, updated_at: Date.now() },
             newMaster
         };
     }

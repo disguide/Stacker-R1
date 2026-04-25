@@ -233,10 +233,10 @@ export const useTaskController = () => {
                 // Instance Logic
                 const currentInstanceSubtasks = (task.instanceSubtasks && task.instanceSubtasks[dateString])
                     ? task.instanceSubtasks[dateString]
-                    : (task.subtasks?.map(s => ({ ...s, completed: false })) || []);
+                    : (task.subtasks?.map(s => ({ ...s, isCompleted: false, progress: 0 })) || []);
 
                 const newSubtasks = currentInstanceSubtasks.map(s =>
-                    s.id === subtaskId ? { ...s, completed: !s.completed } : s
+                    s.id === subtaskId ? { ...s, isCompleted: !s.isCompleted } : s
                 );
 
                 task.instanceSubtasks = {
@@ -246,7 +246,7 @@ export const useTaskController = () => {
             } else {
                 // Single Task Logic
                 task.subtasks = task.subtasks?.map(s =>
-                    s.id === subtaskId ? { ...s, completed: !s.completed } : s
+                    s.id === subtaskId ? { ...s, isCompleted: !s.isCompleted } : s
                 );
             }
 
@@ -269,10 +269,10 @@ export const useTaskController = () => {
                 // Instance Logic
                 const currentInstanceSubtasks = (task.instanceSubtasks && task.instanceSubtasks[dateString])
                     ? task.instanceSubtasks[dateString]
-                    : (task.subtasks?.map(s => ({ ...s, completed: false, progress: 0 })) || []);
+                    : (task.subtasks?.map(s => ({ ...s, isCompleted: false, progress: 0 })) || []);
 
                 const newSubtasks = currentInstanceSubtasks.map(s =>
-                    s.id === subtaskId ? { ...s, progress, completed: isComplete } : s
+                    s.id === subtaskId ? { ...s, progress, isCompleted: isComplete } : s
                 );
 
                 task.instanceSubtasks = {
@@ -282,7 +282,7 @@ export const useTaskController = () => {
             } else {
                 // Single Task Logic
                 task.subtasks = task.subtasks?.map(s =>
-                    s.id === subtaskId ? { ...s, progress, completed: isComplete } : s
+                    s.id === subtaskId ? { ...s, progress, isCompleted: isComplete } : s
                 );
             }
 
@@ -453,7 +453,7 @@ export const useTaskController = () => {
                         const completedDates = new Set(task.completedDates || []);
                         completedDates.add(oldDate);
                         task.completedDates = Array.from(completedDates);
-                        if (!task.rrule) task.completed = true;
+                        if (!task.rrule) task.isCompleted = true;
                         updatedTasks[taskIndex] = task;
                     }
                 }
@@ -465,7 +465,7 @@ export const useTaskController = () => {
                     date: newDate,
                     deadline: calendarItem.deadline,
                     estimatedTime: calendarItem.estimatedTime,
-                    subtasks: calendarItem.subtasks?.map((s: any) => ({ ...s, completed: false })),
+                    subtasks: calendarItem.subtasks?.map((s: any) => ({ ...s, isCompleted: false })),
                     color: calendarItem.color,
                     type: calendarItem.taskType || calendarItem.type,
                     importance: calendarItem.importance,
@@ -475,10 +475,12 @@ export const useTaskController = () => {
                     reminderDate: undefined,
                     rrule: undefined,
                     recurrence: undefined,
-                    completedDates: undefined,
-                    exceptionDates: undefined,
+                    completedDates: [],
+                    exceptionDates: [],
                     sortOrder: targetSortOrder ?? 9999,
-                    completed: false,
+                    isCompleted: false,
+                    created_at: Date.now(),
+                    updated_at: Date.now()
                 };
 
                 updatedTasks.push(duplicate);

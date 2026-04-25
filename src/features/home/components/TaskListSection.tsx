@@ -566,7 +566,7 @@ const DraggableRow = React.memo(function DraggableRow({
             {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any, subIdx: number) => (
                 <SwipeableTaskRow
                     key={sub.id} id={sub.id} title={sub.title}
-                    completed={sub.completed} estimatedTime={sub.estimatedTime}
+                    completed={sub.isCompleted} estimatedTime={sub.estimatedTime}
                     deadline={sub.deadline} menuIcon="dots-horizontal" isSubtask={true}
                     color={task.color} // New: color inheritance
                     touchingTop={true} // Subtasks always touch the parent or previous subtask top
@@ -629,7 +629,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
             if (t.isCompleted) return;
             let taskHasTime = false;
             if (t.estimatedTime) { const mins = parseEstimatedTime(t.estimatedTime); if (mins > 0) { totalMinutes += mins; taskHasTime = true; } }
-            if (t.subtasks) { t.subtasks.forEach((sub: any) => { if (!sub.completed && sub.estimatedTime) { const mins = parseEstimatedTime(sub.estimatedTime); if (mins > 0) { totalMinutes += mins; taskHasTime = true; } } }); }
+            if (t.subtasks) { t.subtasks.forEach((sub: any) => { if (!sub.isCompleted && sub.estimatedTime) { const mins = parseEstimatedTime(sub.estimatedTime); if (mins > 0) { totalMinutes += mins; taskHasTime = true; } } }); }
             if (!taskHasTime) tasksWithoutTimeCount++;
         });
         const timePart = totalMinutes > 0 ? formatMinutesAsTime(totalMinutes) : '';
@@ -722,7 +722,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                     />
                     {task.subtasks && task.subtasks.length > 0 && task.subtasks.map((sub: any, subIdx: number) => (
                         <SwipeableTaskRow
-                            key={sub.id} id={sub.id} title={sub.title} completed={sub.completed}
+                            key={sub.id} id={sub.id} title={sub.title} completed={sub.isCompleted}
                             estimatedTime={sub.estimatedTime} deadline={sub.deadline} menuIcon="dots-horizontal"
                             isSubtask={true}
                             color={task.color} // Color inheritance

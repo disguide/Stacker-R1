@@ -86,7 +86,7 @@ export const RecurrenceEngine = {
                             // Use instance subtasks if available, otherwise use Template (all unchecked)
                             subtasks: (task.instanceSubtasks && task.instanceSubtasks[dateString])
                                 ? task.instanceSubtasks[dateString]
-                                : (task.subtasks?.map(s => ({ ...s, completed: false })) || []),
+                                : (task.subtasks?.map(s => ({ ...s, isCompleted: false })) || []),
                             progress: (task.instanceProgress && task.instanceProgress[dateString]) || 0,
                             rrule: task.rrule, // Pass through for recurrence indicator
                             recurrence: task.recurrence, // Copy UI object
@@ -115,7 +115,7 @@ export const RecurrenceEngine = {
                     // Check Completion (handling both new array and legacy boolean)
                     const isCompleted = task.completedDates
                         ? task.completedDates.includes(task.date)
-                        : (task.isCompleted || task.completed) || false;
+                        : (task.isCompleted || false);
 
                     if (isCompleted) return;
 

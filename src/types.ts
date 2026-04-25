@@ -29,7 +29,7 @@ export interface Task {
 export interface Subtask {
     id: string;
     title: string;
-    completed: boolean;
+    isCompleted: boolean;
     deadline?: string;
     estimatedTime?: string;
     progress?: number;

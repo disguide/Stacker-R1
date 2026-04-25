@@ -44,7 +44,7 @@ export const RolloverSystem = {
                 // Check if it's in the past AND incomplete
                 const isCompleted = task.completedDates
                     ? task.completedDates.includes(task.date)
-                    : !!(task.isCompleted || task.completed);
+                    : !!task.isCompleted;
 
                 if (!isCompleted && task.date < todayStr && task.date >= lookbackStr) {
                     // IT NEEDS ROLLOVER
@@ -110,7 +110,7 @@ export const RolloverSystem = {
                         const freshSubtasks: Subtask[] = task.subtasks?.map(s => ({
                             ...s,
                             id: uuid(),
-                            completed: false,
+                            isCompleted: false,
                             progress: 0
                         })) || [];
 
@@ -118,7 +118,7 @@ export const RolloverSystem = {
                         let specificSubtasks: Subtask[] = freshSubtasks;
                         if (task.instanceSubtasks && task.instanceSubtasks[latestDateString]) {
                             // Use slice/map to clone
-                            specificSubtasks = task.instanceSubtasks[latestDateString].map(s => ({ ...s, completed: false, progress: 0 }));
+                            specificSubtasks = task.instanceSubtasks[latestDateString].map(s => ({ ...s, isCompleted: false, progress: 0 }));
                         }
 
                         // Create the SINGLE new compiled Task

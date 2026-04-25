@@ -34,6 +34,7 @@ interface CalendarModalProps {
     onClose: () => void;
     onSelectDate: (date: Date | null, hasTime?: boolean) => void;
     selectedDate?: string | null;
+    title?: string; // Added to allow customizing the modal title
 }
 
 // Snappy Animated Day Cell
@@ -135,7 +136,7 @@ const ModalHeader = ({ title, onClose }: { title: string, onClose: () => void })
     </View>
 );
 
-export default function CalendarModal({ visible, onClose, onSelectDate, selectedDate }: CalendarModalProps) {
+export default function CalendarModal({ visible, onClose, onSelectDate, selectedDate, title }: CalendarModalProps) {
     const listRef = useRef<FlatList>(null);
     const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
 
@@ -199,7 +200,7 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
             <View style={styles.overlay}>
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
                 <View style={styles.calendarCard}>
-                    <ModalHeader title="Move Task to Date" onClose={onClose} />
+                    <ModalHeader title={title || "Move Task to Date"} onClose={onClose} />
                     
                     <View style={styles.calendarContainer}>
                         <View style={styles.weekHeader}>

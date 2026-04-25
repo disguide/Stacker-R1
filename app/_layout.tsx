@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/providers/AuthProvider';
 import { StorageService } from '../src/services/storage';
-import { SyncService } from '../src/services/SyncService';
+import { triggerSync } from '../src/services/SyncService';
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 
@@ -35,24 +35,30 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     return <>{children}</>;
 }
-export default function Layout() {
-    useEffect(() => {
-        // Initial sync
-        SyncService.sync();
 
-        // Sync when coming back to app
+/**
+ * Foreground sync hook — triggers a debounced sync when the app returns to active.
+ * Must be rendered INSIDE <AuthProvider> so session is available.
+ */
+function ForegroundSync() {
+    useEffect(() => {
         const subscription = AppState.addEventListener('change', nextAppState => {
             if (nextAppState === 'active') {
-                SyncService.sync();
+                triggerSync(); // Debounced — safe to call frequently
             }
         });
 
         return () => subscription.remove();
     }, []);
 
+    return null;
+}
+
+export default function Layout() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>
+                <ForegroundSync />
                 <AuthGuard>
                     <StatusBar style="dark" />
                     <Stack

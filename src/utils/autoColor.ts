@@ -7,7 +7,14 @@ export interface AutoColorResult {
 
 /**
  * Scans a task title for keyword matches against the user's color definitions.
- * Returns the first match found (priority = color order in the list).
+ * 
+ * CONFLICT RESOLUTION: Position-based priority.
+ *   If the title contains keywords for multiple colors, the keyword that
+ *   appears EARLIEST in the title wins. This gives the user intuitive
+ *   control — the first word they type sets the color.
+ * 
+ *   Example: "math homework" with "math" → Blue, "homework" → Red
+ *   Result: Blue wins because "math" is at position 0.
  * 
  * Matching is case-insensitive and whole-word only to prevent
  * false positives (e.g., "red" won't match "bored").
@@ -23,6 +30,9 @@ export function detectAutoColor(
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return null;
 
+    // Collect ALL keyword matches with their position in the title
+    let bestMatch: { position: number; color: string; keyword: string } | null = null;
+
     for (const colorDef of userColors) {
         if (!colorDef.keywords || colorDef.keywords.length === 0) continue;
 
@@ -32,17 +42,29 @@ export function detectAutoColor(
             const kw = keyword.trim();
             // Whole-word, case-insensitive match using word boundary regex
             const regex = new RegExp(`\\b${escapeRegex(kw)}\\b`, 'i');
+            const match = regex.exec(trimmedTitle);
 
-            if (regex.test(trimmedTitle)) {
-                return {
-                    color: colorDef.color,
-                    matchedKeyword: kw,
-                };
+            if (match) {
+                const position = match.index;
+
+                // Keep the match with the earliest position in the title
+                if (!bestMatch || position < bestMatch.position) {
+                    bestMatch = {
+                        position,
+                        color: colorDef.color,
+                        keyword: kw,
+                    };
+                }
             }
         }
     }
 
-    return null;
+    if (!bestMatch) return null;
+
+    return {
+        color: bestMatch.color,
+        matchedKeyword: bestMatch.keyword,
+    };
 }
 
 /** Escape special regex characters in a string */

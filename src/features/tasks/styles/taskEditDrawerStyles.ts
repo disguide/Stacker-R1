@@ -43,16 +43,15 @@ export const styles = StyleSheet.create({
         borderTopRightRadius: 16,
         borderTopWidth: 2,
         borderTopColor: THEME.border,
-        paddingBottom: 40,
-        maxHeight: '85%',
-        minHeight: 500,
+        paddingBottom: 130, // Brought higher up per user request
+        minHeight: 410,
         // Removed elevation/shadow/opacity issues
         elevation: 0,
         zIndex: 10,
     },
     handleContainer: {
         alignItems: 'center',
-        paddingVertical: 12, // Reduced padding
+        paddingVertical: 8, // Reduced padding
     },
     // ... (keep existing)
     compactHeader: {
@@ -104,13 +103,13 @@ export const styles = StyleSheet.create({
         opacity: 0.3,
     },
     content: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
         flex: 1, // Ensure ScrollView takes space
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 16,
         gap: 12,
     },
     headerCheckbox: {
@@ -161,7 +160,7 @@ export const styles = StyleSheet.create({
         borderBottomWidth: 2,
         borderBottomColor: '#E2E8F0',
         paddingVertical: 12,
-        marginBottom: 24,
+        marginBottom: 16,
         color: THEME.textPrimary,
         // fontFamily removed for system default
     },
@@ -193,7 +192,7 @@ export const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 12,
-        marginBottom: 24,
+        marginBottom: 60, // Heavy margin under the 4 squares as requested
     },
     featureCardGrid: {
         width: '48%',

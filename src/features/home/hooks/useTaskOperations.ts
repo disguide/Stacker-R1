@@ -35,7 +35,16 @@ export function useTaskOperations(
             if (item) {
                 // Fire and forget history add
                 const originalTask = tasks.find(t => t.id === item.originalTaskId) || item;
-                const taskToSave = { ...originalTask, id: item.id, title: item.title, date: item.date, completed: true, completedAt: new Date().toISOString() };
+                const taskToSave = { 
+                    ...originalTask, 
+                    id: item.id, 
+                    title: item.title, 
+                    date: item.date, 
+                    isCompleted: true, 
+                    completedAt: new Date().toISOString(),
+                    completedDates: originalTask.completedDates || [],
+                    exceptionDates: originalTask.exceptionDates || []
+                };
                 StorageService.addToHistory(taskToSave as Task).catch(e => console.error('[useTaskOperations] History add failed:', e));
 
                 toggleTask(item.originalTaskId, item.originalDate || item.date);
@@ -86,7 +95,16 @@ export function useTaskOperations(
                 const pendingItem = pendingItems.current[itemId];
                 if (pendingItem) {
                     const originalTask = tasks.find(t => t.id === pendingItem.originalTaskId) || pendingItem;
-                    const taskToSave = { ...originalTask, id: pendingItem.id, title: pendingItem.title, date: pendingItem.date, completed: true, completedAt: new Date().toISOString() };
+                    const taskToSave = { 
+                        ...originalTask, 
+                        id: pendingItem.id, 
+                        title: pendingItem.title, 
+                        date: pendingItem.date, 
+                        isCompleted: true, 
+                        completedAt: new Date().toISOString(),
+                        completedDates: originalTask.completedDates || [],
+                        exceptionDates: originalTask.exceptionDates || []
+                    };
                     StorageService.addToHistory(taskToSave as Task).catch(e => console.error('[useTaskOperations] History add failed:', e));
                     toggleTask(pendingItem.originalTaskId, pendingItem.originalDate || pendingItem.date);
                 }
@@ -150,10 +168,14 @@ export function useTaskOperations(
                 id: Date.now().toString(),
                 title: restoredTask.title,
                 date: todayString,
+                type: (restoredTask.type as any) || 'task',
+                isCompleted: false,
                 completedDates: [],
                 exceptionDates: [],
                 subtasks: [],
-                progress: 0
+                progress: 0,
+                created_at: Date.now(),
+                updated_at: Date.now()
             };
             addTask(newTask);
             setHistoryTasks(prev => prev.filter(t => t.id !== taskId));

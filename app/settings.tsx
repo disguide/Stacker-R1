@@ -7,6 +7,8 @@ import { StorageService, ColorDefinition, SprintSettings } from '../src/services
 import ColorSettingsModal from '../src/components/ColorSettingsModal';
 import { useAuth } from '../src/providers/AuthProvider';
 import { supabase, deleteUserAccount } from '../src/services/supabase';
+import { flushSync } from '../src/services/SyncService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SettingsGroup = ({ title, children }: { title?: string, children: React.ReactNode }) => (
     <View style={styles.groupContainer}>
@@ -23,56 +25,11 @@ export default function SettingsScreen() {
     const [isColorModalVisible, setIsColorModalVisible] = useState(false);
     const [userColors, setUserColors] = useState<ColorDefinition[]>([]);
     const [sprintSettings, setSprintSettings] = useState<SprintSettings>({ showTimer: true, allowPause: true });
-    
-    const [workTimeStr, setWorkTimeStr] = useState('25');
-    
-    // Account Security State
-    const [newPassword, setNewPassword] = useState('');
-    const [newEmail, setNewEmail] = useState('');
-    const [isSecurityLoading, setIsSecurityLoading] = useState(false);
-    
-    // Auth State
     const { user } = useAuth();
-
-    const handleSignOut = async () => {
-        await supabase.auth.signOut();
-    };
-
-    const handleDeleteAccount = () => {
-        Alert.alert(
-            "Delete Account?",
-            "This will permanently delete your account. This action cannot be undone.",
-            [
-                { text: "Cancel", style: "cancel" },
-                { 
-                    text: "Delete", 
-                    style: "destructive",
-                    onPress: () => {
-                        Alert.alert(
-                            "Final Warning",
-                            "Are you absolutely sure you want to delete your cloud account?",
-                            [
-                                { text: "Cancel", style: "cancel" },
-                                { 
-                                    text: "Yes, Delete It", 
-                                    style: "destructive",
-                                    onPress: async () => {
-                                        const { error } = await deleteUserAccount();
-                                        if (error) {
-                                            Alert.alert('Error', error.message || 'Make sure the delete_user RPC is setup in Supabase.');
-                                        } else {
-                                            Alert.alert('Success', 'Your account has been deleted.');
-                                            router.replace('/');
-                                        }
-                                    }
-                                }
-                            ]
-                        );
-                    }
-                }
-            ]
-        );
-    };
+    const [isSyncing, setIsSyncing] = useState(false);
+    
+    // Sprint Settings State
+    const [workTimeStr, setWorkTimeStr] = useState('25');
 
     const [breakTimeStr, setBreakTimeStr] = useState('5');
     const [maxTimeStr, setMaxTimeStr] = useState('60');
@@ -120,54 +77,154 @@ export default function SettingsScreen() {
         }
     };
 
-    const handleResetEverything = async () => {
+    const handleSignOut = async () => {
         Alert.alert(
-            "RESET EVERYTHING?",
-            "This will delete ALL goals, anti-goals, sprint history, and statistics. This cannot be undone.",
+            "Sign Out",
+            "Your data is safely stored in the cloud. Local data will be cleared from this device.",
             [
                 { text: "Cancel", style: "cancel" },
-                { 
-                    text: "RESET ALL DATA", 
-                    style: "destructive", 
+                {
+                    text: "Sign Out",
+                    style: "destructive",
                     onPress: async () => {
-                        await StorageService.clearAllData();
-                        router.replace('/');
+                        setIsSyncing(true);
+                        try { await flushSync(); } catch {}
+                        try {
+                            await supabase.auth.signOut();
+                            await AsyncStorage.clear();
+                            router.replace('/');
+                        } catch (err) {
+                            Alert.alert('Error', 'Failed to sign out.');
+                        } finally {
+                            setIsSyncing(false);
+                        }
                     }
                 }
             ]
         );
     };
 
-    const handleUpdatePassword = async () => {
-        if (!newPassword || newPassword.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters.');
-            return;
-        }
-        setIsSecurityLoading(true);
-        const { error } = await supabase.auth.updateUser({ password: newPassword });
-        setIsSecurityLoading(false);
-        if (error) {
-            Alert.alert('Error', error.message);
-        } else {
-            Alert.alert('Success', 'Password updated successfully!');
-            setNewPassword('');
-        }
+    const handleSwitchAccount = async () => {
+        Alert.alert(
+            "Switch Account",
+            "You'll be signed out and can log in with a different account. Local data will be cleared.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Switch",
+                    onPress: async () => {
+                        setIsSyncing(true);
+                        try { await flushSync(); } catch {}
+                        try {
+                            await supabase.auth.signOut();
+                            await AsyncStorage.clear();
+                            router.replace('/auth');
+                        } catch (err) {
+                            Alert.alert('Error', 'Failed to switch.');
+                        } finally {
+                            setIsSyncing(false);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
-    const handleUpdateEmail = async () => {
-        if (!newEmail || !newEmail.includes('@')) {
-            Alert.alert('Error', 'Please enter a valid email address.');
-            return;
-        }
-        setIsSecurityLoading(true);
-        const { error } = await supabase.auth.updateUser({ email: newEmail });
-        setIsSecurityLoading(false);
-        if (error) {
-            Alert.alert('Error', error.message);
-        } else {
-            Alert.alert('Verification Sent', 'Please check both your old and new email addresses for confirmation links.');
-            setNewEmail('');
-        }
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            "Delete Account",
+            "Choose how to handle your data:",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Keep Data (Dissociate)",
+                    onPress: () => {
+                        Alert.alert(
+                            "Dissociate Account?",
+                            "Your cloud account will be deleted, but all your local data stays on this device. You'll continue as a guest.",
+                            [
+                                { text: "Cancel", style: "cancel" },
+                                {
+                                    text: "Dissociate",
+                                    style: "destructive",
+                                    onPress: async () => {
+                                        setIsSyncing(true);
+                                        try {
+                                            const { error } = await deleteUserAccount();
+                                            if (error) {
+                                                Alert.alert('Error', error.message || 'Failed to delete account.');
+                                            } else {
+                                                Alert.alert('Done', 'Account removed. Your data is still here — you are now a guest.');
+                                            }
+                                        } catch (err) {
+                                            Alert.alert('Error', 'Something went wrong.');
+                                        } finally {
+                                            setIsSyncing(false);
+                                        }
+                                    }
+                                }
+                            ]
+                        );
+                    }
+                },
+                {
+                    text: "Delete Everything",
+                    style: "destructive",
+                    onPress: () => {
+                        Alert.alert(
+                            "Final Warning",
+                            "This will permanently delete your cloud account AND wipe all local data. This cannot be undone.",
+                            [
+                                { text: "Cancel", style: "cancel" },
+                                {
+                                    text: "Yes, Delete It All",
+                                    style: "destructive",
+                                    onPress: async () => {
+                                        setIsSyncing(true);
+                                        try {
+                                            await flushSync();
+                                            const { error } = await deleteUserAccount();
+                                            if (error) {
+                                                Alert.alert('Error', error.message || 'Failed to delete account.');
+                                            } else {
+                                                await AsyncStorage.clear();
+                                                Alert.alert('Done', 'Account and all data have been permanently deleted.');
+                                                router.replace('/');
+                                            }
+                                        } catch (err) {
+                                            Alert.alert('Error', 'Something went wrong.');
+                                        } finally {
+                                            setIsSyncing(false);
+                                        }
+                                    }
+                                }
+                            ]
+                        );
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleWipeEverything = () => {
+        Alert.alert(
+            "Wipe All Data?",
+            user 
+                ? "This will erase everything on this device. Your cloud data will NOT be affected — you can sync it back by signing in again."
+                : "This will permanently erase all your local data. Since you're a guest, this data cannot be recovered.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Wipe Everything",
+                    style: "destructive",
+                    onPress: async () => {
+                        await AsyncStorage.clear();
+                        Alert.alert('Done', 'All local data has been wiped.');
+                        router.replace('/');
+                    }
+                }
+            ]
+        );
     };
 
     return (
@@ -192,52 +249,70 @@ export default function SettingsScreen() {
                     keyboardShouldPersistTaps="handled"
                 >
 
-                    {/* TOP ACCOUNT CARD */}
-                    <SettingsGroup>
-                        <View style={styles.accountCard}>
-                            <View style={styles.accountHeader}>
-                                <View style={styles.avatarPlaceholder}>
-                                    <Text style={{ fontSize: 24 }}>👤</Text>
-                                </View>
-                                <View style={styles.accountInfo}>
-                                    <Text style={styles.accountName}>{user ? (user.email?.split('@')[0] || 'User') : 'Guest'}</Text>
-                                    <Text style={styles.accountStatus}>{user ? 'Signed In' : 'Unregistered Account'}</Text>
-                                </View>
-                            </View>
-                            
-                            {!user ? (
-                                <View style={styles.authForm}>
-                                    <TouchableOpacity 
-                                        style={[styles.authButton, { backgroundColor: '#007AFF', width: '100%' }]} 
-                                        onPress={() => router.push('/auth')}
-                                    >
-                                        <Text style={[styles.authText, { color: '#FFF' }]}>Sign In / Create Account</Text>
-                                    </TouchableOpacity>
-                                    <Text style={styles.authDisclaimer}>Sign in to sync your goals, sprints, and history across all your devices.</Text>
-                                </View>
-                            ) : (
-                                <View style={styles.authForm}>
-                                    <Text style={styles.authEmailText}>{user.email}</Text>
-                                    <View style={[styles.authButtons, { flexDirection: 'row', marginTop: 12 }]}>
-                                        <TouchableOpacity 
-                                            style={[styles.authButton, { backgroundColor: '#E2E8F0', flex: 1 }]} 
-                                            onPress={async () => {
-                                                await supabase.auth.signOut();
-                                                router.push('/auth');
-                                            }}
-                                        >
-                                            <Text style={[styles.authText, { color: '#333' }]}>Switch</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={[styles.authButton, { backgroundColor: '#EF4444', flex: 1 }]} 
-                                            onPress={handleSignOut}
-                                        >
-                                            <Text style={[styles.authText, { color: '#FFF' }]}>Sign Out</Text>
-                                        </TouchableOpacity>
+                    {/* ACCOUNT */}
+                    <SettingsGroup title="Account">
+                        {!user ? (
+                            <>
+                                <TouchableOpacity style={styles.navRow} onPress={() => router.push('/auth')}>
+                                    <View style={[styles.iconWrapper, { backgroundColor: '#007AFF' }]}>
+                                        <Ionicons name="log-in" size={18} color="#FFF" />
                                     </View>
-                                </View>
-                            )}
-                        </View>
+                                    <View style={styles.rowTextContainer}>
+                                        <Text style={styles.rowLabel}>Login</Text>
+                                        <Text style={styles.rowSubLabel}>Restore synced data</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                                </TouchableOpacity>
+
+                                <View style={styles.divider} />
+
+                                <TouchableOpacity style={styles.navRow} onPress={() => router.push('/auth')}>
+                                    <View style={[styles.iconWrapper, { backgroundColor: '#10B981' }]}>
+                                        <Ionicons name="person-add" size={18} color="#FFF" />
+                                    </View>
+                                    <View style={styles.rowTextContainer}>
+                                        <Text style={styles.rowLabel}>Register New Account</Text>
+                                        <Text style={styles.rowSubLabel}>Save guest data to cloud</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                <TouchableOpacity style={styles.navRow} onPress={() => router.push('/account')}>
+                                    <View style={[styles.iconWrapper, { backgroundColor: '#007AFF' }]}>
+                                        <Ionicons name="person" size={18} color="#FFF" />
+                                    </View>
+                                    <View style={styles.rowTextContainer}>
+                                        <Text style={styles.rowLabel}>Account Management</Text>
+                                        <Text style={styles.rowSubLabel}>{user.email}</Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                                </TouchableOpacity>
+
+                                <View style={styles.divider} />
+
+                                <TouchableOpacity style={styles.navRow} onPress={handleSignOut} disabled={isSyncing}>
+                                    <View style={[styles.iconWrapper, { backgroundColor: '#6B7280' }]}>
+                                        <Ionicons name="log-out" size={18} color="#FFF" />
+                                    </View>
+                                    <View style={styles.rowTextContainer}>
+                                        <Text style={styles.rowLabel}>{isSyncing ? 'Saving...' : 'Sign Out'}</Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                <View style={styles.divider} />
+
+                                <TouchableOpacity style={styles.navRow} onPress={handleDeleteAccount}>
+                                    <View style={[styles.iconWrapper, { backgroundColor: '#EF4444' }]}>
+                                        <Ionicons name="trash" size={18} color="#FFF" />
+                                    </View>
+                                    <View style={styles.rowTextContainer}>
+                                        <Text style={[styles.rowLabel, { color: '#EF4444' }]}>Delete Account</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </>
+                        )}
                     </SettingsGroup>
 
                     {/* SPRINT CONFIGURATION */}
@@ -337,68 +412,7 @@ export default function SettingsScreen() {
                         </TouchableOpacity>
                     </SettingsGroup>
                     
-                    {/* ACCOUNT SECURITY */}
-                    {user && (
-                        <SettingsGroup title="Account Security">
-                            <View style={styles.securityItem}>
-                                <Text style={styles.securityLabel}>Change Password</Text>
-                                <View style={styles.securityInputRow}>
-                                    <TextInput 
-                                        style={styles.securityInput} 
-                                        placeholder="New Password" 
-                                        secureTextEntry 
-                                        value={newPassword}
-                                        onChangeText={setNewPassword}
-                                    />
-                                    <TouchableOpacity 
-                                        style={[styles.securityButton, isSecurityLoading && styles.rowDisabled]} 
-                                        onPress={handleUpdatePassword}
-                                        disabled={isSecurityLoading}
-                                    >
-                                        <Text style={styles.securityButtonText}>Update</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-
-                            <View style={styles.dividerIndent} />
-
-                            <View style={styles.securityItem}>
-                                <Text style={styles.securityLabel}>Update Email</Text>
-                                <View style={styles.securityInputRow}>
-                                    <TextInput 
-                                        style={styles.securityInput} 
-                                        placeholder="New Email Address" 
-                                        keyboardType="email-address"
-                                        autoCapitalize="none"
-                                        value={newEmail}
-                                        onChangeText={setNewEmail}
-                                    />
-                                    <TouchableOpacity 
-                                        style={[styles.securityButton, isSecurityLoading && styles.rowDisabled]} 
-                                        onPress={handleUpdateEmail}
-                                        disabled={isSecurityLoading}
-                                    >
-                                        <Text style={styles.securityButtonText}>Update</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <Text style={styles.securityNote}>Requires verification link sent to your new email.</Text>
-                            </View>
-                        </SettingsGroup>
-                    )}
-                    <SettingsGroup>
-                        <TouchableOpacity style={styles.dangerRow} onPress={handleResetEverything}>
-                            <Text style={styles.dangerText}>Delete All Data & Statistics</Text>
-                        </TouchableOpacity>
-                        
-                        {user && (
-                            <>
-                                <View style={[styles.divider, { marginLeft: 0 }]} />
-                                <TouchableOpacity style={styles.dangerRow} onPress={handleDeleteAccount}>
-                                    <Text style={styles.dangerText}>Delete Cloud Account</Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
-                    </SettingsGroup>
+                    {/* NOTE: Account security and danger zone moved to account.tsx */}
 
                     <Text style={styles.versionText}>Version 1.1.0</Text>
 
@@ -411,6 +425,15 @@ export default function SettingsScreen() {
                 userColors={userColors}
                 onSave={handleSaveUserColors}
             />
+
+            {isSyncing && (
+                <View style={styles.syncOverlay}>
+                    <View style={styles.syncModal}>
+                        <Ionicons name="cloud-upload" size={32} color="#007AFF" />
+                        <Text style={styles.syncText}>Saving to Cloud...</Text>
+                    </View>
+                </View>
+            )}
         </SafeAreaView>
     );
 }
@@ -503,6 +526,11 @@ const styles = StyleSheet.create({
     rowLabel: {
         fontSize: 16,
         color: '#000',
+    },
+    rowSubLabel: {
+        fontSize: 13,
+        color: '#9CA3AF',
+        marginTop: 2,
     },
     inputLabel: {
         fontSize: 16,
@@ -648,5 +676,28 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#9CA3AF',
         marginTop: 6,
-    }
+    },
+    syncOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    syncModal: {
+        backgroundColor: '#FFF',
+        padding: 24,
+        borderRadius: 16,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    syncText: {
+        marginTop: 12,
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#000',
+    },
 });

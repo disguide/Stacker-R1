@@ -521,7 +521,7 @@ export default function SprintScreen() {
     const handleCompleteTask = async () => {
         if (!tasks[0]) return;
 
-        const taskToComplete = { ...tasks[0], completed: true }; // Explicitly mark as completed
+        const taskToComplete = { ...tasks[0], isCompleted: true, completedAt: Date.now() }; // Standardized completion
         setCompletedTasks(prev => [...prev, taskToComplete]);
 
         const now = Date.now();
@@ -570,7 +570,7 @@ export default function SprintScreen() {
             if (!prev[0]) return prev;
             const updatedTask = { ...prev[0] };
             updatedTask.subtasks = updatedTask.subtasks?.map(st => 
-                st.id === subtaskId ? { ...st, completed: !st.completed } : st
+                st.id === subtaskId ? { ...st, isCompleted: !st.isCompleted } : st
             );
             return [updatedTask, ...prev.slice(1)];
         });
@@ -656,13 +656,13 @@ export default function SprintScreen() {
                                                 onPress={() => toggleSubtask(st.id)}
                                             >
                                                 <Ionicons 
-                                                    name={st.completed ? "checkmark-circle" : "ellipse-outline"} 
+                                                    name={st.isCompleted ? "checkmark-circle" : "ellipse-outline"} 
                                                     size={20} 
-                                                    color={st.completed ? "#4ADE80" : "#94A3B8"} 
+                                                    color={st.isCompleted ? "#4ADE80" : "#94A3B8"} 
                                                 />
                                                 <Text style={[
                                                     styles.subtaskTitle, 
-                                                    st.completed && styles.subtaskCompletedText
+                                                    st.isCompleted && styles.subtaskCompletedText
                                                 ]}>
                                                     {st.title}
                                                 </Text>

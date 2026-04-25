@@ -109,17 +109,39 @@ export default function ColorSettingsModal({ visible, onClose, userColors, color
 
     // ── Keyword helpers ──────────────────────────────────────────────────────
     const handleAddKeyword = (colorId: string) => {
-        const kw = (pendingKeyword[colorId] || '').trim();
+        const kw = (pendingKeyword[colorId] || '').trim().toLowerCase();
         if (!kw) return;
-        const newColors = colors.map(c => {
-            if (c.id !== colorId) return c;
-            const existing = c.keywords || [];
-            if (existing.includes(kw)) return c; // dedupe
-            return { ...c, keywords: [...existing, kw] };
-        });
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        persistChanges(newColors);
-        setPendingKeyword(prev => ({ ...prev, [colorId]: '' }));
+
+        // Check for duplicate keyword on OTHER colors
+        const conflictColor = colors.find(c => 
+            c.id !== colorId && (c.keywords || []).some(k => k.toLowerCase() === kw)
+        );
+
+        const doAdd = () => {
+            const newColors = colors.map(c => {
+                if (c.id !== colorId) return c;
+                const existing = c.keywords || [];
+                if (existing.some(k => k.toLowerCase() === kw)) return c; // dedupe
+                return { ...c, keywords: [...existing, kw] };
+            });
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            persistChanges(newColors);
+            setPendingKeyword(prev => ({ ...prev, [colorId]: '' }));
+        };
+
+        if (conflictColor) {
+            const conflictLabel = conflictColor.label || conflictColor.color;
+            Alert.alert(
+                'Keyword Conflict',
+                `"${kw}" is already assigned to ${conflictLabel}.\n\nIf both colors have this keyword, the one that appears first in your task title will win.`,
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Add Anyway', onPress: doAdd },
+                ]
+            );
+        } else {
+            doAdd();
+        }
     };
 
     const handleRemoveKeyword = (colorId: string, kw: string) => {

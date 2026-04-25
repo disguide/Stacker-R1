@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Task, StorageService } from '../src/services/storage';
+import { toISODateString } from '../src/utils/dateHelpers';
 
 const THEME = {
     bg: '#F0F9FF', // Clean pale blue background
@@ -64,7 +65,7 @@ const SprintSummaryTaskRow = ({
     isLast?: boolean
 }) => {
     // Use task status for initialization
-    const initialProgress = task.completed ? 100 : (task.progress || 0);
+    const initialProgress = task.isCompleted ? 100 : (task.progress || 0);
     const [progress, setProgress] = useState(initialProgress);
     const [isDragging, setIsDragging] = useState(false);
     const progressAnim = useRef(new Animated.Value(initialProgress)).current;
@@ -211,7 +212,7 @@ export default function SprintSummaryScreen() {
 
     // Track confirmed status and progress percentage
     const [confirmedTaskIds, setConfirmedTaskIds] = React.useState<Set<string>>(
-        new Set(initialSprintTasks.filter(t => t.completed).map(t => t.id))
+        new Set(initialSprintTasks.filter(t => t.isCompleted).map(t => t.id))
     );
     // { [taskId]: { [subtaskId]: progress } } for subtasks
     const [taskProgress, setTaskProgress] = useState<{ [id: string]: number }>({});
@@ -230,13 +231,13 @@ export default function SprintSummaryScreen() {
         const initialSubConfirmed: any = {};
 
         initialSprintTasks.forEach(t => {
-            initialTaskMap[t.id] = t.completed ? 100 : (t.progress || 0);
+            initialTaskMap[t.id] = t.isCompleted ? 100 : (t.progress || 0);
             if (t.subtasks && t.subtasks.length > 0) {
                 const subProgress: any = {};
                 const subConf = new Set<string>();
                 t.subtasks.forEach(st => {
-                    subProgress[st.id] = st.completed ? 100 : (st.progress || 0);
-                    if (st.completed) subConf.add(st.id);
+                    subProgress[st.id] = st.isCompleted ? 100 : (st.progress || 0);
+                    if (st.isCompleted) subConf.add(st.id);
                 });
                 initialSubMap[t.id] = subProgress;
                 initialSubConfirmed[t.id] = subConf;
@@ -346,14 +347,15 @@ export default function SprintSummaryScreen() {
 
             await StorageService.saveSavedSprint({
                 id: newId,
-                date: new Date().toISOString(),
+                date: toISODateString(new Date()),
                 durationSeconds: workSeconds,
                 breakDurationSeconds: breakSeconds,
                 totalDurationSeconds,
                 timelineEvents,
                 primaryTask,
                 taskCount: confirmedTaskIds.size,
-            });
+                updated_at: Date.now()
+            } as any);
             setSavedSprintId(newId);
         } catch (error) {
             console.error("Failed to save sprint:", error);
@@ -388,7 +390,7 @@ export default function SprintSummaryScreen() {
                         masterTask.subtasks = masterTask.subtasks?.map(st => {
                             const newComp = parentSubConf.has(st.id);
                             const newProg = parentSubProg[st.id] ?? st.progress ?? 0;
-                            return { ...st, completed: newComp, progress: newProg };
+                            return { ...st, isCompleted: newComp, progress: newProg };
                         });
                     }
 
@@ -401,7 +403,7 @@ export default function SprintSummaryScreen() {
                             finalActiveTasks[masterIndex] = masterTask;
                         } else {
                             // Regular task -> Archive it
-                            const taskToArchive = { ...masterTask, completed: true, completedAt: new Date().toISOString() };
+                            const taskToArchive = { ...masterTask, isCompleted: true, completedAt: Date.now(), updated_at: Date.now() };
                             await StorageService.addToHistory(taskToArchive);
                             // Mark for removal but don't just filter yet to preserve index mapping during the loop
                             (finalActiveTasks[masterIndex] as any).__toBeArchived = true;
@@ -435,15 +437,16 @@ export default function SprintSummaryScreen() {
 
             const sprintRecord = {
                 id: `hist_${Date.now()}`,
-                date: new Date().toISOString(),
+                date: toISODateString(new Date()),
                 durationSeconds: workSeconds,
                 breakDurationSeconds: breakSeconds,
                 totalDurationSeconds: workSeconds + breakSeconds,
                 timelineEvents: timelineEvents,
                 primaryTask,
                 taskCount: confirmedTaskIds.size,
+                updated_at: Date.now()
             };
-            await StorageService.addToSprintHistory(sprintRecord);
+            await StorageService.addToSprintHistory(sprintRecord as any);
 
             router.replace('/');
         } catch (e) {

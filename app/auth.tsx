@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/services/supabase';
 import { StorageService } from '../src/services/storage';
-import { SyncService } from '../src/services/SyncService';
+import { migrateGuestToCloud } from '../src/services/SyncService';
 import { useAuth } from '../src/providers/AuthProvider';
 
 export default function AuthScreen() {
@@ -76,7 +76,6 @@ export default function AuthScreen() {
                     { text: 'OK', onPress: markAuthSeenAndProceed }
                 ]);
             } else {
-                SyncService.migrateGuestToCloud();
                 markAuthSeenAndProceed();
             }
         }

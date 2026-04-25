@@ -1,75 +1,34 @@
-export interface Task {
-    id: string; // Unique ID (UUID)
-    title: string;
-    date: string; // Start Date YYYY-MM-DD
+import { 
+    Task as CoreTask, 
+    TaskType, 
+    RecurrenceFrequency, 
+    WeekDay, 
+    RecurrenceConfig as RecurrenceRule 
+} from '../../core/types';
 
-    // Recurrence Fields (Optional - only for Master Tasks)
-    rrule?: string; // e.g. "FREQ=DAILY;COUNT=90"
-    completedDates?: string[]; // Array of ISO Date Strings ["2026-01-29", ...]
-    exceptionDates?: string[]; // Array of ISO Date Strings ["2026-02-05"] (Deleted days)
-
-    // Legacy/Optional fields we might still need for UI
-    deadline?: string;
-    estimatedTime?: string;
-    reminderDate?: string; // YYYY-MM-DD (Optional, defaults to task.date)
-    reminderTime?: string; // HH:mm format for notification time
-    reminderOffset?: number; // Minutes (or days?) Let's use MINUTES for flexibility, or DAYS if UI only offers days. User asked "x day before".
-    // Let's use MINUTES for maximum flexibility (e.g. 15 mins before). 
-    // But for "Days before", 24*60.
-    // Actually, simple number of days is easier for "Date" calculation. 
-    // Let's call it `reminderOffsetDays` or just stick to `reminderOffset` (number of days).
-    reminderEnabled?: boolean; // Toggle for notification
-    subtasks?: Subtask[];
-    progress?: number;
-    completed?: boolean; // For single tasks (legacy)
-    isCompleted?: boolean; // For single tasks (preferred)
-    tagIds?: string[];
+export interface Task extends CoreTask {
+    // Identity - Inherited
+    
+    // Feature-Specific UI Fields
+    reminderOffset?: number; // Days offset for reminder calculation
     instanceProgress?: Record<string, number>;
     instanceSubtasks?: Record<string, Subtask[]>;
     instanceSortOrders?: Record<string, number>;
-
-    // Design System (User customizable)
-    color?: string; // Hex color for stripe
-    type?: 'task' | 'event' | 'work' | 'chore' | 'habit';
-
-    // UI-Specific Fields (Used by TaskEditDrawer)
-    recurrence?: RecurrenceRule;
-    seriesId?: string;
-    originalTaskId?: string;
-    daysRolled?: number;
-    originalDate?: string;
-    importance?: number; // 0=None, 1=Low(!), 2=Medium(!!), 3=High(!!!)
 
     // Sprint Extraction Tracking
     sprintParentId?: string;
     sprintSubtaskId?: string;
 
-    // Manual Sort Order (drag-and-drop)
-    sortOrder?: number;
-
     // Archival Metadata
-    completedAt?: string;
-
-    // Sync Metadata
-    updated_at?: number;
-    deleted_at?: number;
+    completedAt?: number;
 }
 
-export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
-export type WeekDay = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
-
-export interface RecurrenceRule {
-    frequency: RecurrenceFrequency;
-    interval: number; // e.g., 1 for every week, 2 for every other week
-    daysOfWeek?: WeekDay[]; // for weekly specific days
-    endDate?: string; // ISO date string
-    occurrenceCount?: number; // end after X times
-}
+export { RecurrenceFrequency, WeekDay, RecurrenceRule };
 
 export interface Subtask {
     id: string;
     title: string;
-    completed: boolean;
+    isCompleted: boolean;
     deadline?: string;
     estimatedTime?: string;
     progress?: number;

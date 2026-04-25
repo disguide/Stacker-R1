@@ -139,7 +139,7 @@ export default function SavedScreen() {
                 dateSet.add(n);
             }
         });
-        activeTasks.filter(t => t.completed).forEach(t => {
+        activeTasks.filter(t => t.isCompleted).forEach(t => {
             const n = getActionDate(t);
             if (n) {
                 t.date = n;
@@ -155,7 +155,7 @@ export default function SavedScreen() {
             const daySprints = sprintHistory.filter(s => s.date === date);
             const dayTasks = [
                 ...taskHistory.filter(t => t.date === date),
-                ...activeTasks.filter(t => t.completed && t.date === date)
+                ...activeTasks.filter(t => t.isCompleted && t.date === date)
             ];
 
             // Deduplicate tasks by ID
@@ -202,9 +202,9 @@ export default function SavedScreen() {
                         if (todayData?.date === dayDate) setTodayData(null);
                         
                         const extData = await StorageService.loadDailyData(dayDate);
-                        const dataToSave = extData || { date: dayDate, updatedAt: new Date().toISOString() };
+                        const dataToSave = extData || { date: dayDate, updated_at: Date.now() };
                         dataToSave.isStarred = false;
-                        dataToSave.updatedAt = new Date().toISOString();
+                        dataToSave.updated_at = Date.now();
                         await StorageService.saveDailyData(dayDate, dataToSave);
                     }
                 }
@@ -223,7 +223,7 @@ export default function SavedScreen() {
             // Uncheck if it's sitting locally in active memory
             activeTasks[activeIndex] = { 
                 ...activeTasks[activeIndex], 
-                completed: false, 
+                isCompleted: false, 
                 completedAt: undefined,
                 date: toISODateString(new Date()),
                 daysRolled: undefined,
@@ -236,7 +236,7 @@ export default function SavedScreen() {
             if (removedTask) {
                 const taskToRestore = { 
                     ...removedTask, 
-                    completed: false, 
+                    isCompleted: false, 
                     completedAt: undefined,
                     date: toISODateString(new Date()),
                     daysRolled: undefined,
@@ -258,7 +258,7 @@ export default function SavedScreen() {
             ...day, 
             rating: nextRating, 
             isStarred: nextStarred,
-            updatedAt: new Date().toISOString() 
+            updated_at: Date.now() 
         };
         
         // Update local state for immediate feedback
@@ -272,7 +272,7 @@ export default function SavedScreen() {
     };
 
     const handleUpdateReflection = (day: LogDay, text: string) => {
-        const newData = { ...day, reflection: text, updatedAt: new Date().toISOString() };
+        const newData = { ...day, reflection: text, updated_at: Date.now() };
         setLogDays(prev => prev.map(d => d.date === day.date ? newData : d));
         if (todayData?.date === day.date) setTodayData(newData);
         StorageService.saveDailyData(day.date, newData);
@@ -350,7 +350,7 @@ export default function SavedScreen() {
                                         {day.rating > 0 && (
                                             <TouchableOpacity 
                                                 onPress={() => {
-                                                    const newData = { ...day, rating: 0, updatedAt: new Date().toISOString() };
+                                                    const newData = { ...day, rating: 0, updated_at: Date.now() };
                                                     if (todayData?.date === day.date) setTodayData(newData);
                                                     setLogDays(prev => prev.map(d => d.date === day.date ? newData : d));
                                                     StorageService.saveDailyData(day.date, newData);

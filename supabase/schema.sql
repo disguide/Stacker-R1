@@ -21,6 +21,7 @@
 --   9. user_colors         — Color palette config (singleton)
 --  10. daily_data          — Journal entries (array, one row per date)
 --  11. mail                — In-app mail messages (singleton, stores array)
+--  12. color_settings     — Auto-color & keyword preferences (singleton)
 -- ============================================================
 
 
@@ -327,6 +328,72 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE OR REPLACE TRIGGER trg_mail_updated_at BEFORE INSERT OR UPDATE ON public.mail FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 
+-- 12. COLOR SETTINGS (singleton per user)
+CREATE TABLE IF NOT EXISTS public.color_settings (
+    id          TEXT        NOT NULL,
+    user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    data        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at  TIMESTAMPTZ,
+    PRIMARY KEY (id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_color_settings_sync ON public.color_settings (user_id, updated_at);
+ALTER TABLE public.color_settings ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    CREATE POLICY "color_settings_select" ON public.color_settings FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "color_settings_insert" ON public.color_settings FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "color_settings_update" ON public.color_settings FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "color_settings_delete" ON public.color_settings FOR DELETE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE OR REPLACE TRIGGER trg_color_settings_updated_at BEFORE INSERT OR UPDATE ON public.color_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+-- 13. ACTION LOGS (array pattern — one row per log entry)
+CREATE TABLE IF NOT EXISTS public.action_logs (
+    id          TEXT        NOT NULL,
+    user_id     UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    data        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at  TIMESTAMPTZ,
+    PRIMARY KEY (id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_action_logs_sync ON public.action_logs (user_id, updated_at);
+ALTER TABLE public.action_logs ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    CREATE POLICY "action_logs_select" ON public.action_logs FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "action_logs_insert" ON public.action_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "action_logs_update" ON public.action_logs FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+    CREATE POLICY "action_logs_delete" ON public.action_logs FOR DELETE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE OR REPLACE TRIGGER trg_action_logs_updated_at BEFORE INSERT OR UPDATE ON public.action_logs FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+-- ============================================================
+-- RPC: GET_SERVER_TIME
+-- ============================================================
+-- Returns the current database time as an ISO string.
+-- Essential for Level 4 Sync (Anchor logic).
+
+CREATE OR REPLACE FUNCTION public.get_server_time()
+RETURNS TIMESTAMPTZ AS $$
+BEGIN
+    RETURN now();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
 -- ============================================================
 -- DELETE USER RPC
 -- ============================================================
@@ -342,5 +409,5 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- ============================================================
--- DONE! All 11 tables created with RLS and auto-timestamps.
+-- DONE! All 13 tables created with RLS and auto-timestamps.
 -- ============================================================

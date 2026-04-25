@@ -85,7 +85,7 @@ export function useTaskCreation({
             const newSubtask: Subtask = {
                 id: Date.now().toString(),
                 title: newTaskTitle.trim(),
-                completed: false,
+                isCompleted: false,
                 deadline: newTaskDeadline || undefined,
                 estimatedTime: newTaskEstimatedTime || undefined,
             };
@@ -131,6 +131,8 @@ export function useTaskCreation({
             id: taskId,
             title: resolvedTitle,
             date: date,
+            type: 'task',
+            isCompleted: false,
             completedDates: [],
             exceptionDates: [],
             deadline: newTaskDeadline || undefined,
@@ -140,6 +142,8 @@ export function useTaskCreation({
             subtasks: [],
             progress: 0,
             color: resolvedColor, // undefined when no keyword matched
+            created_at: Date.now(),
+            updated_at: Date.now(),
         };
 
         addTask(newTask);
@@ -295,7 +299,7 @@ export function useTaskCreation({
         const newSubtask = {
             id: (editingSubtask && !isNewTemp ? subtaskData.id : Date.now().toString()),
             title: subtaskData.title,
-            completed: subtaskData.completed || false,
+            isCompleted: subtaskData.isCompleted || false,
             deadline: subtaskData.deadline,
             estimatedTime: subtaskData.estimatedTime,
         };
@@ -340,7 +344,7 @@ export function useTaskCreation({
     const openEditDrawer = useCallback((item: any) => {
         let drawerTask = {
             ...item,
-            completed: item.isCompleted !== undefined ? item.isCompleted : (item.completed || false),
+            isCompleted: item.isCompleted !== undefined ? item.isCompleted : false,
         };
 
         if (item.isGhost && item.originalTaskId) {

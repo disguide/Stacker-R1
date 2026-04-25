@@ -15,6 +15,15 @@ const compat = new FlatCompat({
 export default [
     ...compat.extends("expo"),
     {
+        ignores: [
+            "updated_profile_fix.js",
+            "benchmark.ts",
+            "dist/**",
+            "android/**",
+            "*.txt",
+        ],
+    },
+    {
         files: ["**/*.ts", "**/*.tsx"],
         languageOptions: {
             parserOptions: {
@@ -22,7 +31,10 @@ export default [
             },
         },
         rules: {
-            // Add custom rules here if needed
+            // TypeScript handles module resolution (0 tsc errors) — these are redundant
+            "import/no-unresolved": "off",
+            "import/namespace": "off",
+            // Project rules
             "no-unused-vars": "warn",
             "react-hooks/exhaustive-deps": "warn",
             "react-hooks/rules-of-hooks": "warn",

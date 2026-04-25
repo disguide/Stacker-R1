@@ -116,9 +116,9 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
         activeTasks.forEach(task => {
             if (!task.date) {
                 unscheduledTasks.push(task);
-            } else if (task.date === today && !task.completed) {
+            } else if (task.date === today && !task.isCompleted) {
                 todayTasks.push(task);
-            } else if (task.date > today || (task.rrule && !task.completed)) {
+            } else if (task.date > today || (task.rrule && !task.isCompleted)) {
                 // Future or Recurring (assuming recurring shows up here if not completed today)
                 // Note: simplistic check for upcoming. 
                 // If it's old/overdue? It goes to upcoming/other for now or we add "Overdue"

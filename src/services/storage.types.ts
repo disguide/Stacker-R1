@@ -13,4 +13,5 @@ export const STORAGE_KEYS = {
     DAILY_DATA: '@stacker_daily_data_v1',
     UI_STATE: '@stacker_ui_state_v1',
     COLOR_SETTINGS: '@stacker_color_settings_v1',
+    ACTION_LOGS: '@stacker_action_logs_v1',
 };

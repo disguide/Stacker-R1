@@ -72,10 +72,10 @@ export default function TimelineScreen() {
         for (const g of allGoals) {
             const color = g.color || (g.category ? CATEGORY_COLORS[g.category] : FALLBACK_COLOR);
 
-            if (g.createdAt) {
+            if (g.created_at) {
                 const hasExplicitAdd = g.events?.some(e => e.type === 'added');
                 if (!hasExplicitAdd) {
-                    evs.push({ id: `add-${g.id}`, goalId: g.id, title: g.title, isGoal: g.isGoal, type: 'added', date: new Date(g.createdAt), color, goalBase: g });
+                    evs.push({ id: `add-${g.id}`, goalId: g.id, title: g.title, isGoal: g.isGoal, type: 'added', date: new Date(g.created_at), color, goalBase: g });
                 }
             }
 
@@ -89,7 +89,7 @@ export default function TimelineScreen() {
             }
 
             const hasExplicitAchieved = g.events?.some(e => e.type === 'achieved');
-            if (g.completed && g.completedAt && !hasExplicitAchieved) {
+            if (g.isCompleted && g.completedAt && !hasExplicitAchieved) {
                 evs.push({ id: `ach-${g.id}`, goalId: g.id, title: g.title, isGoal: g.isGoal, type: 'achieved', date: new Date(g.completedAt), color, goalBase: g });
             }
         }
@@ -195,7 +195,7 @@ export default function TimelineScreen() {
                             const newEvents = (g.events || []).filter(e => e.id !== eventId);
                             let updates: any = { events: newEvents };
                             if (type === 'achieved') {
-                                updates.completed = false;
+                                updates.isCompleted = false;
                                 updates.completedAt = undefined;
                             }
                             return { ...g, ...updates };

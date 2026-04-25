@@ -22,7 +22,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "softwareKeyboardLayoutMode": "adjustResize",
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.disguide.stacker",
       "versionCode": 3
     },

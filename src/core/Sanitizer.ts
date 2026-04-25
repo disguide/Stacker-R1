@@ -45,8 +45,8 @@ export class Sanitizer {
             // Metadata
             color: raw.color || '#38A169',
             type: raw.type || raw.taskType || 'task', // Handle legacy 'taskType'
-            createdAt: raw.createdAt || Date.now(),
-            updatedAt: Date.now(),
+            created_at: raw.created_at || raw.createdAt || Date.now(),
+            updated_at: Date.now(),
             originalTaskId: raw.originalTaskId || undefined
         };
 

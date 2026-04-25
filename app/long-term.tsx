@@ -61,7 +61,7 @@ export default function LongTermScreen() {
     const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
 
     // Calendar State
-    const [calendarMode, setCalendarMode] = useState<'add' | 'edit'>('add');
+    const [calendarMode, setCalendarMode] = useState<'add' | 'edit' | 'move'>('add');
     const [calendarInitialPage, setCalendarInitialPage] = useState(0);
 
     // Soft Completion State
@@ -207,14 +207,17 @@ export default function LongTermScreen() {
 
         const newTask: Task = {
             id: `new_longterm_${Date.now()}`,
+            type: 'task',
             title: '',
             date: dateStr,
             originalDate: dateStr,
-            completed: false,
+            isCompleted: false,
             recurrence,
             rrule: rruleString,
             subtasks: [],
-            progress: 0
+            progress: 0,
+            created_at: Date.now(),
+            updated_at: Date.now()
         };
 
         setEditingTask(newTask);
@@ -248,7 +251,7 @@ export default function LongTermScreen() {
                         title: subtaskData.title,
                         deadline: subtaskData.deadline,
                         estimatedTime: subtaskData.estimatedTime,
-                        completed: subtaskData.completed
+                        isCompleted: subtaskData.isCompleted
                     } : s
                 ) || [];
                 updateTask(parentId, { subtasks: updatedSubtasks });
@@ -328,7 +331,7 @@ export default function LongTermScreen() {
         const newSubtask: Subtask = {
             id: Date.now().toString(),
             title: newTaskTitle.trim(),
-            completed: false,
+            isCompleted: false,
             progress: 0
         };
 
@@ -388,7 +391,7 @@ export default function LongTermScreen() {
 
 
     const handleListTaskToggle = (item: Task) => {
-        if (item.completed) {
+        if (item.isCompleted) {
             toggleTask(item.id, item.date);
             return;
         }
@@ -572,7 +575,7 @@ export default function LongTermScreen() {
                                     <SwipeableTaskRow
                                         id={(item as Task).id}
                                         title={(item as Task).title}
-                                        completed={(item as Task).completed || false}
+                                        completed={(item as Task).isCompleted || false}
                                         deadline={(item as Task).deadline}
                                         estimatedTime={(item as Task).estimatedTime}
                                         progress={(item as Task).progress || 0}
@@ -600,7 +603,7 @@ export default function LongTermScreen() {
                                                     key={subtask.id}
                                                     id={subtask.id}
                                                     title={subtask.title}
-                                                    completed={subtask.completed}
+                                                    completed={subtask.isCompleted}
                                                     isSubtask={true}
                                                     progress={subtask.progress || 0}
                                                     onComplete={() => handleSubtaskToggle(item as Task, subtask)}
@@ -651,6 +654,7 @@ export default function LongTermScreen() {
             <CalendarModal
                 visible={isCalendarVisible}
                 onClose={() => setIsCalendarVisible(false)}
+                title={calendarMode === 'move' ? 'Move Task to Date' : 'Choose Date for Task'}
                 onSelectDate={handleSelectDate}
                 selectedDate={calendarMode === 'edit' ? (editingSubtask ? editingSubtask.subtask.deadline : editingTask?.deadline) : null}
             />
