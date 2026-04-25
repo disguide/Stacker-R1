@@ -34,6 +34,9 @@ interface CalendarModalProps {
     onClose: () => void;
     onSelectDate: (date: Date | null, hasTime?: boolean) => void;
     selectedDate?: string | null;
+    showTimePicker?: boolean;
+    autoConfirm?: boolean;
+    initialPage?: number;
 }
 
 // Snappy Animated Day Cell

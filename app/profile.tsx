@@ -129,6 +129,7 @@ export default function ProfileScreen() {
                 }
             });
             return () => { mounted = false; };
+            // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [])
     );
 
@@ -162,8 +163,9 @@ export default function ProfileScreen() {
         
         // Find the one that's been active longest (earliest createdAt)
         return [...allActive].sort((a, b) => {
-            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : Date.now();
-            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : Date.now();
+            // Sort nulls to the end by treating them as very large numbers
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : Number.MAX_SAFE_INTEGER;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : Number.MAX_SAFE_INTEGER;
             return aTime - bTime;
         })[0];
     }, [profile.goals, profile.antigoals]);
