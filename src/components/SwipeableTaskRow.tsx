@@ -58,6 +58,7 @@ interface SwipeableTaskRowProps {
     reminderEnabled?: boolean;
     reminderTime?: string; // HH:mm
     reminderDate?: string; // YYYY-MM-DD
+    onLongPress?: () => void;
 
     // Customization
     menuIcon?: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -366,7 +367,7 @@ export default function SwipeableTaskRow({
                     styles.container,
                     { paddingRight: 6 }, // Add internal space for the 3D frame boundary
                     isSubtask && { minHeight: 40, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' }, // Unified 3D card block with hairline divider
-                    (touchingTop && !isSubtask) && { paddingTop: 0 }, 
+                    (touchingTop && !isSubtask) && { paddingTop: 0 },
                     (!touchingTop && !isSubtask) && { paddingTop: 6 }, // Create space for the 3D frame
                     touchingTop && { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
                     touchingBottom && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }
@@ -472,18 +473,6 @@ export default function SwipeableTaskRow({
                     >
 
 
-                        {/* In reorder mode: show drag handle instead of checkbox */}
-                        {isReorderMode ? (
-                            <View
-                                style={[
-                                    styles.taskCheckbox,
-                                    { borderWidth: 0, alignItems: 'center', justifyContent: 'center', width: 28, height: 28 }
-                                ]}
-                            >
-                                <MaterialCommunityIcons name="drag" size={22} color="#94A3B8" />
-                            </View>
-                        ) : (
-                            <>
                                 {/* Checkbox: Now a proper touchable */}
                                 <TouchableOpacity
                                     style={[
@@ -498,6 +487,8 @@ export default function SwipeableTaskRow({
                                         }
                                     ]}
                                     onPress={isSelectionMode ? onSelect : onComplete}
+                                    onLongPress={props.onLongPress}
+                                    delayLongPress={150}
                                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                 >
                                     {isSelectionMode ? (
@@ -514,8 +505,6 @@ export default function SwipeableTaskRow({
                                         ]} />
                                     )}
                                 </TouchableOpacity>
-                            </>
-                        )}
 
 
                         <View style={{ flex: 1, paddingRight: 8 }} pointerEvents="box-none">
@@ -561,8 +550,8 @@ export default function SwipeableTaskRow({
                                     </View>
                                 )}
                                 {/* Importance logic moved to top right action zone */}
-                                {/* Reminder Tag - Toggleable - Hidden in reorder mode */}
-                                {!isReorderMode && props.reminderTime && (
+                                {/* Reminder Tag - Toggleable */}
+                                {props.reminderTime && (
                                     <TouchableOpacity
                                         onPress={props.onToggleReminder}
                                         style={[
@@ -602,17 +591,25 @@ export default function SwipeableTaskRow({
                     </View>
                 ) : null}
 
-                {/* Action Zone (Right Side) - Hidden in reorder mode */}
-                {!isReorderMode && (
-                    <View style={styles.actionZone}>
-                        <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
-                            <MaterialCommunityIcons name="pencil" size={20} color="#94A3B8" />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton} onPress={onMenu}>
-                            <MaterialCommunityIcons name={menuIcon} size={20} color={menuColor} />
-                        </TouchableOpacity>
-                    </View>
-                )}
+                {/* Action Zone (Right Side) */}
+                <View style={styles.actionZone}>
+                    <TouchableOpacity 
+                        style={styles.actionButton} 
+                        onPress={onEdit}
+                        onLongPress={props.onLongPress}
+                        delayLongPress={150}
+                    >
+                        <MaterialCommunityIcons name="pencil" size={20} color="#94A3B8" />
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={styles.actionButton} 
+                        onPress={onMenu}
+                        onLongPress={props.onLongPress}
+                        delayLongPress={150}
+                    >
+                        <MaterialCommunityIcons name={menuIcon} size={20} color={menuColor} />
+                    </TouchableOpacity>
+                </View>
 
                 {/* Percentage Indicator - Absolute Bottom Right of ROW */}
                 <Text style={styles.percentageText}>

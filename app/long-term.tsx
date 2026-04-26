@@ -654,7 +654,11 @@ export default function LongTermScreen() {
             <CalendarModal
                 visible={isCalendarVisible}
                 onClose={() => setIsCalendarVisible(false)}
-                title={calendarMode === 'move' ? 'Move Task to Date' : 'Choose Date for Task'}
+                title={
+                    calendarMode === 'move' ? 'Move Task to Date' : 
+                    calendarMode === 'add' ? 'Add Date' : 
+                    'Change Date'
+                }
                 onSelectDate={handleSelectDate}
                 selectedDate={calendarMode === 'edit' ? (editingSubtask ? editingSubtask.subtask.deadline : editingTask?.deadline) : null}
             />

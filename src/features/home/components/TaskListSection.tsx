@@ -78,7 +78,7 @@ type FlatItem = { type: 'header'; date: Date; dateString: string; key: string }
 
 // ============ Draggable List implementation (Pure React Native) ============
 function ReorderableList({
-    flatItems, ops, renderDateHeader, onDragStateChange, scrollY, scrollRef, isClumped, sortOption
+    flatItems, ops, renderDateHeader, onDragStateChange, scrollY, scrollRef, isClumped, sortOption, setIsReorderMode
 }: {
     flatItems: FlatItem[];
     ops: TaskListSectionProps['ops'];
@@ -88,6 +88,7 @@ function ReorderableList({
     scrollRef: React.RefObject<ScrollView | null>;
     isClumped: boolean;
     sortOption: string | null;
+    setIsReorderMode?: (val: boolean) => void;
 }) {
     const [items, setItems] = useState(flatItems);
 
@@ -213,73 +214,60 @@ function ReorderableList({
 
         // Dynamic Edge-based Auto-scrolling
         const windowHeight = Dimensions.get('window').height;
-        const topEdge = 250; // Massively increased top zone
-        const bottomEdge = windowHeight - 250; // Massively increased bottom zone
-        const maxScrollSpeed = 30; // Further reduced max speed to eliminate jitter and ensure buttery frames
+        const topEdge = 350; // Bigger top zone
+        const bottomEdge = windowHeight - 350; // Bigger bottom zone
+        const maxScrollSpeed = 45; // Stronger max speed
 
-        // Clear existing interval to prevent overlapping scrolls
         if (autoScrollTimer.current) {
-            clearInterval(autoScrollTimer.current);
+            cancelAnimationFrame(autoScrollTimer.current as unknown as number);
+            clearInterval(autoScrollTimer.current as unknown as number);
             autoScrollTimer.current = null;
         }
 
-        // Ensure pageY is actually within screen bounds (PanResponder can occasionally give wildly negative values on fast swipes)
+        const scrollLoop = (direction: 'up' | 'down', speed: number) => {
+            const maxScroll = Math.max(0, containerY.current + (itemLayouts.current.length * 60) - windowHeight);
+            const nextY = direction === 'up'
+                ? Math.max(0, scrollY.current - speed)
+                : Math.min(maxScroll + 300, scrollY.current + speed);
+
+            if (scrollY.current !== nextY) {
+                scrollY.current = nextY;
+                scrollRef.current?.scrollTo({ y: nextY, animated: false });
+
+                const newScrollDelta = nextY - initialScrollY.current;
+                scrollOffset.setValue(newScrollDelta);
+
+                const newFingerY = initialFingerY.current + currentDy.current + newScrollDelta;
+                const newGap = findNearestGap(newFingerY);
+                if (newGap !== targetGapRef.current) {
+                    targetGapRef.current = newGap;
+                    applyDisplacements(newGap);
+                }
+
+                autoScrollTimer.current = requestAnimationFrame(() => scrollLoop(direction, speed)) as unknown as NodeJS.Timeout;
+            }
+        };
+
         if (pageY > 0 && pageY < topEdge) {
-            // Scroll UP - Faster as you get closer to 0
             const distanceIntoZone = topEdge - Math.max(0, pageY);
-            // Proportional speed formulation
-            const scrollSpeed = Math.min(Math.max(2, (distanceIntoZone / topEdge) * maxScrollSpeed), maxScrollSpeed);
-
-            autoScrollTimer.current = setInterval(() => {
-                const nextY = Math.max(0, scrollY.current - scrollSpeed);
-                if (scrollY.current !== nextY) { // Only scroll and re-eval if we actually moved
-                    scrollY.current = nextY;
-                    scrollRef.current?.scrollTo({ y: nextY, animated: false });
-
-                    // Re-evaluate gap as we scroll
-                    const newScrollDelta = nextY - initialScrollY.current;
-                    scrollOffset.setValue(newScrollDelta);
-
-                    const newFingerY = initialFingerY.current + currentDy.current + newScrollDelta;
-                    const newGap = findNearestGap(newFingerY);
-                    if (newGap !== targetGapRef.current) {
-                        targetGapRef.current = newGap;
-                        applyDisplacements(newGap);
-                    }
-                }
-            }, 16);
-        } else if (pageY > bottomEdge && pageY < windowHeight + 50) {
-            // Scroll DOWN - Faster as you get closer to screen bottom
+            // Gradual exponential curve for smooth acceleration
+            const factor = Math.pow(distanceIntoZone / topEdge, 1.5);
+            const scrollSpeed = Math.max(2, factor * maxScrollSpeed);
+            autoScrollTimer.current = requestAnimationFrame(() => scrollLoop('up', scrollSpeed)) as unknown as NodeJS.Timeout;
+        } else if (pageY > bottomEdge && pageY < windowHeight + 100) {
+            const zoneHeight = windowHeight + 100 - bottomEdge;
             const distanceIntoZone = pageY - bottomEdge;
-            const zoneHeight = 250; // Match expanded bottom zone size
-            // Proportional speed formulation
-            const scrollSpeed = Math.min(Math.max(2, (distanceIntoZone / zoneHeight) * maxScrollSpeed), maxScrollSpeed);
-
-            autoScrollTimer.current = setInterval(() => {
-                const maxScroll = Math.max(0, containerY.current + (itemLayouts.current.length * 60) - windowHeight);
-                const nextY = Math.min(maxScroll + 300, scrollY.current + scrollSpeed);
-                if (scrollY.current !== nextY) { // Only scroll and re-eval if we actually moved
-                    scrollY.current = nextY;
-                    scrollRef.current?.scrollTo({ y: nextY, animated: false });
-
-                    // Re-evaluate gap as we scroll
-                    const newScrollDelta = nextY - initialScrollY.current;
-                    scrollOffset.setValue(newScrollDelta);
-
-                    const newFingerY = initialFingerY.current + currentDy.current + newScrollDelta;
-                    const newGap = findNearestGap(newFingerY);
-                    if (newGap !== targetGapRef.current) {
-                        targetGapRef.current = newGap;
-                        applyDisplacements(newGap);
-                    }
-                }
-            }, 16);
+            // Gradual exponential curve for smooth acceleration
+            const factor = Math.pow(distanceIntoZone / zoneHeight, 1.5);
+            const scrollSpeed = Math.max(2, factor * maxScrollSpeed);
+            autoScrollTimer.current = requestAnimationFrame(() => scrollLoop('down', scrollSpeed)) as unknown as NodeJS.Timeout;
         }
     }, [findNearestGap, scrollY, scrollRef]);
 
     const handleDrop = useCallback(() => {
         if (autoScrollTimer.current) {
-            clearInterval(autoScrollTimer.current);
+            cancelAnimationFrame(autoScrollTimer.current as unknown as number);
+            clearInterval(autoScrollTimer.current as unknown as number);
             autoScrollTimer.current = null;
         }
 
@@ -319,8 +307,7 @@ function ReorderableList({
                         if (task.date !== currentDate) {
                             moveUpdates.push({ calendarItem: task, newDate: currentDate, sortOrder: orderCounter });
                         } else {
-                            const taskId = task.originalTaskId || task.id;
-                            sortUpdates.push({ id: taskId, sortOrder: orderCounter });
+                            sortUpdates.push({ id: task.id, sortOrder: orderCounter });
                         }
                         orderCounter++;
                     }
@@ -447,6 +434,7 @@ function ReorderableList({
                         onDragStart={handleDragStart}
                         onDragMove={handleDragMove}
                         onDragEnd={handleDrop}
+                        onToggleReorder={() => setIsReorderMode?.(false)}
                         style={isActive ? { zIndex: 9999 } : {}}
                     />
                 );
@@ -458,7 +446,7 @@ function ReorderableList({
 
 // Sub-component wrapper attaching the gesture responder
 const DraggableRow = React.memo(function DraggableRow({
-    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, touchingTop, touchingBottom, baseTranslateY, scrollOffset, isReorderMode, style
+    index, task, ops, isActive, onLayout, onDragStart, onDragMove, onDragEnd, isClumped, clumpStyle, touchingTop, touchingBottom, baseTranslateY, scrollOffset, isReorderMode, onToggleReorder, style
 }: {
     index: number;
     task: any;
@@ -475,6 +463,7 @@ const DraggableRow = React.memo(function DraggableRow({
     baseTranslateY: Animated.Value;
     scrollOffset: Animated.Value;
     isReorderMode?: boolean;
+    onToggleReorder?: () => void;
     style?: any;
 }) {
     const pan = useRef(new Animated.ValueXY()).current;
@@ -488,9 +477,7 @@ const DraggableRow = React.memo(function DraggableRow({
         handlersRef.current = { onDragStart, onDragMove, onDragEnd, index };
     }, [onDragStart, onDragMove, onDragEnd, index]);
 
-    // Note: because reorder mode covers the whole row, we trigger drag immediately
-    // or upon slight movement/hold. By returning true onStartShouldSetPanResponder,
-    // the whole row becomes a drag grip.
+    // The entire task is the drag grip.
     const panResponder = useMemo(() =>
         PanResponder.create({
             onStartShouldSetPanResponder: () => true,
@@ -560,6 +547,7 @@ const DraggableRow = React.memo(function DraggableRow({
                 importance={task.importance} reminderEnabled={task.reminderEnabled}
                 reminderTime={task.reminderTime} reminderDate={task.reminderDate}
                 isReorderMode={true}
+                onLongPress={onToggleReorder}
                 touchingTop={touchingTop}
                 touchingBottom={task.subtasks?.length > 0 ? true : touchingBottom}
             />
@@ -577,6 +565,7 @@ const DraggableRow = React.memo(function DraggableRow({
                     formatDeadline={formatDeadline}
                     onSwipeStart={ops.handleSwipeStart} onSwipeEnd={ops.handleSwipeEnd}
                     isSelectionMode={false} isReorderMode={isReorderMode}
+                    onLongPress={onToggleReorder}
                 />
             ))}
         </Animated.View>
@@ -717,6 +706,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         taskType={task.taskType} importance={task.importance} reminderEnabled={task.reminderEnabled}
                         reminderTime={task.reminderTime} reminderDate={task.reminderDate}
                         onToggleReminder={() => ops.onToggleReminder(task)}
+                        onLongPress={() => setIsReorderMode(true)}
                         touchingTop={touchingTop}
                         touchingBottom={task.subtasks?.length > 0 ? true : touchingBottom}
                     />
@@ -734,6 +724,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                             onMenu={() => ops.openSubtaskMenu(task.originalTaskId || task.id, sub.id)}
                             formatDeadline={formatDeadline} onSwipeStart={ops.handleSwipeStart} onSwipeEnd={ops.handleSwipeEnd}
                             isSelectionMode={ops.isSprintSelectionMode}
+                            onLongPress={() => setIsReorderMode(true)}
                         />
                     ))}
                 </View>
@@ -818,6 +809,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         scrollRef={scrollRef}
                         isClumped={isClumped}
                         sortOption={sortOption}
+                        setIsReorderMode={setIsReorderMode}
                     />
                 </ScrollView>
                 <TouchableOpacity

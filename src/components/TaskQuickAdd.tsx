@@ -96,13 +96,9 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                             <Ionicons name="calendar-outline" size={20} color="#555" />
                         </TouchableOpacity>
 
-
-
-                        {!isSubtask && (
-                            <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenReminder}>
-                                <Ionicons name="notifications-outline" size={20} color="#555" />
-                            </TouchableOpacity>
-                        )}
+                        <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenProperties}>
+                            <MaterialCommunityIcons name="tag-outline" size={20} color="#555" />
+                        </TouchableOpacity>
 
                         {!isSubtask && (
                             <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenRecurrence}>
@@ -110,9 +106,11 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                             </TouchableOpacity>
                         )}
 
-                        <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenProperties}>
-                            <MaterialCommunityIcons name="tag-outline" size={20} color="#555" />
-                        </TouchableOpacity>
+                        {!isSubtask && (
+                            <TouchableOpacity style={styles.toolbarIconBtn} onPress={onOpenReminder}>
+                                <Ionicons name="notifications-outline" size={20} color="#555" />
+                            </TouchableOpacity>
+                        )}
 
                         {deadline && (
                             <TouchableOpacity onPress={onClearDeadline} style={styles.miniChip}>

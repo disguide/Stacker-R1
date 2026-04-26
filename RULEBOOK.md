@@ -1,6 +1,6 @@
-# Stacker R1 Rulebook
+# Stacker R2 Rulebook
 
-> Coding standards, conventions, and rules for developing the Stacker R1 app.
+> Coding standards, conventions, and rules for developing the Stacker R2 app.
 
 ---
 

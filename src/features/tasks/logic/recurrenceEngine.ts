@@ -98,7 +98,7 @@ export const RecurrenceEngine = {
                             reminderDate: task.reminderDate,
                             reminderTime: task.reminderTime,
                             daysRolled: daysRolled,
-                            sortOrder: (task.instanceSortOrders && task.instanceSortOrders[dateString])
+                            sortOrder: (task.instanceSortOrders && task.instanceSortOrders[dateString] !== undefined)
                                 ? task.instanceSortOrders[dateString]
                                 : task.sortOrder
                         });

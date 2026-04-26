@@ -416,7 +416,11 @@ export default function TaskListScreen() {
             <CalendarModal
                 visible={ui.isCalendarVisible}
                 onClose={() => ui.setIsCalendarVisible(false)}
-                title={ui.calendarMode === 'move' ? 'Move Task to Date' : 'Choose Date for Task'}
+                title={
+                    ui.calendarMode === 'move' ? 'Move Task to Date' : 
+                    (ui.calendarMode === 'pre-add' || ui.calendarMode === 'new') ? 'Add Date' : 
+                    'Change Date'
+                }
                 onSelectDate={(date: any, hasTime?: boolean) => {
                     let dateStr: string | null = null;
                     if (date) {

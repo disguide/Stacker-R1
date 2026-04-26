@@ -198,11 +198,18 @@ export function useTaskOperations(
         const parseTime = (timeStr?: string) => {
             if (!timeStr) return Number.MAX_SAFE_INTEGER;
             let mins = 0;
-            const hMatch = timeStr.match(/(\d+)h/);
-            const mMatch = timeStr.match(/(\d+)m/);
+            const hMatch = timeStr.match(/(\d+)\s*(?:h|hr|hour)/i);
+            const mMatch = timeStr.match(/(\d+)\s*(?:m|min|minute)/i);
             if (hMatch) mins += parseInt(hMatch[1], 10) * 60;
             if (mMatch) mins += parseInt(mMatch[1], 10);
             return mins > 0 ? mins : Number.MAX_SAFE_INTEGER;
+        };
+
+        // Helper to get time of day for sorting deadlines
+        const getTime = (d?: string | null) => {
+            if (!d) return Number.MAX_SAFE_INTEGER;
+            const t = new Date(d.match(/^\d{2}:\d{2}$/) ? `2000-01-01T${d}:00` : d).getTime();
+            return isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
         };
 
         // Helper to get color importance (Gray first, then TASK_COLORS sequence)
@@ -228,13 +235,6 @@ export function useTaskOperations(
                     if (colorComp !== 0) return colorComp;
 
                     // 2. Deadline (Goes on top of importance)
-
-                    // 2. Deadline (Goes on top of importance)
-                    const getTime = (d?: string | null) => {
-                        if (!d) return Number.MAX_SAFE_INTEGER;
-                        const t = new Date(d.match(/^\d{2}:\d{2}$/) ? `2000-01-01T${d}:00` : d).getTime();
-                        return isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
-                    };
                     const timeA = getTime(a.deadline);
                     const timeB = getTime(b.deadline);
                     if (timeA !== timeB) return timeA - timeB;
@@ -254,19 +254,46 @@ export function useTaskOperations(
                     const estB = parseTime(b.estimatedTime);
                     return estA - estB;
                 });
-            case 'importance':
-                return sorted.sort((a, b) => (b.importance || 0) - (a.importance || 0));
+            case 'urgent':
+                return sorted.sort((a, b) => {
+                    const timeA = getTime(a.deadline);
+                    const timeB = getTime(b.deadline);
+                    if (timeA !== timeB) return timeA - timeB;
+
+                    const impA = a.importance || 0;
+                    const impB = b.importance || 0;
+                    if (impA !== impB) return impB - impA;
+
+                    const colA = (a.color || '').toLowerCase();
+                    const colB = (b.color || '').toLowerCase();
+                    const colorComp = colA.localeCompare(colB);
+                    if (colorComp !== 0) return colorComp;
+
+                    const estA = parseTime(a.estimatedTime);
+                    const estB = parseTime(b.estimatedTime);
+                    return estA - estB;
+                });
+            case 'quick_wins':
+                return sorted.sort((a, b) => {
+                    const estA = parseTime(a.estimatedTime);
+                    const estB = parseTime(b.estimatedTime);
+                    return estA - estB;
+                });
+            case 'procrastinated':
+                return sorted.sort((a, b) => {
+                    const rollA = a.daysRolled || 0;
+                    const rollB = b.daysRolled || 0;
+                    if (rollA !== rollB) return rollB - rollA;
+                    
+                    const impA = a.importance || 0;
+                    const impB = b.importance || 0;
+                    return impB - impA;
+                });
             case 'date':
                 return sorted.sort((a, b) => {
                     if (!a.deadline) return 1;
                     if (!b.deadline) return -1;
                     return a.deadline.localeCompare(b.deadline);
-                });
-            case 'estimatedTime':
-                return sorted.sort((a, b) => {
-                    const estA = parseTime(a.estimatedTime);
-                    const estB = parseTime(b.estimatedTime);
-                    return estA - estB;
                 });
             case 'color':
                 return sorted.sort((a, b) => {

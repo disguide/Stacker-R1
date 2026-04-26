@@ -13,9 +13,10 @@ interface OrganizeMenuProps {
 export const OrganizeMenu = ({ visible, onClose, onSelectFilter, isClumped, anchor }: OrganizeMenuProps) => {
     const MENU_ITEMS = [
         { id: 'auto_organise', label: 'Auto Organise', icon: 'auto-fix', iconLib: 'MaterialCommunityIcons', color: '#3B82F6', bold: true },
-        { id: 'importance', label: 'Importance', icon: 'alert-circle-outline', iconLib: 'MaterialCommunityIcons', color: '#333' },
+        { id: 'urgent', label: 'Urgent', icon: 'alert-decagram-outline', iconLib: 'MaterialCommunityIcons', color: '#EF4444' },
         { id: 'date', label: 'Due Date', icon: 'calendar-clock', iconLib: 'MaterialCommunityIcons', color: '#333' },
-        { id: 'estimatedTime', label: 'Estimated Time', icon: 'clock-outline', iconLib: 'MaterialCommunityIcons', color: '#333' },
+        { id: 'quick_wins', label: 'Quick Wins', icon: 'lightning-bolt', iconLib: 'MaterialCommunityIcons', color: '#F59E0B' },
+        { id: 'procrastinated', label: 'Procrastinated', icon: 'history', iconLib: 'MaterialCommunityIcons', color: '#6366F1' },
         { id: 'divider', type: 'divider' },
         { id: 'manual_reorder', label: 'Manual Reorder', icon: 'drag', iconLib: 'MaterialCommunityIcons', color: '#10B981', bold: true },
         { 

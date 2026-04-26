@@ -1,7 +1,7 @@
-# Project Guidelines: Stacker R1
+# Project Guidelines: Stacker R2
 
 ## 1. Project Overview
-Stacker R1 is a mobile application designed to be a high-performance replica of **Google Tasks** with a unique productivity engine called **"Sprint Mode."**
+Stacker R2 is a mobile application designed to be a high-performance replica of **Google Tasks** with a unique productivity engine called **"Sprint Mode."**
 
 ### Core Value Proposition
 - **Familiarity:** Mimics the clean, list-based interface of Google Tasks.
