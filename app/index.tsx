@@ -1,7 +1,7 @@
 import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import { View, Modal, TouchableOpacity, Text, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -14,7 +14,6 @@ import CalendarModal from '@/components/CalendarModal';
 import DurationPickerModal from '@/components/DurationPickerModal';
 import RecurrencePickerModal from '@/components/RecurrencePickerModal';
 import TimePickerModal from '@/components/TimePickerModal';
-import ColorSettingsModal from '@/components/ColorSettingsModal';
 import { FeatureKey } from '@/components/editor/constants';
 import { OrganizeMenu } from '@/components/OrganizeMenu';
 import { ViewMenu } from '@/components/ViewMenu';
@@ -45,6 +44,7 @@ const formatDateShort = (dateStr: string) => {
 
 export default function TaskListScreen() {
     const flashListRef = useRef<any>(null);
+    const router = useRouter();
 
 
     // 1. Core Data & Logic Hooks
@@ -145,9 +145,9 @@ export default function TaskListScreen() {
     useFocusEffect(
         useCallback(() => {
             refresh();
-            StorageService.loadUserColors().then(colors => setUserColors(colors));
+            autoColor.refreshColors();
             StorageService.loadProfile().then(profile => setUserProfile(profile));
-        }, [refresh])
+        }, [refresh, autoColor.refreshColors])
     );
 
     // 4b. Global UI Notification Sync
@@ -359,7 +359,7 @@ export default function TaskListScreen() {
                     ui.setCalendarTempDate(currentDeadline);
                     ui.setIsCalendarVisible(true);
                 }}
-                onRequestColorSettings={() => ui.setIsColorSettingsVisible(true)}
+                onRequestColorSettings={() => router.push('/color-settings')}
                 userColors={userColors}
             />
 
@@ -542,21 +542,6 @@ export default function TaskListScreen() {
                 onClose={() => ui.setIsTimePickerVisible(false)}
                 onSelectTime={(time) => form.setNewTaskReminderTime(time || null)}
                 initialTime={form.newTaskReminderTime || undefined}
-            />
-
-            <ColorSettingsModal
-                visible={ui.isColorSettingsVisible}
-                onClose={() => ui.setIsColorSettingsVisible(false)}
-                userColors={userColors}
-                colorSettings={autoColor.colorSettings}
-                onSave={(newColors) => {
-                    handleSaveUserColors(newColors);
-                    setUserColors(newColors);
-                }}
-                onSaveSettings={(newSettings) => {
-                    StorageService.saveColorSettings(newSettings);
-                    autoColor.refreshColors();
-                }}
             />
 
             {/* FAB or Sprint Start Button */}

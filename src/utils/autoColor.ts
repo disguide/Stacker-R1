@@ -68,6 +68,6 @@ export function detectAutoColor(
 }
 
 /** Escape special regex characters in a string */
-function escapeRegex(str: string): string {
+export function escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

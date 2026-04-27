@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import { StorageService, ColorDefinition, SprintSettings } from '../src/services/storage';
-import ColorSettingsModal from '../src/components/ColorSettingsModal';
 import { useAuth } from '../src/providers/AuthProvider';
 import { supabase, deleteUserAccount } from '../src/services/supabase';
 import { flushSync } from '../src/services/SyncService';
@@ -22,7 +21,6 @@ const SettingsGroup = ({ title, children }: { title?: string, children: React.Re
 export default function SettingsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const [isColorModalVisible, setIsColorModalVisible] = useState(false);
     const [userColors, setUserColors] = useState<ColorDefinition[]>([]);
     const [sprintSettings, setSprintSettings] = useState<SprintSettings>({ showTimer: true, allowPause: true });
     const { user } = useAuth();
@@ -401,7 +399,7 @@ export default function SettingsScreen() {
 
                     {/* TAGS & CATEGORIES */}
                     <SettingsGroup title="Tags & Categories">
-                        <TouchableOpacity style={styles.navRow} onPress={() => setIsColorModalVisible(true)}>
+                        <TouchableOpacity style={styles.navRow} onPress={() => router.push('/color-settings')}>
                             <View style={[styles.iconWrapper, { backgroundColor: '#EC4899' }]}>
                                 <Ionicons name="color-palette" size={18} color="#FFF" />
                             </View>
@@ -418,13 +416,6 @@ export default function SettingsScreen() {
 
                 </ScrollView>
             </KeyboardAvoidingView>
-
-            <ColorSettingsModal
-                visible={isColorModalVisible}
-                onClose={() => setIsColorModalVisible(false)}
-                userColors={userColors}
-                onSave={handleSaveUserColors}
-            />
 
             {isSyncing && (
                 <View style={styles.syncOverlay}>

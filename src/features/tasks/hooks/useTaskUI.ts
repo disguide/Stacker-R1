@@ -8,7 +8,6 @@ export const useTaskUI = () => {
     const [isHistoryVisible, setIsHistoryVisible] = useState(false);
 
     // Color Settings
-    const [isColorSettingsVisible, setIsColorSettingsVisible] = useState(false);
 
     // Calendar / Date Picking
     const [isCalendarVisible, setIsCalendarVisible] = useState(false);
@@ -39,7 +38,6 @@ export const useTaskUI = () => {
         isTimePickerVisible, setIsTimePickerVisible,
         isRecurrencePickerVisible, setIsRecurrencePickerVisible,
         isHistoryVisible, setIsHistoryVisible,
-        isColorSettingsVisible, setIsColorSettingsVisible,
 
         // Calendar
         isCalendarVisible, setIsCalendarVisible,

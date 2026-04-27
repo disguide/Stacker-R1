@@ -56,6 +56,7 @@ export default function ProfileScreen() {
     const { user } = useAuth();
 
     const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [activeSection, setActiveSection] = useState<'profile' | 'goals' | 'sprints'>('profile');
     const [activeTab, setActiveTab] = useState<'goals' | 'antigoals'>('goals');
     const [quickAddText, setQuickAddText] = useState('');
@@ -215,9 +216,38 @@ export default function ProfileScreen() {
     };
 
     const saveChanges = async () => {
-        await StorageService.saveProfile(profile);
+        setIsSaving(true);
+        
+        let finalProfile = { ...profile };
+        
+        // 1. ENSURE ALL LOCAL ASSETS ARE REMOTE
+        // We do this again here in case the background upload from handlePickImage 
+        // hasn't finished or was interrupted.
+        if (user?.id) {
+            try {
+                if (ImageUploadService.isLocalUri(finalProfile.avatar)) {
+                    if (__DEV__) console.log('[Profile] Syncing avatar before save...');
+                    const url = await ImageUploadService.upload(finalProfile.avatar!, user.id, 'avatar');
+                    if (url) finalProfile.avatar = url;
+                }
+                
+                if (ImageUploadService.isLocalUri(finalProfile.banner)) {
+                    if (__DEV__) console.log('[Profile] Syncing banner before save...');
+                    const url = await ImageUploadService.upload(finalProfile.banner!, user.id, 'banner');
+                    if (url) finalProfile.banner = url;
+                }
+            } catch (err) {
+                if (__DEV__) console.error('[Profile] Asset sync failed:', err);
+                // We proceed anyway to save the text changes, but assets might stay local
+            }
+        }
+
+        // 2. PERSIST TO STORAGE
+        setProfile(finalProfile);
+        await StorageService.saveProfile(finalProfile);
         setDraftProfile(null);
         setIsEditing(false);
+        setIsSaving(false);
     };
 
     const updateProfile = async (updates: Partial<UserProfile>) => {
@@ -707,6 +737,15 @@ export default function ProfileScreen() {
                         </View>
                     </TouchableOpacity>
                 </View>
+
+                {isSaving && (
+                    <View style={styles.syncOverlay}>
+                        <View style={styles.syncModal}>
+                            <Ionicons name="cloud-upload" size={32} color="#007AFF" />
+                            <Text style={styles.syncText}>Uploading Banner...</Text>
+                        </View>
+                    </View>
+                )}
 
                 <ScrollView
                     ref={horizontalPagerRef}
@@ -2184,5 +2223,29 @@ const styles = StyleSheet.create({
     },
     sprintsTabContent: {
         paddingTop: 12,
+    },
+    syncOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+    },
+    syncModal: {
+        backgroundColor: '#FFF',
+        padding: 24,
+        borderRadius: 16,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    syncText: {
+        marginTop: 12,
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#000',
     },
 });

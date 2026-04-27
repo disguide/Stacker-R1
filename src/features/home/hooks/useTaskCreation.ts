@@ -5,7 +5,7 @@ import { resolveId } from '../../../utils/taskHelpers';
 import { RRule } from 'rrule';
 import { RecurrenceRule, RecurrenceFrequency, ColorDefinition, ColorSettings } from '../../../services/storage';
 import { parseRRuleString } from '../../../utils/recurrence';
-import { detectAutoColor } from '../../../utils/autoColor';
+import { detectAutoColor, escapeRegex } from '../../../utils/autoColor';
 
 interface UseTaskCreationProps {
     tasks: Task[];
@@ -119,7 +119,15 @@ export function useTaskCreation({
         const rawTitle = newTaskTitle.trim();
         const autoColorResult = detectAutoColor(rawTitle, userColors);
         const resolvedColor = autoColorResult?.color;
-        const resolvedTitle = rawTitle;
+        let resolvedTitle = rawTitle;
+
+        if (autoColorResult) {
+            const regex = new RegExp(`\\b${escapeRegex(autoColorResult.matchedKeyword)}\\b`, 'gi');
+            const cleaned = rawTitle.replace(regex, '').replace(/\s+/g, ' ').trim();
+            if (cleaned.length > 0) {
+                resolvedTitle = cleaned;
+            }
+        }
 
         if (__DEV__ && autoColorResult) {
             console.log(
@@ -158,9 +166,13 @@ export function useTaskCreation({
 
             const autoColorResult = detectAutoColor(finalTitle, userColors);
             if (autoColorResult) {
-                // If they didn't manually pick a color in the drawer, or we strictly want to override:
-                // Let's override to give the "magic" feeling.
                 finalColor = autoColorResult.color;
+                
+                const regex = new RegExp(`\\b${escapeRegex(autoColorResult.matchedKeyword)}\\b`, 'gi');
+                const cleaned = finalTitle.replace(regex, '').replace(/\s+/g, ' ').trim();
+                if (cleaned.length > 0) {
+                    finalTitle = cleaned;
+                }
             }
 
             const finalTask = { ...updatedTask, id: Date.now().toString(), title: finalTitle, color: finalColor };

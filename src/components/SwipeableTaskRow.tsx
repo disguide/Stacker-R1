@@ -374,8 +374,7 @@ export default function SwipeableTaskRow({
                 ]}
             >
                 {/* Dynamic Sweeping Background and Border - Restored inside container to fix z-index masking */}
-                {!isSelectionMode && (
-                    <View style={{ position: 'absolute', top: 0, bottom: 0, left: -1, right: 0, borderRadius: 0, overflow: 'hidden' }} pointerEvents="none">
+                <View style={{ position: 'absolute', top: 0, bottom: 0, left: -1, right: 0, borderRadius: 0, overflow: 'hidden' }} pointerEvents="none">
                         {/* 6px Static Grey Frame Base (Top) - Reserved space for 3D depth */}
                         {!touchingTop && !isSubtask && (
                             <View style={{
@@ -441,7 +440,7 @@ export default function SwipeableTaskRow({
                             }
                         ]} />
                     </View>
-                )}
+
                 {/* Color Stripe - Static */}
                 <View style={{
                     position: 'absolute',

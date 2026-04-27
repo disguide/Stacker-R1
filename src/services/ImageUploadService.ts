@@ -25,20 +25,21 @@ export const ImageUploadService = {
             
             const filePath = `${userId}/${type}.${ext}`;
 
-            if (__DEV__) console.log(`[ImageUpload] Uploading ${type} to ${filePath} via FormData...`);
+            if (__DEV__) console.log(`[ImageUpload] Uploading ${type} to ${filePath} via ArrayBuffer...`);
 
-            // Use FormData to stream the file natively instead of loading into JS memory (prevents crashes on large 10MB images)
-            const formData = new FormData();
-            formData.append('file', {
-                uri: localUri,
-                name: `${type}.${ext}`,
-                type: mimeType
-            } as any);
+            // Read the file from local storage as base64
+            const base64 = await FileSystem.readAsStringAsync(localUri, { 
+                encoding: FileSystem.EncodingType.Base64 
+            });
+            
+            // Decode base64 to ArrayBuffer (required for Supabase upload)
+            const arrayBuffer = decode(base64);
 
-            // Upload FormData to Supabase Storage
+            // Upload to Supabase Storage
             const { error: uploadError } = await supabase.storage
                 .from(BUCKET_NAME)
-                .upload(filePath, formData, {
+                .upload(filePath, arrayBuffer, {
+                    contentType: mimeType,
                     upsert: true,
                 });
 
@@ -47,7 +48,7 @@ export const ImageUploadService = {
                 return null;
             }
 
-            // 4. Get public URL
+            // Get public URL
             const { data } = supabase.storage
                 .from(BUCKET_NAME)
                 .getPublicUrl(filePath);
