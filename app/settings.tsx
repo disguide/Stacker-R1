@@ -1,4 +1,6 @@
 import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import i18n from '../src/i18n';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +21,7 @@ const SettingsGroup = ({ title, children }: { title?: string, children: React.Re
 );
 
 export default function SettingsScreen() {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [userColors, setUserColors] = useState<ColorDefinition[]>([]);
@@ -248,6 +251,31 @@ export default function SettingsScreen() {
                 >
 
                     {/* ACCOUNT */}
+                    <SettingsGroup title="Language">
+                        <View style={styles.inputRow}>
+                            <View style={[styles.iconWrapper, { backgroundColor: '#FF9500' }]}>
+                                <Ionicons name="language" size={18} color="#FFF" />
+                            </View>
+                            <View style={styles.rowTextContainer}>
+                                <Text style={styles.rowLabel}>{t('settings.language')}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                {['en', 'fr', 'es', 'zh'].map(lang => (
+                                    <TouchableOpacity
+                                        key={lang}
+                                        style={{ padding: 6, borderRadius: 6, backgroundColor: sprintSettings.language === lang || (!sprintSettings.language && lang === 'en') ? '#007AFF' : '#E5E5EA' }}
+                                        onPress={() => {
+                                            handleUpdateSprintSetting('language', lang);
+                                            i18n.changeLanguage(lang);
+                                        }}
+                                    >
+                                        <Text style={{ color: sprintSettings.language === lang || (!sprintSettings.language && lang === 'en') ? '#FFF' : '#333', fontSize: 14, fontWeight: 'bold' }}>{lang.toUpperCase()}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    </SettingsGroup>
+
                     <SettingsGroup title="Account">
                         {!user ? (
                             <>
@@ -320,7 +348,7 @@ export default function SettingsScreen() {
                                 <Ionicons name="timer" size={18} color="#FFF" />
                             </View>
                             <View style={styles.rowTextContainer}>
-                                <Text style={styles.rowLabel}>Show Timer</Text>
+                                <Text style={styles.rowLabel}>{t('settings.showTimer')}</Text>
                             </View>
                             <Switch value={sprintSettings.showTimer} onValueChange={() => handleToggleSprintSetting('showTimer')} />
                         </View>
@@ -331,7 +359,7 @@ export default function SettingsScreen() {
                                 <Ionicons name="pause" size={18} color="#FFF" />
                             </View>
                             <View style={styles.rowTextContainer}>
-                                <Text style={styles.rowLabel}>Allow Pause</Text>
+                                <Text style={styles.rowLabel}>{t('settings.allowPause')}</Text>
                             </View>
                             <Switch value={sprintSettings.allowPause} onValueChange={() => handleToggleSprintSetting('allowPause')} />
                         </View>
@@ -342,7 +370,7 @@ export default function SettingsScreen() {
                                 <Ionicons name="cafe" size={18} color="#FFF" />
                             </View>
                             <View style={styles.rowTextContainer}>
-                                <Text style={styles.rowLabel}>Automatic Breaks</Text>
+                                <Text style={styles.rowLabel}>{t('settings.automaticBreaks')}</Text>
                             </View>
                             <Switch value={!!sprintSettings.autoBreakMode} onValueChange={() => handleToggleSprintSetting('autoBreakMode')} />
                         </View>
@@ -412,7 +440,7 @@ export default function SettingsScreen() {
                     
                     {/* NOTE: Account security and danger zone moved to account.tsx */}
 
-                    <Text style={styles.versionText}>Version 1.1.0</Text>
+                    <Text style={styles.versionText}>{t('settings.version')}</Text>
 
                 </ScrollView>
             </KeyboardAvoidingView>
@@ -421,7 +449,7 @@ export default function SettingsScreen() {
                 <View style={styles.syncOverlay}>
                     <View style={styles.syncModal}>
                         <Ionicons name="cloud-upload" size={32} color="#007AFF" />
-                        <Text style={styles.syncText}>Saving to Cloud...</Text>
+                        <Text style={styles.syncText}>{t('settings.savingToCloud')}</Text>
                     </View>
                 </View>
             )}

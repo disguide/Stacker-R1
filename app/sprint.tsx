@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Modal, Vibration, BackHandler, AppState, AppStateStatus, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -30,6 +31,7 @@ const THEME = {
 };
 
 export default function SprintScreen() {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     useKeepAwake(); // Keep screen on during sprint
     const router = useRouter();
@@ -598,7 +600,7 @@ export default function SprintScreen() {
                     {timerVisible && settings.showTimer ? (
                         <View style={styles.dashboardContainer}>
                             <View style={styles.dashboardItem}>
-                                <Text style={styles.dashboardLabel}>ELAPSED</Text>
+                                <Text style={styles.dashboardLabel}>{t('sprints.elapsed')}</Text>
                                 <Text style={styles.dashboardValue}>{formatMinutesOnly(elapsedSeconds)}</Text>
                             </View>
 
@@ -606,7 +608,7 @@ export default function SprintScreen() {
                                 <>
                                     <View style={styles.dashboardDivider} />
                                     <View style={styles.dashboardItem}>
-                                        <Text style={styles.dashboardLabel}>NEXT BREAK</Text>
+                                        <Text style={styles.dashboardLabel}>{t('sprints.nextBreak')}</Text>
                                         <Text style={styles.dashboardValue}>{formatCountdown(nextBreakSeconds)}</Text>
                                     </View>
                                 </>
@@ -616,7 +618,7 @@ export default function SprintScreen() {
                                 <>
                                     <View style={styles.dashboardDivider} />
                                     <View style={styles.dashboardItem}>
-                                        <Text style={styles.dashboardLabel}>GOAL END</Text>
+                                        <Text style={styles.dashboardLabel}>{t('sprints.goalEnd')}</Text>
                                         <Text style={styles.dashboardValue}>{formatCountdown(goalRemainingSeconds)}</Text>
                                     </View>
                                 </>
@@ -681,7 +683,7 @@ export default function SprintScreen() {
                                     disabled={isPaused}
                                 >
                                     <MaterialCommunityIcons name="swap-horizontal" size={24} color="#64748B" />
-                                    <Text style={styles.pillTextLeft}>Switch</Text>
+                                    <Text style={styles.pillTextLeft}>{t('sprints.switch')}</Text>
                                 </TouchableOpacity>
 
                                 <View style={styles.pillDivider} />
@@ -693,18 +695,18 @@ export default function SprintScreen() {
                                     disabled={isPaused}
                                 >
                                     <Ionicons name="checkmark" size={24} color="#FFFFFF" />
-                                    <Text style={styles.pillTextRight}>Complete</Text>
+                                    <Text style={styles.pillTextRight}>{t('sprints.complete')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </>
                     ) : (
-                        <Text style={styles.emptyText}>Loading tasks...</Text>
+                        <Text style={styles.emptyText}>{t('sprints.loadingTasks')}</Text>
                     )}
                 </View>
 
                 {/* Next Up List */}
                 <View style={styles.nextUpContainer}>
-                    <Text style={styles.nextUpLabel}>NEXT UP</Text>
+                    <Text style={styles.nextUpLabel}>{t('sprints.nextUp')}</Text>
                     <ScrollView style={styles.nextScroll} showsVerticalScrollIndicator={false}>
                         {tasks.slice(1).map((t, i) => {
                             const opacity = Math.max(0, 1 - (i * 0.35));
@@ -715,7 +717,7 @@ export default function SprintScreen() {
                             );
                         })}
                         {tasks.length <= 1 && (
-                            <Text style={styles.noNextText}>Last task!</Text>
+                            <Text style={styles.noNextText}>{t('sprints.lastTask')}</Text>
                         )}
                     </ScrollView>
                 </View>
@@ -747,7 +749,7 @@ export default function SprintScreen() {
                                                     : formatCountdown(pauseElapsed)
                                             )}
                                         </Text>
-                                        <Text style={styles.forestTimerLabel}>REMAINING</Text>
+                                        <Text style={styles.forestTimerLabel}>{t('sprints.remaining')}</Text>
                                     </>
                                 )}
                             </View>
@@ -758,21 +760,21 @@ export default function SprintScreen() {
                                         <TouchableOpacity style={styles.smallCircle} onPress={() => addBreakTime(1)}>
                                             <Text style={styles.smallCircleText}>+1</Text>
                                         </TouchableOpacity>
-                                        <Text style={styles.smallCircleLabel}>MIN</Text>
+                                        <Text style={styles.smallCircleLabel}>{t('sprints.min')}</Text>
                                     </View>
 
                                     <View style={styles.forestSmallCircleContainer}>
                                         <TouchableOpacity style={styles.smallCircle} onPress={() => addBreakTime(5)}>
                                             <Text style={styles.smallCircleText}>+5</Text>
                                         </TouchableOpacity>
-                                        <Text style={styles.smallCircleLabel}>MIN</Text>
+                                        <Text style={styles.smallCircleLabel}>{t('sprints.min')}</Text>
                                     </View>
 
                                     <View style={styles.forestSmallCircleContainer}>
                                         <TouchableOpacity style={styles.smallCircle} onPress={() => addBreakTime(15)}>
                                             <Text style={styles.smallCircleText}>+15</Text>
                                         </TouchableOpacity>
-                                        <Text style={styles.smallCircleLabel}>MIN</Text>
+                                        <Text style={styles.smallCircleLabel}>{t('sprints.min')}</Text>
                                     </View>
                                 </View>
                             )}

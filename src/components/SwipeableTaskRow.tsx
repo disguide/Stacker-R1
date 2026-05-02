@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { TagDefinition } from '../services/storage'; // Import type
 
@@ -165,6 +166,7 @@ export default function SwipeableTaskRow({
     touchingBottom = false,
     ...props // Catch-all for recurrence to avoid destructuring mess or add it explicitly
 }: SwipeableTaskRowProps) {
+    const { t } = useTranslation();
     const hasMeta = !!(deadline || estimatedTime || daysRolled || props.recurrence || props.reminderTime);
 
     const [containerWidth, setContainerWidth] = useState(0);
@@ -539,7 +541,7 @@ export default function SwipeableTaskRow({
                                 {daysRolled > 0 && (
                                     <View style={styles.rolledOverTag}>
                                         <MaterialCommunityIcons name="redo-variant" size={14} color="#64748B" style={{ marginRight: 2 }} />
-                                        <Text style={styles.rolledOverText}>Roll x{daysRolled}</Text>
+                                        <Text style={styles.rolledOverText}>{t('tasks.rollCount', { count: daysRolled })}</Text>
                                     </View>
                                 )}
                                 {/* Recurrence Tag */}

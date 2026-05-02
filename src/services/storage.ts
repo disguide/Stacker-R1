@@ -4,6 +4,9 @@ import { triggerSync } from './SyncService';
 import { Task as CoreTask, DailyData } from '../core/types';
 import { toISODateString } from '../utils/dateHelpers';
 import { TaskRepository } from './storage/TaskRepository';
+
+// Task and Recurrence types — single source of truth is core/types.ts
+import { Task, RecurrenceRule, RecurrenceFrequency, WeekDay } from '../features/tasks/types';
 export { DailyData };
 
 export interface SprintSettings {
@@ -16,6 +19,7 @@ export interface SprintSettings {
     maxDurationEnabled?: boolean;
     maxDurationMinutes?: number;
     use24HourFormat?: boolean; // New: Persistent preference
+    language?: string;
 }
 
 export interface SavedSprint {
@@ -114,9 +118,6 @@ export interface ColorSettings {
 // Red, Orange, Amber, Emerald, Blue, Violet
 export const TASK_COLORS = ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
 export const TASK_COLOR_LABELS = ['Urgent', 'High', 'Medium', 'Low', 'Work', 'Personal'];
-
-// Task and Recurrence types — single source of truth is core/types.ts
-import { Task, RecurrenceRule, RecurrenceFrequency, WeekDay } from '../features/tasks/types';
 export { Task, RecurrenceRule, RecurrenceFrequency, WeekDay };
 
 export interface TagDefinition {
@@ -432,6 +433,7 @@ export const StorageService = {
         const defaults: SprintSettings = {
             showTimer: true,
             allowPause: true,
+            language: 'en',
             autoBreakMode: false,
             autoBreakWorkTime: 25,
             autoBreakDuration: 5,

@@ -1,5 +1,6 @@
 import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import { View, Modal, TouchableOpacity, Text, Animated, Dimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -43,6 +44,7 @@ const formatDateShort = (dateStr: string) => {
 };
 
 export default function TaskListScreen() {
+    const { t } = useTranslation();
     const flashListRef = useRef<any>(null);
     const router = useRouter();
 
@@ -558,7 +560,7 @@ export default function TaskListScreen() {
                     >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
                             <MaterialCommunityIcons name="lightning-bolt" size={22} color={sprintMode.selectedSprintTaskIds.size === 0 ? "#94A3B8" : "#000"} />
-                            <Text style={styles.startSprintText}>START SPRINT</Text>
+                            <Text style={styles.startSprintText}>{t('home.startSprint')}</Text>
                         </View>
                         <Text style={styles.startSprintText}>
                             {sprintSummary || `${sprintMode.selectedSprintTaskIds.size} tasks`}

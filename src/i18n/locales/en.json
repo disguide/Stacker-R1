@@ -1,0 +1,75 @@
+{
+  "home": {
+    "startSprint": "START SPRINT"
+  },
+  "settings": {
+    "language": "Language / Langue / Idioma / 语言",
+    "showTimer": "Show Timer",
+    "allowPause": "Allow Pause",
+    "automaticBreaks": "Automatic Breaks",
+    "version": "Version 1.1.0",
+    "savingToCloud": "Saving to Cloud..."
+  },
+  "account": {
+    "back": "Back",
+    "account": "Account",
+    "signedIn": "Signed In",
+    "unregisteredAccount": "Unregistered Account",
+    "signInCreate": "Sign In / Create Account",
+    "signOut": "Sign Out",
+    "changePassword": "Change Password",
+    "updateEmail": "Update Email",
+    "deleteCloudAccount": "Delete Cloud Account",
+    "savingToCloud": "Saving to Cloud...",
+    "cloudSaveDelayed": "Cloud Save Delayed",
+    "cloudSaveDelayedMsg": "We could not reach the cloud. Sign out anyway?",
+    "wait": "Wait",
+    "deleteAccount": "Delete Account?",
+    "deleteAccountMsg": "This will permanently delete your cloud account and all synced data. Local data will remain on this device. Continue?",
+    "cancel": "Cancel",
+    "deleteAccountConfirm": "Yes, Delete",
+    "dissociateAccount": "Dissociate Account?",
+    "dissociateAccountMsg": "Your cloud account will be deleted, but all your local data stays on this device. You'll continue as a guest.",
+    "dissociate": "Dissociate",
+    "deleteEverything": "Delete Everything",
+    "deleteEverythingMsg": "This will permanently delete your cloud account AND wipe all local data. This cannot be undone.",
+    "deleteEverythingConfirm": "Yes, Delete It All",
+    "error": "Error",
+    "success": "Success",
+    "accountDeleted": "Your account has been deleted.",
+    "accountDeletedGuest": "Account removed. Your data is still here — you are now a guest.",
+    "passwordMinLength": "Password must be at least 6 characters.",
+    "passwordUpdated": "Password updated successfully!",
+    "invalidEmail": "Please enter a valid email address.",
+    "verificationSent": "Verification Sent",
+    "verificationSentMsg": "Please check both your old and new email addresses for confirmation links.",
+    "setupRpc": "Make sure the delete_user RPC is setup in Supabase.",
+    "somethingWentWrong": "Something went wrong.",
+    "keepData": "Keep Data (Dissociate)",
+    "switch": "Switch"
+  },
+  "sprints": {
+    "elapsed": "ELAPSED",
+    "nextBreak": "NEXT BREAK",
+    "goalEnd": "GOAL END",
+    "switch": "Switch",
+    "complete": "Complete",
+    "loadingTasks": "Loading tasks...",
+    "nextUp": "NEXT UP",
+    "lastTask": "Last task!",
+    "remaining": "REMAINING",
+    "min": "MIN"
+  },
+  "profile": {
+    "cancel": "Cancel",
+    "done": "Done",
+    "title": "TITLE",
+    "category": "CATEGORY",
+    "congratsReflections": "CONGRATS! ANY REFLECTIONS?",
+    "editGoal": "Edit Goal",
+    "addResultNote": "Add a result note (optional)..."
+  },
+  "tasks": {
+    "rollCount": "Roll x{{count}}"
+  }
+}

@@ -17,7 +17,7 @@ export default function useTaskReminders(task: Task | null) {
         if (task) {
             const isNewTask = task.id !== prevTaskIdRef.current;
             if (isNewTask) {
-                // eslint-disable-next-line react-hooks/set-state-in-effect
+
                 setReminderOffset(task.reminderOffset !== undefined ? task.reminderOffset : null);
                 setReminderTime(task.reminderTime || null);
                 // If explicit enabled flag exists, use it. Otherwise, infer from offset presence.

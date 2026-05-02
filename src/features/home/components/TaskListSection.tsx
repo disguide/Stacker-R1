@@ -64,9 +64,9 @@ interface TaskListSectionProps {
         handleSubtaskToggle: (parentId: string, subtaskId: string, dateContext: string) => void;
         openEditSubtask: (parentId: string, subtask: any) => void;
         openSubtaskMenu: (parentId: string, subtaskId: string) => void;
-        reorderTasks?: (updates: Array<{ id: string; sortOrder: number }>) => void;
+        reorderTasks?: (updates: { id: string; sortOrder: number }[]) => void;
         moveTaskToDate?: (calendarItem: any, newDate: string, sortOrder?: number) => void;
-        applyReorderBatch?: (reorderUpdates: Array<{ id: string; sortOrder: number }>, moveUpdates?: Array<{ calendarItem: any; newDate: string; sortOrder: number }>) => void;
+        applyReorderBatch?: (reorderUpdates: { id: string; sortOrder: number }[], moveUpdates?: { calendarItem: any; newDate: string; sortOrder: number }[]) => void;
         onStartMoveToDate?: (task: any) => void; // Long-press 3-dots shortcut
     };
 }
@@ -295,8 +295,8 @@ function ReorderableList({
 
                 let currentDate = '';
                 let orderCounter = 0;
-                const sortUpdates: Array<{ id: string; sortOrder: number }> = [];
-                const moveUpdates: Array<{ calendarItem: any; newDate: string; sortOrder: number }> = [];
+                const sortUpdates: { id: string; sortOrder: number }[] = [];
+                const moveUpdates: { calendarItem: any; newDate: string; sortOrder: number }[] = [];
 
                 currentItems.forEach(item => {
                     if (item.type === 'header') {

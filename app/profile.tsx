@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, KeyboardAvoidingView, Platform, Alert, useWindowDimensions, Animated, Easing, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -51,6 +52,7 @@ const MoodCounterButton = ({ rating, onPress }: { rating: number, onPress: () =>
 };
 
 export default function ProfileScreen() {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { user } = useAuth();
@@ -772,7 +774,7 @@ export default function ProfileScreen() {
                                 <View style={styles.profileEditWrapper}>
                                     {isEditing ? (
                                         <TouchableOpacity onPress={saveChanges} style={styles.editProfileBtnInline}>
-                                            <Text style={[styles.editProfileText, { color: '#007AFF' }]}>Done</Text>
+                                            <Text style={[styles.editProfileText, { color: '#007AFF' }]}>{t('profile.done')}</Text>
                                         </TouchableOpacity>
                                     ) : (
                                         <TouchableOpacity onPress={handleEditToggle} style={styles.editProfileBtnInline}>
@@ -1240,23 +1242,23 @@ export default function ProfileScreen() {
                         <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#FFF' }}>
                                 <TouchableOpacity onPress={() => setEditingGoal(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                    <Text style={{ fontSize: 16, color: '#64748B' }}>Cancel</Text>
+                                    <Text style={{ fontSize: 16, color: '#64748B' }}>{t('profile.cancel')}</Text>
                                 </TouchableOpacity>
-                                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0F172A' }}>Edit Goal</Text>
+                                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0F172A' }}>{t('profile.editGoal')}</Text>
                                 <TouchableOpacity onPress={saveGoalEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                     <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0052FF' }}>Save</Text>
                                 </TouchableOpacity>
                             </View>
                             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                                 <ScrollView style={{ padding: 16 }} keyboardShouldPersistTaps="handled">
-                                    <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 12 }}>TITLE</Text>
+                                    <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 12 }}>{t('profile.title')}</Text>
                                 <TextInput
                                     style={{ backgroundColor: '#FFF', padding: 12, borderRadius: 12, fontSize: 16, fontFamily: 'Inter_500Medium', color: '#0F172A', borderWidth: 1, borderColor: '#E2E8F0' }}
                                     value={editGoalTitle}
                                     onChangeText={setEditGoalTitle}
                                 />
                                 
-                                <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 24 }}>CATEGORY</Text>
+                                <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 24 }}>{t('profile.category')}</Text>
                                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                                     {([['🧠', 'traits', 'Traits'], ['💪', 'habits', 'Habits'], ['🏠', 'environment', 'Environ.'], ['🎯', 'outcomes', 'Outcomes']] as const).map(([icon, key, label]) => (
                                         <TouchableOpacity
@@ -1302,11 +1304,11 @@ export default function ProfileScreen() {
                             }}
                         />
                         <View style={styles.triggeredQuickAddBar}>
-                            <Text style={styles.noteModalHeader}>CONGRATS! ANY REFLECTIONS?</Text>
+                            <Text style={styles.noteModalHeader}>{t('profile.congratsReflections')}</Text>
                             <View style={styles.triggeredInputWrapper}>
                                 <TextInput
                                     style={styles.triggeredInput}
-                                    placeholder="Add a result note (optional)..."
+                                    placeholder={t('profile.addResultNote')}
                                     placeholderTextColor="#94A3B8"
                                     value={goalNoteText}
                                     onChangeText={setGoalNoteText}
@@ -1322,7 +1324,7 @@ export default function ProfileScreen() {
                                     }}
                                     style={styles.triggeredSubmitBtn}
                                 >
-                                    <Text style={styles.triggeredSubmitText}>Done</Text>
+                                    <Text style={styles.triggeredSubmitText}>{t('profile.done')}</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
