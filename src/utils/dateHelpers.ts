@@ -1,4 +1,5 @@
 import { ViewMode, VIEW_CONFIG } from '../constants/theme';
+import i18n from '../i18n';
 
 // ============================================================================
 // === DATE HELPER FUNCTIONS ===
@@ -9,7 +10,7 @@ import { ViewMode, VIEW_CONFIG } from '../constants/theme';
  */
 export const formatDate = (date: Date): string => {
     const day = date.getDate();
-    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    const month = date.toLocaleDateString(i18n.language || 'en-US', { month: 'short' });
     return `${day} ${month}`;
 };
 
@@ -17,7 +18,7 @@ export const formatDate = (date: Date): string => {
  * Get day name (e.g., "Monday")
  */
 export const getDayName = (date: Date): string => {
-    return date.toLocaleDateString('en-US', { weekday: 'long' });
+    return date.toLocaleDateString(i18n.language || 'en-US', { weekday: 'long' });
 };
 
 /**

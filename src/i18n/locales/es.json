@@ -1,0 +1,75 @@
+{
+  "home": {
+    "startSprint": "INICIAR SPRINT"
+  },
+  "settings": {
+    "language": "Idioma / Language / Langue / 语言",
+    "showTimer": "Mostrar temporizador",
+    "allowPause": "Permitir pausa",
+    "automaticBreaks": "Descansos automáticos",
+    "version": "Versión 1.1.0",
+    "savingToCloud": "Guardando en la nube..."
+  },
+  "account": {
+    "back": "Volver",
+    "account": "Cuenta",
+    "signedIn": "Conectado",
+    "unregisteredAccount": "Cuenta no registrada",
+    "signInCreate": "Iniciar sesión / Crear cuenta",
+    "signOut": "Cerrar sesión",
+    "changePassword": "Cambiar contraseña",
+    "updateEmail": "Actualizar correo electrónico",
+    "deleteCloudAccount": "Eliminar cuenta de la nube",
+    "savingToCloud": "Guardando en la nube...",
+    "cloudSaveDelayed": "Cloud Save Delayed",
+    "cloudSaveDelayedMsg": "We could not reach the cloud. Sign out anyway?",
+    "wait": "Wait",
+    "deleteAccount": "Delete Account?",
+    "deleteAccountMsg": "This will permanently delete your cloud account and all synced data. Local data will remain on this device. Continue?",
+    "cancel": "Cancel",
+    "deleteAccountConfirm": "Yes, Delete",
+    "dissociateAccount": "Dissociate Account?",
+    "dissociateAccountMsg": "Your cloud account will be deleted, but all your local data stays on this device. You'll continue as a guest.",
+    "dissociate": "Dissociate",
+    "deleteEverything": "Delete Everything",
+    "deleteEverythingMsg": "This will permanently delete your cloud account AND wipe all local data. This cannot be undone.",
+    "deleteEverythingConfirm": "Yes, Delete It All",
+    "error": "Error",
+    "success": "Success",
+    "accountDeleted": "Your account has been deleted.",
+    "accountDeletedGuest": "Account removed. Your data is still here — you are now a guest.",
+    "passwordMinLength": "Password must be at least 6 characters.",
+    "passwordUpdated": "Password updated successfully!",
+    "invalidEmail": "Please enter a valid email address.",
+    "verificationSent": "Verification Sent",
+    "verificationSentMsg": "Please check both your old and new email addresses for confirmation links.",
+    "setupRpc": "Make sure the delete_user RPC is setup in Supabase.",
+    "somethingWentWrong": "Something went wrong.",
+    "keepData": "Keep Data (Dissociate)",
+    "switch": "Switch"
+  },
+  "sprints": {
+    "elapsed": "TRANSCURRIDO",
+    "nextBreak": "PRÓXIMO DESCANSO",
+    "goalEnd": "FIN DE META",
+    "switch": "Cambiar",
+    "complete": "Completar",
+    "loadingTasks": "Cargando tareas...",
+    "nextUp": "PRÓXIMO",
+    "lastTask": "¡Última tarea!",
+    "remaining": "RESTANTE",
+    "min": "MIN"
+  },
+  "profile": {
+    "cancel": "Cancelar",
+    "done": "Hecho",
+    "title": "TÍTULO",
+    "category": "CATEGORÍA",
+    "congratsReflections": "¡FELICIDADES! ¿ALGUNA REFLEXIÓN?",
+    "editGoal": "Editar Meta",
+    "addResultNote": "Añadir nota de resultado (opcional)..."
+  },
+  "tasks": {
+    "rollCount": "Pospuesto x{{count}}"
+  }
+}

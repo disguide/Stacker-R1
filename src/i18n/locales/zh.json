@@ -1,0 +1,75 @@
+{
+  "home": {
+    "startSprint": "开始冲刺"
+  },
+  "settings": {
+    "language": "语言 / Language / Langue / Idioma",
+    "showTimer": "显示计时器",
+    "allowPause": "允许暂停",
+    "automaticBreaks": "自动休息",
+    "version": "版本 1.1.0",
+    "savingToCloud": "保存到云端..."
+  },
+  "account": {
+    "back": "返回",
+    "account": "账户",
+    "signedIn": "已登录",
+    "unregisteredAccount": "未注册账户",
+    "signInCreate": "登录 / 创建账户",
+    "signOut": "登出",
+    "changePassword": "修改密码",
+    "updateEmail": "更新邮箱",
+    "deleteCloudAccount": "删除云端账户",
+    "savingToCloud": "保存到云端...",
+    "cloudSaveDelayed": "Cloud Save Delayed",
+    "cloudSaveDelayedMsg": "We could not reach the cloud. Sign out anyway?",
+    "wait": "Wait",
+    "deleteAccount": "Delete Account?",
+    "deleteAccountMsg": "This will permanently delete your cloud account and all synced data. Local data will remain on this device. Continue?",
+    "cancel": "Cancel",
+    "deleteAccountConfirm": "Yes, Delete",
+    "dissociateAccount": "Dissociate Account?",
+    "dissociateAccountMsg": "Your cloud account will be deleted, but all your local data stays on this device. You'll continue as a guest.",
+    "dissociate": "Dissociate",
+    "deleteEverything": "Delete Everything",
+    "deleteEverythingMsg": "This will permanently delete your cloud account AND wipe all local data. This cannot be undone.",
+    "deleteEverythingConfirm": "Yes, Delete It All",
+    "error": "Error",
+    "success": "Success",
+    "accountDeleted": "Your account has been deleted.",
+    "accountDeletedGuest": "Account removed. Your data is still here — you are now a guest.",
+    "passwordMinLength": "Password must be at least 6 characters.",
+    "passwordUpdated": "Password updated successfully!",
+    "invalidEmail": "Please enter a valid email address.",
+    "verificationSent": "Verification Sent",
+    "verificationSentMsg": "Please check both your old and new email addresses for confirmation links.",
+    "setupRpc": "Make sure the delete_user RPC is setup in Supabase.",
+    "somethingWentWrong": "Something went wrong.",
+    "keepData": "Keep Data (Dissociate)",
+    "switch": "Switch"
+  },
+  "sprints": {
+    "elapsed": "已用时间",
+    "nextBreak": "下一次休息",
+    "goalEnd": "目标结束",
+    "switch": "切换",
+    "complete": "完成",
+    "loadingTasks": "加载任务中...",
+    "nextUp": "接下来",
+    "lastTask": "最后一个任务！",
+    "remaining": "剩余",
+    "min": "分钟"
+  },
+  "profile": {
+    "cancel": "取消",
+    "done": "完成",
+    "title": "标题",
+    "category": "分类",
+    "congratsReflections": "恭喜！有什么感想吗？",
+    "editGoal": "编辑目标",
+    "addResultNote": "添加结果备注（可选）..."
+  },
+  "tasks": {
+    "rollCount": "顺延 x{{count}}"
+  }
+}

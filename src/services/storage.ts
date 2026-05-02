@@ -16,6 +16,7 @@ export interface SprintSettings {
     maxDurationEnabled?: boolean;
     maxDurationMinutes?: number;
     use24HourFormat?: boolean; // New: Persistent preference
+    language?: string;
 }
 
 export interface SavedSprint {
@@ -432,6 +433,7 @@ export const StorageService = {
         const defaults: SprintSettings = {
             showTimer: true,
             allowPause: true,
+            language: 'en',
             autoBreakMode: false,
             autoBreakWorkTime: 25,
             autoBreakDuration: 5,

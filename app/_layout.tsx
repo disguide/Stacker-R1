@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/providers/AuthProvider';
 import { StorageService } from '../src/services/storage';
+import i18n from '../src/i18n';
 import { triggerSync } from '../src/services/SyncService';
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
@@ -55,6 +56,13 @@ function ForegroundSync() {
 }
 
 export default function Layout() {
+    useEffect(() => {
+        StorageService.loadSprintSettings().then(settings => {
+            if (settings.language) {
+                i18n.changeLanguage(settings.language);
+            }
+        });
+    }, []);
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>

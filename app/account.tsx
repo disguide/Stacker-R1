@@ -1,4 +1,5 @@
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ const SettingsGroup = ({ title, children }: { title?: string, children: React.Re
 );
 
 export default function AccountScreen() {
+    const { t } = useTranslation();
     const router = useRouter();
     
     // Account Security State
@@ -37,9 +39,9 @@ export default function AccountScreen() {
             console.error('Sign out sync failed:', err);
             // Even if sync fails, we let them sign out if they insist, 
             // but we'll alert them.
-            Alert.alert('Cloud Save Delayed', 'We could not reach the cloud. Sign out anyway?', [
-                { text: 'Wait', style: 'cancel', onPress: () => setIsSyncing(false) },
-                { text: 'Sign Out', style: 'destructive', onPress: async () => {
+            Alert.alert(t('account.cloudSaveDelayed'), t('account.cloudSaveDelayedMsg'), [
+                { text: t('account.wait'), style: 'cancel', onPress: () => setIsSyncing(false) },
+                { text: t('account.signOut'), style: 'destructive', onPress: async () => {
                     await supabase.auth.signOut();
                 }}
             ]);
@@ -53,7 +55,7 @@ export default function AccountScreen() {
             "Delete Account?",
             "This will permanently delete your account. This action cannot be undone.",
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t('account.cancel'), style: "cancel" },
                 { 
                     text: "Delete", 
                     style: "destructive",
@@ -62,7 +64,7 @@ export default function AccountScreen() {
                             "Final Warning",
                             "Are you absolutely sure you want to delete your cloud account?",
                             [
-                                { text: "Cancel", style: "cancel" },
+                                { text: t('account.cancel'), style: "cancel" },
                                 { 
                                     text: "Yes, Delete It", 
                                     style: "destructive",
@@ -72,9 +74,9 @@ export default function AccountScreen() {
                                         const { error } = await deleteUserAccount();
                                         setIsSyncing(false);
                                         if (error) {
-                                            Alert.alert('Error', error.message || 'Make sure the delete_user RPC is setup in Supabase.');
+                                            Alert.alert(t('account.error'), error.message || t('account.setupRpc'));
                                         } else {
-                                            Alert.alert('Success', 'Your account has been deleted.');
+                                            Alert.alert(t('account.success'), t('account.accountDeleted'));
                                             router.replace('/');
                                         }
                                     }
@@ -92,7 +94,7 @@ export default function AccountScreen() {
             "RESET EVERYTHING?",
             "This will delete ALL goals, anti-goals, sprint history, and statistics. This cannot be undone.",
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t('account.cancel'), style: "cancel" },
                 { 
                     text: "RESET ALL DATA", 
                     style: "destructive", 
@@ -107,32 +109,32 @@ export default function AccountScreen() {
 
     const handleUpdatePassword = async () => {
         if (!newPassword || newPassword.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters.');
+            Alert.alert(t('account.error'), t('account.passwordMinLength'));
             return;
         }
         setIsSecurityLoading(true);
         const { error } = await supabase.auth.updateUser({ password: newPassword });
         setIsSecurityLoading(false);
         if (error) {
-            Alert.alert('Error', error.message);
+            Alert.alert(t('account.error'), error.message);
         } else {
-            Alert.alert('Success', 'Password updated successfully!');
+            Alert.alert(t('account.success'), t('account.passwordUpdated'));
             setNewPassword('');
         }
     };
 
     const handleUpdateEmail = async () => {
         if (!newEmail || !newEmail.includes('@')) {
-            Alert.alert('Error', 'Please enter a valid email address.');
+            Alert.alert(t('account.error'), t('account.invalidEmail'));
             return;
         }
         setIsSecurityLoading(true);
         const { error } = await supabase.auth.updateUser({ email: newEmail });
         setIsSecurityLoading(false);
         if (error) {
-            Alert.alert('Error', error.message);
+            Alert.alert(t('account.error'), error.message);
         } else {
-            Alert.alert('Verification Sent', 'Please check both your old and new email addresses for confirmation links.');
+            Alert.alert(t('account.verificationSent'), t('account.verificationSentMsg'));
             setNewEmail('');
         }
     };
@@ -142,9 +144,9 @@ export default function AccountScreen() {
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <Ionicons name="chevron-back" size={24} color="#007AFF" />
-                    <Text style={styles.backButtonText}>Back</Text>
+                    <Text style={styles.backButtonText}>{t('account.back')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Account</Text>
+                <Text style={styles.headerTitle}>{t('account.account')}</Text>
                 <View style={{ width: 70 }} />
             </View>
 
@@ -168,7 +170,7 @@ export default function AccountScreen() {
                                 </View>
                                 <View style={styles.accountInfo}>
                                     <Text style={styles.accountName}>{user ? (user.email?.split('@')[0] || 'User') : 'Guest'}</Text>
-                                    <Text style={styles.accountStatus}>{user ? 'Signed In' : 'Unregistered Account'}</Text>
+                                    <Text style={styles.accountStatus}>{user ? t('account.signedIn') : t('account.unregisteredAccount')}</Text>
                                 </View>
                             </View>
                             
@@ -178,7 +180,7 @@ export default function AccountScreen() {
                                         style={[styles.authButton, { backgroundColor: '#007AFF', width: '100%' }]} 
                                         onPress={() => router.push('/auth')}
                                     >
-                                        <Text style={[styles.authText, { color: '#FFF' }]}>Sign In / Create Account</Text>
+                                        <Text style={[styles.authText, { color: '#FFF' }]}>{t('account.signInCreate')}</Text>
                                     </TouchableOpacity>
                                     <Text style={styles.authDisclaimer}>Sign in to sync your goals, sprints, and history across all your devices.</Text>
                                 </View>
@@ -201,14 +203,14 @@ export default function AccountScreen() {
                                                 router.push('/auth');
                                             }}
                                         >
-                                            <Text style={[styles.authText, { color: '#333' }]}>{isSyncing ? 'Saving...' : 'Switch'}</Text>
+                                            <Text style={[styles.authText, { color: '#333' }]}>{isSyncing ? 'Saving...' : t('account.switch')}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity 
                                             style={[styles.authButton, { backgroundColor: '#EF4444', flex: 1, opacity: isSyncing ? 0.5 : 1 }]} 
                                             disabled={isSyncing}
                                             onPress={handleSignOut}
                                         >
-                                            <Text style={[styles.authText, { color: '#FFF' }]}>{isSyncing ? 'Syncing...' : 'Sign Out'}</Text>
+                                            <Text style={[styles.authText, { color: '#FFF' }]}>{isSyncing ? 'Syncing...' : t('account.signOut')}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -220,7 +222,7 @@ export default function AccountScreen() {
                     {user && (
                         <SettingsGroup title="Account Security">
                             <View style={styles.securityItem}>
-                                <Text style={styles.securityLabel}>Change Password</Text>
+                                <Text style={styles.securityLabel}>{t('account.changePassword')}</Text>
                                 <View style={styles.securityInputRow}>
                                     <TextInput 
                                         style={styles.securityInput} 
@@ -242,7 +244,7 @@ export default function AccountScreen() {
                             <View style={styles.dividerIndent} />
 
                             <View style={styles.securityItem}>
-                                <Text style={styles.securityLabel}>Update Email</Text>
+                                <Text style={styles.securityLabel}>{t('account.updateEmail')}</Text>
                                 <View style={styles.securityInputRow}>
                                     <TextInput 
                                         style={styles.securityInput} 
@@ -275,7 +277,7 @@ export default function AccountScreen() {
                             <>
                                 <View style={[styles.divider, { marginLeft: 0 }]} />
                                 <TouchableOpacity style={styles.dangerRow} onPress={handleDeleteAccount}>
-                                    <Text style={styles.dangerText}>Delete Cloud Account</Text>
+                                    <Text style={styles.dangerText}>{t('account.deleteCloudAccount')}</Text>
                                 </TouchableOpacity>
                             </>
                         )}
@@ -288,7 +290,7 @@ export default function AccountScreen() {
                 <View style={styles.syncOverlay}>
                     <View style={styles.syncModal}>
                         <Ionicons name="cloud-upload" size={32} color="#007AFF" />
-                        <Text style={styles.syncText}>Saving to Cloud...</Text>
+                        <Text style={styles.syncText}>{t('account.savingToCloud')}</Text>
                     </View>
                 </View>
             )}
