@@ -401,8 +401,8 @@ export const useTaskController = () => {
      * to prevent race conditions during complex drag-and-drop operations.
      */
     const applyReorderBatch = useCallback((
-        reorderUpdates: Array<{ id: string; sortOrder: number }>,
-        moveUpdates: Array<{ calendarItem: any; newDate: string; sortOrder: number }> = []
+        reorderUpdates: { id: string; sortOrder: number }[],
+        moveUpdates: { calendarItem: any; newDate: string; sortOrder: number }[] = []
     ) => {
         setTasks(prev => {
             const updatedTasks = [...prev];
@@ -510,7 +510,7 @@ export const useTaskController = () => {
     /**
      * REORDER TASKS (Legacy wrapper)
      */
-    const reorderTasks = useCallback((updates: Array<{ id: string; sortOrder: number }>) => {
+    const reorderTasks = useCallback((updates: { id: string; sortOrder: number }[]) => {
         applyReorderBatch(updates, []);
     }, [applyReorderBatch]);
 

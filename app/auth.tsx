@@ -29,7 +29,7 @@ export default function AuthScreen() {
         try {
             const state = await StorageService.loadUIState() || {};
             await StorageService.saveUIState({ ...state, hasSeenAuth: true });
-        } catch (e) {
+        } catch {
             // ignore
         }
         if (router.canGoBack()) {
