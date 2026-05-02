@@ -1,5 +1,5 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/providers/AuthProvider';
