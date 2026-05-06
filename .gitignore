@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+# sensitive files
+Backup-codes-thydisguide.txt
+
+# backups and temporary files
+*_backup.*
+implementation_plan_tz.md

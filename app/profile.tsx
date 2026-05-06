@@ -1,19 +1,20 @@
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, KeyboardAvoidingView, Platform, Alert, useWindowDimensions, Animated, Easing, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Image, KeyboardAvoidingView, Platform, Alert, useWindowDimensions, Animated, Easing, Modal, Dimensions } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StorageService, UserProfile, GoalCategory, SavedSprint, Task, DailyData } from '../src/services/storage';
 import { toISODateString } from '../src/utils/dateHelpers';
 import { LinearGradient } from 'expo-linear-gradient';
-
 import * as ImagePicker from 'expo-image-picker';
 import { ImageUploadService } from '../src/services/ImageUploadService';
 import { useAuth } from '../src/providers/AuthProvider';
 import Slider from '@react-native-community/slider';
 import SwipeableTaskRow from '../src/components/SwipeableTaskRow';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const GOAL_PALETTE = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#06B6D4', '#F97316'];
 
 // Shared Element Animation refs (module-level for cross-screen coordination)
@@ -60,15 +61,22 @@ export default function ProfileScreen() {
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [activeSection, setActiveSection] = useState<'profile' | 'goals' | 'sprints'>('profile');
-    const [activeTab, setActiveTab] = useState<'goals' | 'antigoals'>('goals');
+    const [addingToList, setAddingToList] = useState<'goals' | 'antigoals' | null>(null);
     const [quickAddText, setQuickAddText] = useState('');
     const [quickAddTargetCount, setQuickAddTargetCount] = useState<string>('1');
+    const [quickAddDeadline, setQuickAddDeadline] = useState<Date | null>(null);
+    const [quickAddNote, setQuickAddNote] = useState('');
+    const [showCalendar, setShowCalendar] = useState(false);
+    const [calYear, setCalYear] = useState(new Date().getFullYear());
+    const [calMonth, setCalMonth] = useState(new Date().getMonth());
     const [isAddingGoal, setIsAddingGoal] = useState(false);
     const [isScrollEnabled, setIsScrollEnabled] = useState(true);
     const [editingGoal, setEditingGoal] = useState<{item: any, listType: 'goals' | 'antigoals'} | null>(null);
     const [editGoalTitle, setEditGoalTitle] = useState('');
+    const [editGoalNote, setEditGoalNote] = useState('');
     const [editGoalTarget, setEditGoalTarget] = useState('100');
     const [editGoalCategory, setEditGoalCategory] = useState('');
+    const [editGoalDeadline, setEditGoalDeadline] = useState('');
     const [expandedSprintId, setExpandedSprintId] = useState<string | null>(null);
     const [noteVisibleIds, setNoteVisibleIds] = useState<Set<string>>(new Set());
     const { width: SCREEN_WIDTH } = useWindowDimensions();
@@ -294,7 +302,7 @@ export default function ProfileScreen() {
     };
 
     // --- GOAL MANAGEMENT ---
-    const activeList = activeTab === 'goals'
+    const activeList = addingToList === 'goals'
         ? (profile.goals || [])
         : (profile.antigoals || []);
 
@@ -320,38 +328,40 @@ export default function ProfileScreen() {
 
     const addGoalItem = (title?: string) => {
         const goalTitle = title?.trim() || '';
-        if (!goalTitle) return;
+        if (!goalTitle || !addingToList) return;
 
-        const target = parseInt(quickAddTargetCount, 10);
-        const validTarget = isNaN(target) || target < 1 ? 1 : target;
+        const validTarget = 1;
 
         const newId = Date.now().toString();
         const now = Date.now();
+        const deadlineStr = quickAddDeadline
+            ? quickAddDeadline.toISOString().split('T')[0]
+            : undefined;
         const newItem = {
             id: newId,
             title: goalTitle,
             isCompleted: false,
             created_at: now,
             category: selectedCategory,
-            color: '#3B82F6', // Neutral default
+            color: '#3B82F6',
             events: [{ id: newId, type: 'added' as const, date: now }],
             targetCount: validTarget,
-            currentCount: 0
+            currentCount: 0,
+            deadline: deadlineStr,
+            note: quickAddNote.trim(),
         };
-        if (activeTab === 'goals') {
+        if (addingToList === 'goals') {
             updateProfile({ goals: [...(profile.goals || []), newItem] });
         } else {
             updateProfile({ antigoals: [...(profile.antigoals || []), newItem] });
         }
 
         setQuickAddText('');
-        setQuickAddTargetCount('1');
+        setQuickAddNote('');
+        setQuickAddDeadline(null);
+        setShowCalendar(false);
+        setAddingToList(null);
         setIsAddingGoal(false);
-
-        // Auto-scroll to bottom after a small delay to allow item to render
-        setTimeout(() => {
-            profileScrollRef.current?.scrollToEnd({ animated: true });
-        }, 150);
     };
 
     const updateGoalItem = (id: string, newTitle: string, listType: 'goals' | 'antigoals') => {
@@ -372,21 +382,43 @@ export default function ProfileScreen() {
     const openEditGoalModal = (item: any, listType: 'goals' | 'antigoals') => {
         setEditingGoal({item, listType});
         setEditGoalTitle(item.title);
-        setEditGoalTarget((item.targetCount || 100).toString());
-        setEditGoalCategory(item.category || '');
+        setEditGoalNote(item.note || '');
+        setEditGoalTarget((item.targetCount || 10).toString());
+        setSelectedCategory(item.category || 'traits');
+        
+        // Initialize Date state for the calendar picker
+        if (item.deadline) {
+            const [y, m, d] = item.deadline.split('-').map(Number);
+            const dateObj = new Date(y, m-1, d);
+            dateObj.setHours(12, 0, 0, 0);
+            setQuickAddDeadline(dateObj);
+            setCalYear(dateObj.getFullYear());
+            setCalMonth(dateObj.getMonth());
+        } else {
+            setQuickAddDeadline(null);
+            const today = new Date();
+            setCalYear(today.getFullYear());
+            setCalMonth(today.getMonth());
+        }
+        setShowCalendar(false);
     };
 
     const saveGoalEdit = () => {
         if (!editingGoal) return;
-        const tgt = parseInt(editGoalTarget, 10);
-        const validTgt = isNaN(tgt) || tgt < 1 ? 100 : tgt; 
         
+        const now = Date.now();
+        const deadlineStr = quickAddDeadline
+            ? quickAddDeadline.toISOString().split('T')[0]
+            : undefined;
+
         let newProfile = { ...profile };
         const updater = (g: any) => g.id === editingGoal.item.id ? { 
             ...g, 
             title: editGoalTitle,
-            targetCount: validTgt,
-            category: editGoalCategory
+            note: editGoalNote.trim(),
+            category: selectedCategory,
+            deadline: deadlineStr,
+            events: [...(g.events || []), { id: Date.now().toString(), type: 'modified' as const, date: now }]
         } : g;
 
         if (editingGoal.listType === 'goals') {
@@ -400,81 +432,110 @@ export default function ProfileScreen() {
         setEditingGoal(null);
     };
 
+
     const renderGoal = (item: any, listType: 'goals' | 'antigoals', color: string) => {
-        const isFocus = listType === 'goals';
+        const isCompleted = item.isCompleted;
+        const deadlineStr = item.deadline;
+        let daysRemaining = '';
+        if (deadlineStr) {
+            try {
+                const deadlineDate = new Date(deadlineStr);
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const diff = deadlineDate.getTime() - today.getTime();
+                const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                daysRemaining = days === 0 ? 'Today' : days < 0 ? 'Exp' : `${days}d`;
+            } catch (e) {}
+        }
+
+        const opacity = isCompleted ? 0.6 : 1;
+        const isAntiGoal = listType === 'antigoals';
+        const cardBg = isAntiGoal ? '#FFF8F8' : '#F8FBFF';
+        const borderColor = isAntiGoal ? '#FEE2E2' : '#E0F2FE';
+
         return (
-            <View key={item.id} style={[styles.goalCard, { shadowOpacity: 0, elevation: 0, paddingRight: 8, paddingBottom: 16, borderLeftColor: color }]}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, marginLeft: 2 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1, marginRight: 8 }}>
-                        <TouchableOpacity
-                            style={[
-                                styles.checkbox,
-                                { marginTop: 2, marginRight: 12, borderColor: color },
-                                item.isCompleted && [styles.checkboxCompleted, { backgroundColor: color }]
-                            ]}
-                            onPress={() => toggleGoalCompletion(item.id, !item.isCompleted, listType)}
-                        >
-                            {item.isCompleted && <Ionicons name="checkmark" size={16} color="#FFF" />}
-                        </TouchableOpacity>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[styles.goalCardCategory, { color, marginBottom: 4 }]}>
-                                {item.category ? item.category.toUpperCase() : (isFocus ? 'HIGH FOCUS' : 'FRICTION')}
-                            </Text>
-                            <Text style={[
-                                styles.goalCardTitle,
-                                item.isCompleted && { color: '#94A3B8', textDecorationLine: 'line-through' }
-                            ]}>
-                                {item.title}
-                            </Text>
-                        </View>
-                    </View>
-                    <TouchableOpacity 
-                        onPress={() => {
-                            Alert.alert(
-                                'Manage Goal',
-                                item.title,
-                                [
-                                    { text: 'Edit', onPress: () => openEditGoalModal(item, listType) },
-                                    { text: 'Delete', onPress: () => deleteGoalItem(item.id, listType), style: 'destructive' },
-                                    { text: 'Cancel', style: 'cancel' }
-                                ]
-                            );
+            <TouchableOpacity 
+                key={item.id} 
+                activeOpacity={0.7}
+                onPress={() => openEditGoalModal(item, listType)}
+                style={{ 
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: cardBg, 
+                    borderRadius: 16, 
+                    paddingVertical: 12,
+                    paddingHorizontal: 14, 
+                    marginBottom: 8, 
+                    borderWidth: 1.5, 
+                    borderColor: borderColor,
+                    opacity,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.03,
+                    shadowRadius: 2,
+                    elevation: 1,
+                }}
+            >
+                <TouchableOpacity 
+                    onPress={() => toggleGoalCompletion(item.id, true, listType)}
+                    style={[
+                        styles.checkbox,
+                        { borderColor: color, borderRadius: isAntiGoal ? 12 : 8, width: 22, height: 22 },
+                        isCompleted && { backgroundColor: color, borderColor: color }
+                    ]}
+                >
+                    {isCompleted ? (
+                        <Ionicons name="checkmark" size={14} color="#FFF" />
+                    ) : isAntiGoal ? (
+                        <Ionicons name="shield-outline" size={12} color={color} />
+                    ) : null}
+                </TouchableOpacity>
+
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text 
+                        numberOfLines={1}
+                        style={{ 
+                            fontSize: 15, 
+                            fontWeight: '700', 
+                            color: '#1E293B',
+                            textDecorationLine: isCompleted ? 'line-through' : 'none',
+                            letterSpacing: -0.2
                         }}
-                        style={{ padding: 4 }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <MaterialCommunityIcons name="dots-horizontal" size={24} color="#94A3B8" />
-                    </TouchableOpacity>
+                        {item.title}
+                    </Text>
+                    {item.note ? (
+                        <Text numberOfLines={1} style={{ fontSize: 12, color: '#64748B', marginTop: 2, fontWeight: '500', fontStyle: 'italic' }}>
+                            {item.note}
+                        </Text>
+                    ) : item.category ? (
+                        <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 1, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            {item.category}
+                        </Text>
+                    ) : null}
                 </View>
 
-                {!item.isCompleted && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 36, marginRight: 8 }}>
-                        <Slider
-                            style={{ flex: 1, height: 40 }}
-                            minimumValue={0}
-                            maximumValue={item.targetCount || 100}
-                            value={item.currentCount || 0}
-                            onSlidingStart={() => setIsScrollEnabled(false)}
-                            onSlidingComplete={() => setIsScrollEnabled(true)}
-                            onValueChange={(val) => updateGoalProgress(item.id, listType, val)}
-                            minimumTrackTintColor={color}
-                            maximumTrackTintColor="#F8FAFC"
-                            thumbTintColor={color}
-                        />
+                {daysRemaining !== '' && !isCompleted && (
+                    <View style={{ 
+                        backgroundColor: daysRemaining === 'Exp' ? '#FEF2F2' : (isAntiGoal ? '#FEE2E2' : '#E0F2FE'),
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 8,
+                        marginLeft: 8
+                    }}>
                         <Text style={{ 
-                            fontFamily: 'Inter_600SemiBold', 
-                            fontSize: 13, 
-                            color: '#64748B', 
-                            width: 50, 
-                            textAlign: 'right' 
+                            fontSize: 11, 
+                            fontWeight: '800', 
+                            color: daysRemaining === 'Exp' ? '#EF4444' : color 
                         }}>
-                            {Math.round(((item.currentCount || 0) / (item.targetCount || 100)) * 100)}%
+                            {daysRemaining}
                         </Text>
                     </View>
                 )}
-            </View>
+            </TouchableOpacity>
         );
     };
+
 
     const incrementGoalCount = async (id: string, listType: 'goals' | 'antigoals') => {
         let newProfile = { ...profile };
@@ -816,7 +877,7 @@ export default function ProfileScreen() {
                                             <Image source={{ uri: profile.avatar }} style={styles.avatarImage} />
                                         ) : (
                                             <View style={styles.avatarPlaceholder}>
-                                                <Text style={{ fontSize: 36, opacity: 0.5 }}>👤</Text>
+                                                <Ionicons name="person" size={40} color="#CBD5E1" />
                                             </View>
                                         )}
                                         {isEditing && (
@@ -870,15 +931,18 @@ export default function ProfileScreen() {
                     <ScrollView
                         ref={goalsScrollRef}
                         style={{ width: SCREEN_WIDTH }}
-                        contentContainerStyle={styles.scrollContent}
+                        contentContainerStyle={[styles.scrollContent, { paddingBottom: 100 }]}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
                         <View style={styles.goalsTabContent}>
-                            <Text style={styles.fillerTitle}>Current progress</Text>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 }}>
+                                <Text style={[styles.fillerTitle, { marginLeft: 0, marginBottom: 0 }]}>Objectives</Text>
+                            </View>
+
                             {/* --- TIMELINE HERO --- */}
                             {!isEditing && (
-                                <View style={styles.archivedSectionBlock}>
+                                <View style={[styles.archivedSectionBlock, { marginHorizontal: 12, marginBottom: 16 }]}>
                                     <TouchableOpacity
                                         style={styles.timelineHeroBlock}
                                         onPress={() => router.push('/timeline')}
@@ -910,102 +974,108 @@ export default function ProfileScreen() {
                                 </View>
                             )}
 
-                            {/* --- COMBINED LISTS --- */}
-                            <View style={styles.combinedListContainer}>
+                            {/* --- GOALS & ANTI-GOALS STACKED --- */}
+                            <View style={{ paddingHorizontal: 12, gap: 20 }}>
                                 
-                                {/* GOALS SECTION */}
-                                <View style={styles.sectionHeaderRow}>
-                                    <View style={styles.sectionHeaderLeft}>
-                                        <MaterialCommunityIcons name="target" size={24} color="#0052FF" />
-                                        <Text style={styles.sectionHeaderTitle}>GOALS</Text>
-                                        <View style={[styles.countBadge, { backgroundColor: '#E0E7FF' }]}>
-                                            <Text style={[styles.countBadgeText, { color: '#0052FF' }]}>
-                                                {(profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).length}/5
-                                            </Text>
+                                {/* GOALS BOX */}
+                                <View style={{ 
+                                    backgroundColor: '#FFF', 
+                                    borderRadius: 28, 
+                                    padding: 24, 
+                                    borderWidth: 1.5, 
+                                    borderColor: '#E0F2FE',
+                                    shadowColor: '#0284C7',
+                                    shadowOffset: { width: 0, height: 8 },
+                                    shadowOpacity: 0.05,
+                                    shadowRadius: 15,
+                                    elevation: 5
+                                }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <View style={{ width: 4, height: 16, backgroundColor: '#0284C7', borderRadius: 2 }} />
+                                            <Text style={{ fontSize: 13, fontWeight: '900', color: '#0284C7', letterSpacing: 1.5 }}>GOALS</Text>
                                         </View>
                                     </View>
-                                    {(profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).length < 5 && (
-                                        <TouchableOpacity style={[styles.actionSquareBtn, { backgroundColor: '#0052FF' }]} onPress={() => { setActiveTab('goals'); setIsAddingGoal(true); }}>
-                                            <Ionicons name="add" size={20} color="#FFF" />
+                                    <View>
+                                        {(profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).length === 0 ? (
+                                            <Text style={{ fontSize: 14, color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>No active goals</Text>
+                                        ) : (
+                                            (profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).map(item => renderGoal(item, 'goals', '#0284C7'))
+                                        )}
+                                        
+                                        {/* ADD GOAL ROW (Main Menu Style) */}
+                                        <TouchableOpacity 
+                                            style={{ marginTop: 12, paddingVertical: 12 }} 
+                                            onPress={() => { 
+                                                setAddingToList('goals'); 
+                                                setIsAddingGoal(true); 
+                                                setQuickAddText(''); 
+                                                setQuickAddNote('');
+                                                setQuickAddDeadline(null); 
+                                                setShowCalendar(false); 
+                                            }}
+                                        >
+                                            <View style={{ alignSelf: 'flex-start' }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                    <Ionicons name="add-circle" size={22} color="#0284C7" />
+                                                    <Text style={{ color: '#0284C7', fontSize: 16, fontWeight: '700' }}>Add Goal</Text>
+                                                </View>
+                                            </View>
                                         </TouchableOpacity>
-                                    )}
+                                    </View>
                                 </View>
 
-                                {(profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).map(item => renderGoal(item, 'goals', '#0052FF'))}
-
-                                {/* Completed Goals */}
-                                {(profile.goals || []).filter(g => g.isCompleted).slice(0, 3).map((item) => (
-                                    <View 
-                                        key={item.id} 
-                                        style={[styles.goalCard, { backgroundColor: '#F8FAFC', borderLeftColor: '#CBD5E1', shadowOpacity: 0 }]}
-                                    >
-                                        <View style={styles.goalCardContent}>
-                                            <Text style={[styles.goalCardCategory, { color: '#64748B' }]}>
-                                                {item.category ? item.category.toUpperCase() : 'COMPLETED'}
-                                            </Text>
-                                            <Text style={[styles.goalCardTitle, { color: '#94A3B8', textDecorationLine: 'line-through' }]}>
-                                                {item.title}
-                                            </Text>
+                                {/* ANTI GOALS BOX */}
+                                <View style={{ 
+                                    backgroundColor: '#FFF', 
+                                    borderRadius: 28, 
+                                    padding: 24, 
+                                    borderWidth: 1.5, 
+                                    borderColor: '#FEE2E2',
+                                    shadowColor: '#DC2626',
+                                    shadowOffset: { width: 0, height: 8 },
+                                    shadowOpacity: 0.05,
+                                    shadowRadius: 15,
+                                    elevation: 5
+                                }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <View style={{ width: 4, height: 16, backgroundColor: '#DC2626', borderRadius: 2 }} />
+                                            <Text style={{ fontSize: 13, fontWeight: '900', color: '#DC2626', letterSpacing: 1.5 }}>ANTI-GOALS</Text>
                                         </View>
-                                        {isEditing && (
-                                            <TouchableOpacity 
-                                                onPress={() => deleteGoalItem(item.id, 'goals')} 
-                                                style={styles.cardDeleteBtn}
-                                            >
-                                                <Ionicons name="trash-outline" size={20} color="#94A3B8" />
-                                            </TouchableOpacity>
+                                    </View>
+                                    <View>
+                                        {(profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).length === 0 ? (
+                                            <Text style={{ fontSize: 14, color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>No anti-goals</Text>
+                                        ) : (
+                                            (profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).map(item => renderGoal(item, 'antigoals', '#DC2626'))
                                         )}
-                                    </View>
-                                ))}
 
-                                {/* AVOID SECTION */}
-                                <View style={{ height: 1, backgroundColor: '#F1F5F9', marginTop: 16, marginBottom: 32 }} />
-                                <View style={[styles.sectionHeaderRow, { marginTop: 0 }]}>
-                                    <View style={styles.sectionHeaderLeft}>
-                                        <Ionicons name="remove-circle" size={24} color="#DC2626" />
-                                        <Text style={styles.sectionHeaderTitle}>ANTI GOALS</Text>
-                                        <View style={[styles.countBadge, { backgroundColor: '#FEE2E2' }]}>
-                                            <Text style={[styles.countBadgeText, { color: '#DC2626' }]}>
-                                                {(profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).length}/5
-                                            </Text>
-                                        </View>
-                                    </View>
-                                    {(profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).length < 5 && (
-                                        <TouchableOpacity style={[styles.actionSquareBtn, { backgroundColor: '#DC2626' }]} onPress={() => { setActiveTab('antigoals'); setIsAddingGoal(true); }}>
-                                            <Ionicons name="add" size={20} color="#FFF" />
+                                        {/* ADD ANTI-GOAL ROW (Main Menu Style) */}
+                                        <TouchableOpacity 
+                                            style={{ marginTop: 12, paddingVertical: 12 }} 
+                                            onPress={() => { 
+                                                setAddingToList('antigoals'); 
+                                                setIsAddingGoal(true); 
+                                                setQuickAddText(''); 
+                                                setQuickAddNote('');
+                                                setQuickAddDeadline(null); 
+                                                setShowCalendar(false); 
+                                            }}
+                                        >
+                                            <View style={{ alignSelf: 'flex-start' }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                    <Ionicons name="add-circle" size={22} color="#DC2626" />
+                                                    <Text style={{ color: '#DC2626', fontSize: 16, fontWeight: '700' }}>Add Anti-Goal</Text>
+                                                </View>
+                                            </View>
                                         </TouchableOpacity>
-                                    )}
-                                </View>
-
-                                {(profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).map(item => renderGoal(item, 'antigoals', '#DC2626'))}
-
-                                {/* Completed Anti-Goals */}
-                                {(profile.antigoals || []).filter(g => g.isCompleted).slice(0, 3).map((item) => (
-                                    <View 
-                                        key={item.id} 
-                                        style={[styles.goalCard, { backgroundColor: '#F8FAFC', borderLeftColor: '#CBD5E1', shadowOpacity: 0 }]}
-                                    >
-                                        <View style={styles.goalCardContent}>
-                                            <Text style={[styles.goalCardCategory, { color: '#64748B' }]}>
-                                                {item.category ? item.category.toUpperCase() : 'COMPLETED'}
-                                            </Text>
-                                            <Text style={[styles.goalCardTitle, { color: '#94A3B8', textDecorationLine: 'line-through' }]}>
-                                                {item.title}
-                                            </Text>
-                                        </View>
-                                        {isEditing && (
-                                            <TouchableOpacity 
-                                                onPress={() => deleteGoalItem(item.id, 'antigoals')} 
-                                                style={styles.cardDeleteBtn}
-                                            >
-                                                <Ionicons name="trash-outline" size={20} color="#94A3B8" />
-                                            </TouchableOpacity>
-                                        )}
                                     </View>
-                                ))}
+                                </View>
                             </View>
                         </View>
                     </ScrollView>
+
 
                     {/* SLIDE 3: SPRINTS */}
                     <ScrollView
@@ -1052,9 +1122,7 @@ export default function ProfileScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={{ height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 8, marginVertical: 16 }} />
-
-                            <View style={{ height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 8, marginVertical: 16 }} />
+                            <View style={{ height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 8, marginTop: 4, marginBottom: 12 }} />
 
                             <View style={styles.bestDaysContainer}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -1185,135 +1253,532 @@ export default function ProfileScreen() {
                     </ScrollView>
                 </ScrollView>
 
-                {/* --- TRIGGERED QUICK ADD BAR (Keyboard Aligned) --- */}
-                {isAddingGoal && (
-                    <>
-                        <TouchableOpacity
-                            style={styles.quickAddBackdrop}
-                            activeOpacity={1}
-                            onPress={() => setIsAddingGoal(false)}
-                        />
-                        <View style={styles.triggeredQuickAddBar}>
-                            {/* Category picker chips */}
-                            <View style={styles.categoryRow}>
-                                {([['🧠', 'traits', 'Traits'], ['💪', 'habits', 'Habits'], ['🏠', 'environment', 'Environ.'], ['🎯', 'outcomes', 'Outcomes']] as const).map(([icon, key, label]) => (
-                                    <TouchableOpacity
-                                        key={key}
-                                        onPress={() => setSelectedCategory(key)}
-                                        style={[
-                                            styles.categoryChip,
-                                            selectedCategory === key && styles.categoryChipActive,
-                                        ]}
-                                    >
-                                        <Text style={styles.categoryIcon}>{icon}</Text>
-                                        <Text style={[
-                                            styles.categoryLabel,
-                                            selectedCategory === key && styles.categoryLabelActive,
-                                        ]}>{label}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                            <View style={styles.triggeredInputWrapper}>
-                                <TextInput
-                                    ref={quickAddInputRef}
-                                    style={styles.triggeredInput}
-                                    placeholder={`Write your ${activeTab === 'goals' ? 'Goal' : 'Anti-Goal'}...`}
-                                    placeholderTextColor="#94A3B8"
-                                    value={quickAddText}
-                                    onChangeText={setQuickAddText}
-                                    onSubmitEditing={() => addGoalItem(quickAddText)}
-                                    autoFocus
-                                />
-                                <TouchableOpacity
-                                    onPress={() => addGoalItem(quickAddText)}
-                                    style={styles.triggeredSubmitBtn}
-                                    disabled={!quickAddText.trim()}
-                                >
-                                    <Text style={[styles.triggeredSubmitText, !quickAddText.trim() && { opacity: 0.5 }]}>Add</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </>
-                )}
+                {/* --- QUICK ADD FLOATING CARD --- */}
+                {isAddingGoal && addingToList && (() => {
+                    const isGoals = addingToList === 'goals';
+                    const accentColor = isGoals ? '#0284C7' : '#DC2626';
+                    const label = isGoals ? 'Goal' : 'Anti-Goal';
 
-                {/* GOAL EDIT MODAL */}
-                {editingGoal && (
-                    <Modal visible={!!editingGoal} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setEditingGoal(null)}>
-                        <SafeAreaView style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#FFF' }}>
-                                <TouchableOpacity onPress={() => setEditingGoal(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                    <Text style={{ fontSize: 16, color: '#64748B' }}>{t('profile.cancel')}</Text>
-                                </TouchableOpacity>
-                                <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0F172A' }}>{t('profile.editGoal')}</Text>
-                                <TouchableOpacity onPress={saveGoalEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                    <Text style={{ fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#0052FF' }}>Save</Text>
-                                </TouchableOpacity>
-                            </View>
-                            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-                                <ScrollView style={{ padding: 16 }} keyboardShouldPersistTaps="handled">
-                                    <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 12 }}>{t('profile.title')}</Text>
-                                <TextInput
-                                    style={{ backgroundColor: '#FFF', padding: 12, borderRadius: 12, fontSize: 16, fontFamily: 'Inter_500Medium', color: '#0F172A', borderWidth: 1, borderColor: '#E2E8F0' }}
-                                    value={editGoalTitle}
-                                    onChangeText={setEditGoalTitle}
+                    const firstDay = new Date(calYear, calMonth, 1).getDay();
+                    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                    const calCells: (number | null)[] = [];
+                    for (let i = 0; i < firstDay; i++) calCells.push(null);
+                    for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
+
+                    const shiftDays = (n: number) => {
+                        const base = quickAddDeadline ? new Date(quickAddDeadline) : new Date();
+                        base.setHours(12, 0, 0, 0);
+                        base.setDate(base.getDate() + n);
+                        setQuickAddDeadline(base);
+                        setCalYear(base.getFullYear());
+                        setCalMonth(base.getMonth());
+                    };
+
+                    const deadlineLabel = quickAddDeadline
+                        ? quickAddDeadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : 'Set Deadline';
+
+                    const canCreate = quickAddText.trim().length > 0 && quickAddNote.trim().length > 0;
+
+                    return (
+                        <Modal 
+                            visible={isAddingGoal} 
+                            animationType="fade" 
+                            transparent={true} 
+                            onRequestClose={() => { setIsAddingGoal(false); setAddingToList(null); }}
+                        >
+                            <KeyboardAvoidingView 
+                                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                                style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+                            >
+                                <TouchableOpacity 
+                                    style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.6)' }} 
+                                    activeOpacity={1} 
+                                    onPress={() => { setIsAddingGoal(false); setAddingToList(null); }} 
                                 />
-                                
-                                <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 24 }}>{t('profile.category')}</Text>
-                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                    {([['🧠', 'traits', 'Traits'], ['💪', 'habits', 'Habits'], ['🏠', 'environment', 'Environ.'], ['🎯', 'outcomes', 'Outcomes']] as const).map(([icon, key, label]) => (
-                                        <TouchableOpacity
-                                            key={key}
-                                            onPress={() => setEditGoalCategory(key)}
-                                            style={[
-                                                styles.categoryChip,
-                                                editGoalCategory === key && styles.categoryChipActive,
-                                                { marginBottom: 8 }
-                                            ]}
+                                <View style={{ 
+                                    backgroundColor: '#FFF', 
+                                    borderRadius: 32, 
+                                    width: SCREEN_WIDTH * 0.9,
+                                    maxHeight: SCREEN_HEIGHT * 0.8,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 20 },
+                                    shadowOpacity: 0.3,
+                                    shadowRadius: 30,
+                                    elevation: 25,
+                                    overflow: 'hidden'
+                                }}>
+                                    {/* Premium Header */}
+                                    <View style={{ backgroundColor: accentColor, paddingVertical: 24, paddingHorizontal: 24 }}>
+                                        <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFF' }}>{label.toUpperCase()}</Text>
+                                    </View>
+
+                                    <ScrollView style={{ padding: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                                        {/* Title Input */}
+                                        <View style={{ marginBottom: 20 }}>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>TITLE</Text>
+                                            <TextInput
+                                                ref={quickAddInputRef}
+                                                style={{ fontSize: 18, fontWeight: '600', color: '#0F172A', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' }}
+                                                placeholder={`What is this ${label.toLowerCase()}?`}
+                                                placeholderTextColor="#94A3B8"
+                                                value={quickAddText}
+                                                onChangeText={setQuickAddText}
+                                                autoFocus
+                                            />
+                                        </View>
+
+                                        {/* Conditions for Success Input */}
+                                        <View style={{ marginBottom: 24 }}>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>CONDITIONS FOR SUCCESS</Text>
+                                            <TextInput
+                                                style={{ fontSize: 15, fontWeight: '500', color: '#334155', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', minHeight: 80 }}
+                                                placeholder="Define exactly what victory looks like..."
+                                                placeholderTextColor="#94A3B8"
+                                                value={quickAddNote}
+                                                onChangeText={setQuickAddNote}
+                                                multiline
+                                            />
+                                        </View>
+
+                                        {/* Category Selection */}
+                                        <View style={{ marginBottom: 24 }}>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>TYPE</Text>
+                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                                {([['traits', 'Traits'], ['habits', 'Habits'], ['environment', 'Environment'], ['outcomes', 'Outcomes']] as const).map(([key, lbl]) => (
+                                                    <TouchableOpacity
+                                                        key={key}
+                                                        onPress={() => setSelectedCategory(key)}
+                                                        style={{ 
+                                                            paddingHorizontal: 16, 
+                                                            paddingVertical: 10, 
+                                                            borderRadius: 14, 
+                                                            backgroundColor: selectedCategory === key ? accentColor : '#F1F5F9', 
+                                                            borderWidth: 1, 
+                                                            borderColor: selectedCategory === key ? accentColor : '#E2E8F0',
+                                                        }}
+                                                    >
+                                                        <Text style={{ fontSize: 13, fontWeight: '700', color: selectedCategory === key ? '#FFF' : '#64748B' }}>{lbl}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        </View>
+
+                                        {/* Deadline Section */}
+                                        <View style={{ marginBottom: 32 }}>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>DEADLINE</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                <TouchableOpacity
+                                                    onPress={() => setShowCalendar(v => !v)}
+                                                    style={{ 
+                                                        flex: 1,
+                                                        flexDirection: 'row', 
+                                                        alignItems: 'center', 
+                                                        gap: 10, 
+                                                        padding: 14, 
+                                                        borderRadius: 16, 
+                                                        backgroundColor: quickAddDeadline ? '#EFF6FF' : '#F1F5F9', 
+                                                        borderWidth: 1.5, 
+                                                        borderColor: quickAddDeadline ? '#3B82F6' : '#E2E8F0' 
+                                                    }}
+                                                >
+                                                    <Ionicons name="calendar-outline" size={20} color={quickAddDeadline ? '#3B82F6' : '#94A3B8'} />
+                                                    <Text style={{ fontSize: 15, fontWeight: '700', color: quickAddDeadline ? '#3B82F6' : '#64748B' }}>{deadlineLabel}</Text>
+                                                </TouchableOpacity>
+                                                
+                                                {quickAddDeadline && (
+                                                    <TouchableOpacity
+                                                        onPress={() => { setQuickAddDeadline(null); setShowCalendar(false); }}
+                                                        style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        <Ionicons name="close-circle" size={22} color="#EF4444" />
+                                                    </TouchableOpacity>
+                                                )}
+
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 4 }}>
+                                                    <TouchableOpacity 
+                                                        onPress={() => shiftDays(-1)}
+                                                        style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        <Ionicons name="remove" size={20} color="#475569" />
+                                                    </TouchableOpacity>
+                                                    <View style={{ paddingHorizontal: 8, minWidth: 60, alignItems: 'center' }}>
+                                                        <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A' }}>
+                                                            {(() => {
+                                                                if (!quickAddDeadline) return "0 days";
+                                                                const diff = Math.round((quickAddDeadline.getTime() - new Date().setHours(0,0,0,0)) / 86400000);
+                                                                return `${diff} days`;
+                                                            })()}
+                                                        </Text>
+                                                    </View>
+                                                    <TouchableOpacity 
+                                                        onPress={() => shiftDays(1)}
+                                                        style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        <Ionicons name="add" size={20} color="#475569" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+
+                                            {showCalendar && (
+                                                <View style={{ marginTop: 16, backgroundColor: '#F8FAFC', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0', padding: 16 }}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                                        <TouchableOpacity onPress={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }}>
+                                                            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+                                                        </TouchableOpacity>
+                                                        <Text style={{ fontWeight: '800', fontSize: 16, color: '#0F172A' }}>{MONTHS[calMonth]} {calYear}</Text>
+                                                        <TouchableOpacity onPress={() => { const d = new Date(calYear, calMonth + 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }}>
+                                                            <Ionicons name="chevron-forward" size={20} color="#0F172A" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                                                        {calCells.map((day, idx) => {
+                                                            if (!day) return <View key={`e${idx}`} style={{ width: `${100/7}%`, aspectRatio: 1 }} />;
+                                                            const cellDate = new Date(calYear, calMonth, day);
+                                                            const isSelected = quickAddDeadline ? cellDate.toDateString() === quickAddDeadline.toDateString() : false;
+                                                            return (
+                                                                <TouchableOpacity
+                                                                    key={day}
+                                                                    onPress={() => { cellDate.setHours(12,0,0,0); setQuickAddDeadline(cellDate); setShowCalendar(false); }}
+                                                                    style={{ width: `${100/7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}
+                                                                >
+                                                                    <View style={{ 
+                                                                        width: 38, 
+                                                                        height: 38, 
+                                                                        borderRadius: 19, 
+                                                                        backgroundColor: isSelected ? accentColor : 'transparent', 
+                                                                        alignItems: 'center', 
+                                                                        justifyContent: 'center',
+                                                                    }}>
+                                                                        <Text style={{ fontSize: 14, fontWeight: isSelected ? '800' : '600', color: isSelected ? '#FFF' : '#0F172A' }}>{day}</Text>
+                                                                    </View>
+                                                                </TouchableOpacity>
+                                                            );
+                                                        })}
+                                                    </View>
+                                                </View>
+                                            )}
+                                        </View>
+                                    </ScrollView>
+
+                                    {/* Action Footer */}
+                                    <View style={{ flexDirection: 'row', padding: 20, gap: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                                        <TouchableOpacity 
+                                            onPress={() => { setIsAddingGoal(false); setAddingToList(null); }}
+                                            style={{ flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 16, backgroundColor: '#F1F5F9' }}
                                         >
-                                            <Text style={styles.categoryIcon}>{icon}</Text>
-                                            <Text style={[
-                                                styles.categoryLabel,
-                                                editGoalCategory === key && styles.categoryLabelActive,
-                                            ]}>{label}</Text>
+                                            <Text style={{ fontSize: 15, fontWeight: '700', color: '#64748B' }}>CANCEL</Text>
                                         </TouchableOpacity>
-                                    ))}
+                                        <TouchableOpacity
+                                            onPress={() => addGoalItem(quickAddText)}
+                                            disabled={!canCreate}
+                                            style={{ 
+                                                flex: 2, 
+                                                paddingVertical: 14, 
+                                                alignItems: 'center', 
+                                                borderRadius: 16, 
+                                                backgroundColor: canCreate ? accentColor : '#F1F5F9',
+                                                shadowColor: canCreate ? accentColor : 'transparent',
+                                                shadowOffset: { width: 0, height: 6 },
+                                                shadowOpacity: 0.3,
+                                                shadowRadius: 10,
+                                            }}
+                                        >
+                                            <Text style={{ fontSize: 15, fontWeight: '800', color: canCreate ? '#FFF' : '#94A3B8' }}>CREATE {label.toUpperCase()}</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
-
-                                <Text style={{ fontSize: 12, color: '#64748B', fontFamily: 'Inter_600SemiBold', marginBottom: 8, marginTop: 16 }}>TARGET COUNT (SLIDER MAX)</Text>
-                                    <TextInput
-                                        style={{ backgroundColor: '#FFF', padding: 12, borderRadius: 12, fontSize: 16, fontFamily: 'Inter_500Medium', color: '#0F172A', borderWidth: 1, borderColor: '#E2E8F0' }}
-                                        value={editGoalTarget}
-                                        onChangeText={setEditGoalTarget}
-                                        keyboardType="numeric"
-                                    />
-                                </ScrollView>
                             </KeyboardAvoidingView>
-                        </SafeAreaView>
-                    </Modal>
-                )}
+                        </Modal>
+                    );
+                })()}
+
+                {/* --- EDIT GOAL FLOATING CARD --- */}
+                {editingGoal && (() => {
+                    const isGoals = editingGoal.listType === 'goals';
+                    const accentColor = isGoals ? '#0284C7' : '#DC2626';
+                    const label = isGoals ? 'Goal' : 'Anti-Goal';
+
+                    const firstDay = new Date(calYear, calMonth, 1).getDay();
+                    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                    const calCells: (number | null)[] = [];
+                    for (let i = 0; i < firstDay; i++) calCells.push(null);
+                    for (let d = 1; d <= daysInMonth; d++) calCells.push(d);
+
+                    const shiftDays = (n: number) => {
+                        const base = quickAddDeadline ? new Date(quickAddDeadline) : new Date();
+                        base.setHours(12, 0, 0, 0);
+                        base.setDate(base.getDate() + n);
+                        setQuickAddDeadline(base);
+                        setCalYear(base.getFullYear());
+                        setCalMonth(base.getMonth());
+                    };
+
+                    const deadlineLabel = quickAddDeadline
+                        ? quickAddDeadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : 'Set Deadline';
+
+                    const canSave = editGoalTitle.trim().length > 0 && editGoalNote.trim().length > 0;
+
+                    return (
+                        <Modal 
+                            visible={!!editingGoal} 
+                            animationType="fade" 
+                            transparent={true} 
+                            onRequestClose={() => setEditingGoal(null)}
+                        >
+                            <KeyboardAvoidingView 
+                                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                                style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+                            >
+                                <TouchableOpacity 
+                                    style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.6)' }} 
+                                    activeOpacity={1} 
+                                    onPress={() => setEditingGoal(null)} 
+                                />
+                                <View style={{ 
+                                    backgroundColor: '#FFF', 
+                                    borderRadius: 32, 
+                                    width: SCREEN_WIDTH * 0.9,
+                                    maxHeight: SCREEN_HEIGHT * 0.8,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 20 },
+                                    shadowOpacity: 0.3,
+                                    shadowRadius: 30,
+                                    elevation: 25,
+                                    overflow: 'hidden'
+                                }}>
+                                    {/* Premium Header */}
+                                    <View style={{ backgroundColor: accentColor, paddingVertical: 24, paddingHorizontal: 24 }}>
+                                        <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFF' }}>{label.toUpperCase()}</Text>
+                                    </View>
+
+                                    <ScrollView style={{ padding: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                                        {/* Title Input */}
+                                        <View style={{ marginBottom: 20 }}>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>TITLE</Text>
+                                            <TextInput
+                                                style={{ fontSize: 18, fontWeight: '600', color: '#0F172A', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' }}
+                                                placeholder="Goal title"
+                                                placeholderTextColor="#94A3B8"
+                                                value={editGoalTitle}
+                                                onChangeText={setEditGoalTitle}
+                                            />
+                                        </View>
+
+                                        {/* Conditions for Success Input */}
+                                        <View style={{ marginBottom: 24 }}>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>CONDITIONS FOR SUCCESS</Text>
+                                            <TextInput
+                                                style={{ fontSize: 15, fontWeight: '500', color: '#334155', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', minHeight: 80 }}
+                                                placeholder="Define exactly what victory looks like..."
+                                                placeholderTextColor="#94A3B8"
+                                                value={editGoalNote}
+                                                onChangeText={setEditGoalNote}
+                                                multiline
+                                            />
+                                        </View>
+
+                                        {/* Category Selection */}
+                                        <View style={{ marginBottom: 24 }}>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>TYPE</Text>
+                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                                {([['traits', 'Traits'], ['habits', 'Habits'], ['environment', 'Environment'], ['outcomes', 'Outcomes']] as const).map(([key, lbl]) => (
+                                                    <TouchableOpacity
+                                                        key={key}
+                                                        onPress={() => setSelectedCategory(key)}
+                                                        style={{ 
+                                                            paddingHorizontal: 16, 
+                                                            paddingVertical: 10, 
+                                                            borderRadius: 14, 
+                                                            backgroundColor: selectedCategory === key ? accentColor : '#F1F5F9', 
+                                                            borderWidth: 1, 
+                                                            borderColor: selectedCategory === key ? accentColor : '#E2E8F0',
+                                                        }}
+                                                    >
+                                                        <Text style={{ fontSize: 13, fontWeight: '700', color: selectedCategory === key ? '#FFF' : '#64748B' }}>{lbl}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        </View>
+
+                                        {/* Deadline Section */}
+                                        <View style={{ marginBottom: 32 }}>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>DEADLINE</Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                <TouchableOpacity
+                                                    onPress={() => setShowCalendar(v => !v)}
+                                                    style={{ 
+                                                        flex: 1,
+                                                        flexDirection: 'row', 
+                                                        alignItems: 'center', 
+                                                        gap: 10, 
+                                                        padding: 14, 
+                                                        borderRadius: 16, 
+                                                        backgroundColor: quickAddDeadline ? '#EFF6FF' : '#F1F5F9', 
+                                                        borderWidth: 1.5, 
+                                                        borderColor: quickAddDeadline ? '#3B82F6' : '#E2E8F0' 
+                                                    }}
+                                                >
+                                                    <Ionicons name="calendar-outline" size={20} color={quickAddDeadline ? '#3B82F6' : '#94A3B8'} />
+                                                    <Text style={{ fontSize: 15, fontWeight: '700', color: quickAddDeadline ? '#3B82F6' : '#64748B' }}>{deadlineLabel}</Text>
+                                                </TouchableOpacity>
+
+                                                {quickAddDeadline && (
+                                                    <TouchableOpacity
+                                                        onPress={() => { setQuickAddDeadline(null); setShowCalendar(false); }}
+                                                        style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        <Ionicons name="close-circle" size={22} color="#EF4444" />
+                                                    </TouchableOpacity>
+                                                )}
+
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 4 }}>
+                                                    <TouchableOpacity 
+                                                        onPress={() => shiftDays(-1)}
+                                                        style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        <Ionicons name="remove" size={20} color="#475569" />
+                                                    </TouchableOpacity>
+                                                    <View style={{ paddingHorizontal: 8, minWidth: 60, alignItems: 'center' }}>
+                                                        <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A' }}>
+                                                            {(() => {
+                                                                if (!quickAddDeadline) return "0 days";
+                                                                const diff = Math.round((quickAddDeadline.getTime() - new Date().setHours(0,0,0,0)) / 86400000);
+                                                                return `${diff} days`;
+                                                            })()}
+                                                        </Text>
+                                                    </View>
+                                                    <TouchableOpacity 
+                                                        onPress={() => shiftDays(1)}
+                                                        style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                                                    >
+                                                        <Ionicons name="add" size={20} color="#475569" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+
+                                            {showCalendar && (
+                                                <View style={{ marginTop: 16, backgroundColor: '#F8FAFC', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0', padding: 16 }}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                                        <TouchableOpacity onPress={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }}>
+                                                            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+                                                        </TouchableOpacity>
+                                                        <Text style={{ fontWeight: '800', fontSize: 16, color: '#0F172A' }}>{MONTHS[calMonth]} {calYear}</Text>
+                                                        <TouchableOpacity onPress={() => { const d = new Date(calYear, calMonth + 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }}>
+                                                            <Ionicons name="chevron-forward" size={20} color="#0F172A" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                                                        {calCells.map((day, idx) => {
+                                                            if (!day) return <View key={`e${idx}`} style={{ width: `${100/7}%`, aspectRatio: 1 }} />;
+                                                            const cellDate = new Date(calYear, calMonth, day);
+                                                            const isSelected = quickAddDeadline ? cellDate.toDateString() === quickAddDeadline.toDateString() : false;
+                                                            return (
+                                                                <TouchableOpacity
+                                                                    key={day}
+                                                                    onPress={() => { cellDate.setHours(12,0,0,0); setQuickAddDeadline(cellDate); setShowCalendar(false); }}
+                                                                    style={{ width: `${100/7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}
+                                                                >
+                                                                    <View style={{ 
+                                                                        width: 38, 
+                                                                        height: 38, 
+                                                                        borderRadius: 19, 
+                                                                        backgroundColor: isSelected ? accentColor : 'transparent', 
+                                                                        alignItems: 'center', 
+                                                                        justifyContent: 'center',
+                                                                    }}>
+                                                                        <Text style={{ fontSize: 14, fontWeight: isSelected ? '800' : '600', color: isSelected ? '#FFF' : '#0F172A' }}>{day}</Text>
+                                                                    </View>
+                                                                </TouchableOpacity>
+                                                            );
+                                                        })}
+                                                    </View>
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        {/* Danger Zone */}
+                                        <TouchableOpacity 
+                                            onPress={() => {
+                                                const list = editingGoal.listType === 'goals' ? profile.goals : profile.antigoals;
+                                                const filtered = (list || []).filter((g: any) => g.id !== editingGoal.item.id);
+                                                updateProfile({ [editingGoal.listType]: filtered });
+                                                setEditingGoal(null);
+                                            }}
+                                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, marginBottom: 20 }}
+                                        >
+                                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#EF4444' }}>Delete {label}</Text>
+                                        </TouchableOpacity>
+                                    </ScrollView>
+
+                                    {/* Action Footer */}
+                                    <View style={{ flexDirection: 'row', padding: 20, gap: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                                        <TouchableOpacity 
+                                            onPress={() => setEditingGoal(null)}
+                                            style={{ flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 16, backgroundColor: '#F1F5F9' }}
+                                        >
+                                            <Text style={{ fontSize: 15, fontWeight: '700', color: '#64748B' }}>CANCEL</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={saveGoalEdit}
+                                            disabled={!canSave}
+                                            style={{ 
+                                                flex: 2, 
+                                                paddingVertical: 14, 
+                                                alignItems: 'center', 
+                                                borderRadius: 16, 
+                                                backgroundColor: canSave ? accentColor : '#F1F5F9',
+                                                shadowColor: canSave ? accentColor : 'transparent',
+                                                shadowOffset: { width: 0, height: 6 },
+                                                shadowOpacity: 0.3,
+                                                shadowRadius: 10,
+                                            }}
+                                        >
+                                            <Text style={{ fontSize: 15, fontWeight: '800', color: canSave ? '#FFF' : '#94A3B8' }}>SAVE CHANGES</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </KeyboardAvoidingView>
+                        </Modal>
+                    );
+                })()}
 
                 {/* GOAL COMPLETION NOTE MODAL */}
-                {isNoteModalVisible && (
-                    <>
-                        <TouchableOpacity
-                            style={styles.quickAddBackdrop}
-                            activeOpacity={1}
+                <Modal 
+                    visible={isNoteModalVisible} 
+                    transparent 
+                    animationType="fade" 
+                    onRequestClose={() => setIsNoteModalVisible(false)}
+                >
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                        style={{ flex: 1 }}
+                    >
+                        <TouchableOpacity 
+                            style={styles.quickAddBackdrop} 
+                            activeOpacity={1} 
                             onPress={() => {
                                 setIsNoteModalVisible(false);
                                 setPendingGoalAction(null);
                             }}
                         />
-                        <View style={styles.triggeredQuickAddBar}>
-                            <Text style={styles.noteModalHeader}>{t('profile.congratsReflections')}</Text>
-                            <View style={styles.triggeredInputWrapper}>
+                        <View style={styles.premiumNoteTray}>
+                            <View style={styles.noteTrayHandle} />
+                            <Text style={styles.noteTrayHeader}>{t('profile.congratsReflections')}</Text>
+                            
+                            <View style={styles.noteInputWrapper}>
                                 <TextInput
-                                    style={styles.triggeredInput}
+                                    style={styles.premiumNoteInput}
                                     placeholder={t('profile.addResultNote')}
                                     placeholderTextColor="#94A3B8"
                                     value={goalNoteText}
                                     onChangeText={setGoalNoteText}
                                     autoFocus
+                                    multiline
                                 />
+                                
                                 <TouchableOpacity
                                     onPress={() => {
                                         if (pendingGoalAction) {
@@ -1322,14 +1787,14 @@ export default function ProfileScreen() {
                                         setIsNoteModalVisible(false);
                                         setPendingGoalAction(null);
                                     }}
-                                    style={styles.triggeredSubmitBtn}
+                                    style={styles.premiumDoneBtn}
                                 >
-                                    <Text style={styles.triggeredSubmitText}>{t('profile.done')}</Text>
+                                    <Ionicons name="arrow-up" size={24} color="#FFF" />
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    </>
-                )}
+                    </KeyboardAvoidingView>
+                </Modal>
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -1342,7 +1807,7 @@ const styles = StyleSheet.create({
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingLeft: 6, // Moved further left
+        paddingLeft: 6,
         paddingRight: 16,
         paddingBottom: 8,
         backgroundColor: '#FFF',
@@ -1361,7 +1826,7 @@ const styles = StyleSheet.create({
         height: 36,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12, // More space to the selector
+        marginRight: 12,
     },
     settingsBtn: {
         width: 44,
@@ -1405,8 +1870,6 @@ const styles = StyleSheet.create({
         padding: 4,
     },
 
-    // Edit Action Row - Removed Cancel/Save specific styles
-
     pageScroll: { flex: 1 },
     scrollContent: { paddingBottom: 300 },
     headerContainer: { flex: 1 },
@@ -1417,8 +1880,6 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
 
-    // Banner (16:6 aspect ratio roughly translates to height ~130-150 relative to width depending on screen)
-    // Using a fixed height or aspect ratio rule
     bannerImage: {
         width: '100%',
         aspectRatio: 16 / 6,
@@ -1435,11 +1896,11 @@ const styles = StyleSheet.create({
     // Profile Identity Block
     profileBlock: {
         paddingHorizontal: 20,
-        paddingTop: 16, // Reduced padding to tighten vertical space below banner
+        paddingTop: 16,
     },
     identityRow: {
         flexDirection: 'row',
-        alignItems: 'center', // Align avatar and name block side-by-side
+        alignItems: 'center',
         marginBottom: 20,
     },
     avatarWrapper: {
@@ -1506,7 +1967,6 @@ const styles = StyleSheet.create({
         textAlignVertical: 'top',
     },
 
-    // Master Tabs
     masterTabContainer: {
         flexDirection: 'row',
         marginTop: 32,
@@ -1527,7 +1987,6 @@ const styles = StyleSheet.create({
     masterTabText: { fontSize: 16, fontWeight: '600', color: '#94A3B8' },
     masterTabTextActive: { color: '#0F172A', fontWeight: '700' },
 
-    // Section Navigation Centered
     sectionTabRow: {
         flexDirection: 'row',
         backgroundColor: '#F1F5F9',
@@ -1544,7 +2003,7 @@ const styles = StyleSheet.create({
     },
     sectionTabActive: {
         backgroundColor: '#FFF',
-        borderColor: '#007AFF', // Blue border for active tab
+        borderColor: '#007AFF',
         shadowColor: "#007AFF",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.12,
@@ -1557,198 +2016,23 @@ const styles = StyleSheet.create({
         color: '#94A3B8',
     },
     sectionTabTextActive: {
-        color: '#007AFF', // Blue text for active tab
+        color: '#007AFF',
         fontWeight: 'bold',
     },
 
-    // Combined List Styles
     profileTabContent: {
         paddingTop: 12,
     },
     goalsTabContent: {
         paddingTop: 12,
     },
-    combinedListContainer: {
-        paddingHorizontal: 20,
-        marginTop: 24,
-    },
-    // Section Header 
-    sectionHeaderRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 16,
-    },
-    sectionHeaderLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    sectionHeaderTitle: {
-        fontSize: 20,
-        fontWeight: '900',
-        color: '#111827',
-        letterSpacing: -0.5,
-        marginLeft: 8,
-    },
-    countBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-        marginLeft: 12,
-    },
-    countBadgeText: {
-        fontSize: 12,
-        fontWeight: '800',
-    },
-    actionSquareBtn: {
-        width: 30,
-        height: 30,
-        borderRadius: 6,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
 
-    // Goal Card
-    goalCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 8,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        marginBottom: 12,
-        borderLeftWidth: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    goalCardContent: {
-        flex: 1,
-        flexDirection: 'column',
-    },
-    goalCardCategory: {
-        fontSize: 10,
-        fontWeight: '800',
-        letterSpacing: 1,
-        marginBottom: 4,
-    },
-    goalCardTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#111827',
-    },
-    goalCardInput: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#111827',
-        padding: 0,
-        margin: 0,
-        minHeight: 24,
-    },
-    cardDeleteBtn: {
-        padding: 8,
-        marginLeft: 8,
-    },
-    plusOneBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#EFF6FF',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    plusOneText: {
-        color: '#0052FF',
-        fontWeight: 'bold',
-        fontSize: 12,
-        marginLeft: 2,
-    },
-    sliderContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 12,
-    },
-    sliderCountText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#0052FF',
-        marginLeft: 8,
-        minWidth: 36,
-        textAlign: 'right',
-    },
-
-    // Quick Add Button (Traditional)
-    addGoalBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        borderStyle: 'dashed',
-        marginTop: 16,
-    },
-    addGoalText: { color: '#3B82F6', fontWeight: '600', marginLeft: 8 },
-
-    // Triggered Quick Add Bar (Keyboard Aligned)
     quickAddBackdrop: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.2)',
+        backgroundColor: 'rgba(0,0,0,0.4)',
         zIndex: 10,
     },
-    triggeredQuickAddBar: {
-        backgroundColor: '#FFF',
-        borderTopWidth: 1,
-        borderTopColor: '#F1F5F9',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        zIndex: 11,
-        // Elevation for Android
-        elevation: 8,
-        // Shadow for iOS
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-    },
-    triggeredInputWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#F1F5F9',
-        borderRadius: 20,
-        paddingHorizontal: 16,
-        paddingVertical: 4,
-    },
-    noteModalHeader: {
-        fontSize: 10,
-        fontWeight: '800',
-        color: '#64748B',
-        letterSpacing: 1,
-        marginBottom: 12,
-    },
-    triggeredInput: {
-        flex: 1,
-        fontSize: 16,
-        color: '#1E293B',
-        minHeight: 40,
-    },
-    triggeredSubmitBtn: {
-        marginLeft: 12,
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-    },
-    triggeredSubmitText: {
-        color: '#3B82F6',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-
-    // Category picker
-    categoryRow: {
+    categorySelectorRow: {
         flexDirection: 'row',
         gap: 6,
         marginBottom: 8,
@@ -2249,5 +2533,64 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: '#000',
+    },
+    // Premium Note Tray Styles
+    premiumNoteTray: {
+        backgroundColor: '#FFF',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: 24,
+        paddingTop: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 20,
+    },
+    noteTrayHandle: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#E2E8F0',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 20,
+    },
+    noteTrayHeader: {
+        fontSize: 18,
+        fontFamily: 'Inter_900Black',
+        color: '#0F172A',
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    noteInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    premiumNoteInput: {
+        flex: 1,
+        backgroundColor: '#F8FAFC',
+        borderRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        fontSize: 16,
+        color: '#1E293B',
+        fontFamily: 'Inter_600SemiBold',
+        minHeight: 56,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+    },
+    premiumDoneBtn: {
+        width: 56,
+        height: 56,
+        borderRadius: 20,
+        backgroundColor: '#3B82F6',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#3B82F6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
     },
 });

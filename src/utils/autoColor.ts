@@ -40,8 +40,8 @@ export function detectAutoColor(
             if (!keyword || !keyword.trim()) continue;
 
             const kw = keyword.trim();
-            // Whole-word, case-insensitive match using word boundary regex
-            const regex = new RegExp(`\\b${escapeRegex(kw)}\\b`, 'i');
+            // Whole-word, case-sensitive match using word boundary regex
+            const regex = new RegExp(`\\b${escapeRegex(kw)}\\b`);
             const match = regex.exec(trimmedTitle);
 
             if (match) {

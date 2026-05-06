@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable, Dimensions, Modal, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserProfile } from '../services/storage';
+import { useTranslation } from 'react-i18next';
 
 interface IdentityCardProps {
     identity: NonNullable<UserProfile['identity']>;
@@ -15,6 +16,7 @@ type BodyPart = 'head' | 'torso' | 'arms' | 'legs';
 type Side = 'anti' | 'hero';
 
 export default function IdentityCard({ identity, onUpdate }: IdentityCardProps) {
+    const { t } = useTranslation();
     // Animation State
     const flipAnim = React.useMemo(() => new Animated.Value(0), []);
     const [flipped, setFlipped] = useState(false);
@@ -94,39 +96,39 @@ export default function IdentityCard({ identity, onUpdate }: IdentityCardProps) 
                 <Animated.View style={[styles.card, styles.frontCard, frontStyle]}>
                     <View style={styles.cardHeader}>
                         <View style={styles.headerTitleRow}>
-                            <Text style={styles.cardTitle}>THE FRANKENSTEIN</Text>
+                            <Text style={styles.cardTitle}>{t('identity.frankenstein')}</Text>
                             <View style={styles.badgeAnti}>
-                                <Text style={styles.badgeTextAnti}>ANTI-IDENTITY</Text>
+                                <Text style={styles.badgeTextAnti}>{t('identity.antiIdentity')}</Text>
                             </View>
                         </View>
                     </View>
 
-                    <Text style={styles.cardSubtitle}>The deprecating version. Traits to delete.</Text>
+                    <Text style={styles.cardSubtitle}>{t('identity.antiSub')}</Text>
 
                     <View style={styles.partsList}>
                         <PartRow
-                            label="THE HEAD" sublabel="Mindset & Beliefs" color="#B91C1C"
+                            label={t('identity.theHead')} sublabel={t('identity.mindsetBeliefs')} color="#B91C1C"
                             value={identity.anti?.head}
-                            placeholder="Limiting beliefs (e.g. 'I am lazy')"
-                            onPress={() => openEdit('anti', 'head', "THE HEAD", "Mindset & Beliefs", "#EF4444")}
+                            placeholder={t('identity.limitingBeliefsPlaceholder')}
+                            onPress={() => openEdit('anti', 'head', t('identity.theHead'), t('identity.mindsetBeliefs'), "#EF4444")}
                         />
                         <PartRow
-                            label="THE TORSO" sublabel="Environment & Standards" color="#B91C1C"
+                            label={t('identity.theTorso')} sublabel={t('identity.environmentStandards')} color="#B91C1C"
                             value={identity.anti?.torso}
-                            placeholder="Toxic people or chaos"
-                            onPress={() => openEdit('anti', 'torso', "THE TORSO", "Environment & Standards", "#EF4444")}
+                            placeholder={t('identity.toxicPlaceholder')}
+                            onPress={() => openEdit('anti', 'torso', t('identity.theTorso'), t('identity.environmentStandards'), "#EF4444")}
                         />
                         <PartRow
-                            label="THE ARMS" sublabel="Bad Habits & Actions" color="#B91C1C"
+                            label={t('identity.theArms')} sublabel={t('identity.badHabitsActions')} color="#B91C1C"
                             value={identity.anti?.arms}
-                            placeholder="Vices (e.g. Doomscrolling)"
-                            onPress={() => openEdit('anti', 'arms', "THE ARMS", "Bad Habits & Actions", "#EF4444")}
+                            placeholder={t('identity.vicesPlaceholder')}
+                            onPress={() => openEdit('anti', 'arms', t('identity.theArms'), t('identity.badHabitsActions'), "#EF4444")}
                         />
                         <PartRow
-                            label="THE LEGS" sublabel="Negative Outcomes" color="#B91C1C"
+                            label={t('identity.theLegs')} sublabel={t('identity.negativeOutcomes')} color="#B91C1C"
                             value={identity.anti?.legs}
-                            placeholder="Results to avoid (e.g. Debt)"
-                            onPress={() => openEdit('anti', 'legs', "THE LEGS", "Negative Outcomes", "#EF4444")}
+                            placeholder={t('identity.resultsToAvoidPlaceholder')}
+                            onPress={() => openEdit('anti', 'legs', t('identity.theLegs'), t('identity.negativeOutcomes'), "#EF4444")}
                             isLast
                         />
                     </View>
@@ -136,39 +138,39 @@ export default function IdentityCard({ identity, onUpdate }: IdentityCardProps) 
                 <Animated.View style={[styles.card, styles.backCard, backStyle]}>
                     <View style={styles.cardHeader}>
                         <View style={styles.headerTitleRow}>
-                            <Text style={styles.cardTitleHero}>THE HERO</Text>
+                            <Text style={styles.cardTitleHero}>{t('identity.hero')}</Text>
                             <View style={styles.badgeHero}>
-                                <Text style={styles.badgeTextHero}>TRUE IDENTITY</Text>
+                                <Text style={styles.badgeTextHero}>{t('identity.trueIdentity')}</Text>
                             </View>
                         </View>
                     </View>
 
-                    <Text style={styles.cardSubtitle}>The V2.0 version. Who you are becoming.</Text>
+                    <Text style={styles.cardSubtitle}>{t('identity.heroSub')}</Text>
 
                     <View style={styles.partsList}>
                         <PartRow
-                            label="THE HEAD" sublabel="Core Values & Vision" color="#1D4ED8"
+                            label={t('identity.theHead')} sublabel={t('identity.coreValuesVision')} color="#1D4ED8"
                             value={identity.hero?.head}
-                            placeholder="New models (e.g. 'I am disciplined')"
-                            onPress={() => openEdit('hero', 'head', "THE HEAD", "Core Values & Vision", "#3B82F6")}
+                            placeholder={t('identity.newModelsPlaceholder')}
+                            onPress={() => openEdit('hero', 'head', t('identity.theHead'), t('identity.coreValuesVision'), "#3B82F6")}
                         />
                         <PartRow
-                            label="THE TORSO" sublabel="High-Performer Environment" color="#1D4ED8"
+                            label={t('identity.theTorso')} sublabel={t('identity.highPerformerEnvironment')} color="#1D4ED8"
                             value={identity.hero?.torso}
-                            placeholder="Inspiring network & order"
-                            onPress={() => openEdit('hero', 'torso', "THE TORSO", "High-Performer Environment", "#3B82F6")}
+                            placeholder={t('identity.inspiringNetworkPlaceholder')}
+                            onPress={() => openEdit('hero', 'torso', t('identity.theTorso'), t('identity.highPerformerEnvironment'), "#3B82F6")}
                         />
                         <PartRow
-                            label="THE ARMS" sublabel="Power Habits & Skills" color="#1D4ED8"
+                            label={t('identity.theArms')} sublabel={t('identity.powerHabitsSkills')} color="#1D4ED8"
                             value={identity.hero?.arms}
-                            placeholder="Daily protocols (e.g. Deep Work)"
-                            onPress={() => openEdit('hero', 'arms', "THE ARMS", "Power Habits & Skills", "#3B82F6")}
+                            placeholder={t('identity.dailyProtocolsPlaceholder')}
+                            onPress={() => openEdit('hero', 'arms', t('identity.theArms'), t('identity.powerHabitsSkills'), "#3B82F6")}
                         />
                         <PartRow
-                            label="THE LEGS" sublabel="Target Results & KPIs" color="#1D4ED8"
+                            label={t('identity.theLegs')} sublabel={t('identity.targetResultsKPIs')} color="#1D4ED8"
                             value={identity.hero?.legs}
-                            placeholder="Outcomes (e.g. $10k/mo, 6-pack)"
-                            onPress={() => openEdit('hero', 'legs', "THE LEGS", "Target Results & KPIs", "#3B82F6")}
+                            placeholder={t('identity.outcomesPlaceholder')}
+                            onPress={() => openEdit('hero', 'legs', t('identity.theLegs'), t('identity.targetResultsKPIs'), "#3B82F6")}
                             isLast
                         />
                     </View>
@@ -177,7 +179,7 @@ export default function IdentityCard({ identity, onUpdate }: IdentityCardProps) 
                 {/* FLIP BUTTON (Moved inside container for positioning) */}
                 <TouchableOpacity style={styles.flipButtonCorner} onPress={handleFlip} activeOpacity={0.8}>
                     <Ionicons name="swap-horizontal" size={20} color="#FFF" />
-                    <Text style={styles.flipButtonTextSmall}>FLIP CARD</Text>
+                    <Text style={styles.flipButtonTextSmall}>{t('identity.flipCard')}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -200,12 +202,12 @@ export default function IdentityCard({ identity, onUpdate }: IdentityCardProps) 
                             style={styles.modalInput}
                             value={tempValue}
                             onChangeText={setTempValue}
-                            placeholder="Describe this part..."
+                            placeholder={t('identity.describePartPlaceholder')}
                             multiline
                             autoFocus
                         />
                         <TouchableOpacity style={[styles.saveBtn, { backgroundColor: editing?.color }]} onPress={saveEdit}>
-                            <Text style={styles.saveBtnText}>SAVE PART</Text>
+                            <Text style={styles.saveBtnText}>{t('identity.savePart')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

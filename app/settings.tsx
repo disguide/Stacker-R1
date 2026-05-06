@@ -78,149 +78,20 @@ export default function SettingsScreen() {
         }
     };
 
-    const handleSignOut = async () => {
-        Alert.alert(
-            "Sign Out",
-            "Your data is safely stored in the cloud. Local data will be cleared from this device.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Sign Out",
-                    style: "destructive",
-                    onPress: async () => {
-                        setIsSyncing(true);
-                        try { await flushSync(); } catch {}
-                        try {
-                            await supabase.auth.signOut();
-                            await AsyncStorage.clear();
-                            router.replace('/');
-                        } catch (err) {
-                            Alert.alert('Error', 'Failed to sign out.');
-                        } finally {
-                            setIsSyncing(false);
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
-    const handleSwitchAccount = async () => {
-        Alert.alert(
-            "Switch Account",
-            "You'll be signed out and can log in with a different account. Local data will be cleared.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Switch",
-                    onPress: async () => {
-                        setIsSyncing(true);
-                        try { await flushSync(); } catch {}
-                        try {
-                            await supabase.auth.signOut();
-                            await AsyncStorage.clear();
-                            router.replace('/auth');
-                        } catch (err) {
-                            Alert.alert('Error', 'Failed to switch.');
-                        } finally {
-                            setIsSyncing(false);
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
-    const handleDeleteAccount = () => {
-        Alert.alert(
-            "Delete Account",
-            "Choose how to handle your data:",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Keep Data (Dissociate)",
-                    onPress: () => {
-                        Alert.alert(
-                            "Dissociate Account?",
-                            "Your cloud account will be deleted, but all your local data stays on this device. You'll continue as a guest.",
-                            [
-                                { text: "Cancel", style: "cancel" },
-                                {
-                                    text: "Dissociate",
-                                    style: "destructive",
-                                    onPress: async () => {
-                                        setIsSyncing(true);
-                                        try {
-                                            const { error } = await deleteUserAccount();
-                                            if (error) {
-                                                Alert.alert('Error', error.message || 'Failed to delete account.');
-                                            } else {
-                                                Alert.alert('Done', 'Account removed. Your data is still here — you are now a guest.');
-                                            }
-                                        } catch (err) {
-                                            Alert.alert('Error', 'Something went wrong.');
-                                        } finally {
-                                            setIsSyncing(false);
-                                        }
-                                    }
-                                }
-                            ]
-                        );
-                    }
-                },
-                {
-                    text: "Delete Everything",
-                    style: "destructive",
-                    onPress: () => {
-                        Alert.alert(
-                            "Final Warning",
-                            "This will permanently delete your cloud account AND wipe all local data. This cannot be undone.",
-                            [
-                                { text: "Cancel", style: "cancel" },
-                                {
-                                    text: "Yes, Delete It All",
-                                    style: "destructive",
-                                    onPress: async () => {
-                                        setIsSyncing(true);
-                                        try {
-                                            await flushSync();
-                                            const { error } = await deleteUserAccount();
-                                            if (error) {
-                                                Alert.alert('Error', error.message || 'Failed to delete account.');
-                                            } else {
-                                                await AsyncStorage.clear();
-                                                Alert.alert('Done', 'Account and all data have been permanently deleted.');
-                                                router.replace('/');
-                                            }
-                                        } catch (err) {
-                                            Alert.alert('Error', 'Something went wrong.');
-                                        } finally {
-                                            setIsSyncing(false);
-                                        }
-                                    }
-                                }
-                            ]
-                        );
-                    }
-                }
-            ]
-        );
-    };
-
     const handleWipeEverything = () => {
         Alert.alert(
-            "Wipe All Data?",
+            t('settings.wipeData'),
             user 
-                ? "This will erase everything on this device. Your cloud data will NOT be affected — you can sync it back by signing in again."
-                : "This will permanently erase all your local data. Since you're a guest, this data cannot be recovered.",
+                ? t('settings.wipeDataUserMsg')
+                : t('settings.wipeDataGuestMsg'),
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t('common.cancel'), style: "cancel" },
                 {
-                    text: "Wipe Everything",
+                    text: t('settings.wipeEverything'),
                     style: "destructive",
                     onPress: async () => {
                         await AsyncStorage.clear();
-                        Alert.alert('Done', 'All local data has been wiped.');
+                        Alert.alert(t('common.done'), t('settings.dataWiped'));
                         router.replace('/');
                     }
                 }
@@ -228,14 +99,16 @@ export default function SettingsScreen() {
         );
     };
 
+
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <Ionicons name="chevron-back" size={24} color="#007AFF" />
-                    <Text style={styles.backButtonText}>Back</Text>
+                    <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Settings</Text>
+                <Text style={styles.headerTitle}>{t('settings.title')}</Text>
                 <View style={{ width: 70 }} />
             </View>
 
@@ -249,34 +122,7 @@ export default function SettingsScreen() {
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
                 >
-
-                    {/* ACCOUNT */}
-                    <SettingsGroup title="Language">
-                        <View style={styles.inputRow}>
-                            <View style={[styles.iconWrapper, { backgroundColor: '#FF9500' }]}>
-                                <Ionicons name="language" size={18} color="#FFF" />
-                            </View>
-                            <View style={styles.rowTextContainer}>
-                                <Text style={styles.rowLabel}>{t('settings.language')}</Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', gap: 10 }}>
-                                {['en', 'fr', 'es', 'zh'].map(lang => (
-                                    <TouchableOpacity
-                                        key={lang}
-                                        style={{ padding: 6, borderRadius: 6, backgroundColor: sprintSettings.language === lang || (!sprintSettings.language && lang === 'en') ? '#007AFF' : '#E5E5EA' }}
-                                        onPress={() => {
-                                            handleUpdateSprintSetting('language', lang);
-                                            i18n.changeLanguage(lang);
-                                        }}
-                                    >
-                                        <Text style={{ color: sprintSettings.language === lang || (!sprintSettings.language && lang === 'en') ? '#FFF' : '#333', fontSize: 14, fontWeight: 'bold' }}>{lang.toUpperCase()}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </View>
-                    </SettingsGroup>
-
-                    <SettingsGroup title="Account">
+                    <SettingsGroup title={t('settings.account')}>
                         {!user ? (
                             <>
                                 <TouchableOpacity style={styles.navRow} onPress={() => router.push('/auth')}>
@@ -284,8 +130,8 @@ export default function SettingsScreen() {
                                         <Ionicons name="log-in" size={18} color="#FFF" />
                                     </View>
                                     <View style={styles.rowTextContainer}>
-                                        <Text style={styles.rowLabel}>Login</Text>
-                                        <Text style={styles.rowSubLabel}>Restore synced data</Text>
+                                        <Text style={styles.rowLabel}>{t('settings.login')}</Text>
+                                        <Text style={styles.rowSubLabel}>{t('settings.loginSub')}</Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
                                 </TouchableOpacity>
@@ -297,8 +143,8 @@ export default function SettingsScreen() {
                                         <Ionicons name="person-add" size={18} color="#FFF" />
                                     </View>
                                     <View style={styles.rowTextContainer}>
-                                        <Text style={styles.rowLabel}>Register New Account</Text>
-                                        <Text style={styles.rowSubLabel}>Save guest data to cloud</Text>
+                                        <Text style={styles.rowLabel}>{t('settings.register')}</Text>
+                                        <Text style={styles.rowSubLabel}>{t('settings.registerSub')}</Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
                                 </TouchableOpacity>
@@ -310,39 +156,30 @@ export default function SettingsScreen() {
                                         <Ionicons name="person" size={18} color="#FFF" />
                                     </View>
                                     <View style={styles.rowTextContainer}>
-                                        <Text style={styles.rowLabel}>Account Management</Text>
+                                        <Text style={styles.rowLabel}>{t('settings.accountManagement')}</Text>
                                         <Text style={styles.rowSubLabel}>{user.email}</Text>
                                     </View>
                                     <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                                </TouchableOpacity>
-
-                                <View style={styles.divider} />
-
-                                <TouchableOpacity style={styles.navRow} onPress={handleSignOut} disabled={isSyncing}>
-                                    <View style={[styles.iconWrapper, { backgroundColor: '#6B7280' }]}>
-                                        <Ionicons name="log-out" size={18} color="#FFF" />
-                                    </View>
-                                    <View style={styles.rowTextContainer}>
-                                        <Text style={styles.rowLabel}>{isSyncing ? 'Saving...' : 'Sign Out'}</Text>
-                                    </View>
-                                </TouchableOpacity>
-
-                                <View style={styles.divider} />
-
-                                <TouchableOpacity style={styles.navRow} onPress={handleDeleteAccount}>
-                                    <View style={[styles.iconWrapper, { backgroundColor: '#EF4444' }]}>
-                                        <Ionicons name="trash" size={18} color="#FFF" />
-                                    </View>
-                                    <View style={styles.rowTextContainer}>
-                                        <Text style={[styles.rowLabel, { color: '#EF4444' }]}>Delete Account</Text>
-                                    </View>
                                 </TouchableOpacity>
                             </>
                         )}
                     </SettingsGroup>
 
+                    {/* TAGS & CATEGORIES */}
+                    <SettingsGroup title={t('settings.tagsAndCategories')}>
+                        <TouchableOpacity style={styles.navRow} onPress={() => router.push('/color-settings')}>
+                            <View style={[styles.iconWrapper, { backgroundColor: '#EC4899' }]}>
+                                <Ionicons name="color-palette" size={18} color="#FFF" />
+                            </View>
+                            <View style={styles.rowTextContainer}>
+                                <Text style={styles.rowLabel}>{t('settings.colorMeanings')}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                        </TouchableOpacity>
+                    </SettingsGroup>
+
                     {/* SPRINT CONFIGURATION */}
-                    <SettingsGroup title="Sprint Configuration">
+                    <SettingsGroup title={t('settings.sprintConfiguration')}>
                         <View style={styles.row}>
                             <View style={[styles.iconWrapper, { backgroundColor: '#3B82F6' }]}>
                                 <Ionicons name="timer" size={18} color="#FFF" />
@@ -379,12 +216,12 @@ export default function SettingsScreen() {
                             <>
                                 <View style={styles.dividerIndent} />
                                 <View style={styles.inputRow}>
-                                    <Text style={styles.inputLabel}>Work Duration (min)</Text>
+                                    <Text style={styles.inputLabel}>{t('settings.workDuration')}</Text>
                                     <TextInput style={styles.numInput} keyboardType="number-pad" value={workTimeStr} onChangeText={t => handleTextUpdate('autoBreakWorkTime', t, setWorkTimeStr)} maxLength={3} />
                                 </View>
                                 <View style={styles.dividerIndent} />
                                 <View style={styles.inputRow}>
-                                    <Text style={styles.inputLabel}>Break Duration (min)</Text>
+                                    <Text style={styles.inputLabel}>{t('settings.breakDuration')}</Text>
                                     <TextInput style={styles.numInput} keyboardType="number-pad" value={breakTimeStr} onChangeText={t => handleTextUpdate('autoBreakDuration', t, setBreakTimeStr)} maxLength={3} />
                                 </View>
                             </>
@@ -396,7 +233,7 @@ export default function SettingsScreen() {
                                 <Ionicons name="flag" size={18} color="#FFF" />
                             </View>
                             <View style={styles.rowTextContainer}>
-                                <Text style={styles.rowLabel}>Automatic Sprint End</Text>
+                                <Text style={styles.rowLabel}>{t('settings.automaticSprintEnd')}</Text>
                             </View>
                             <Switch value={!!sprintSettings.maxDurationEnabled} onValueChange={() => handleToggleSprintSetting('maxDurationEnabled')} />
                         </View>
@@ -405,7 +242,7 @@ export default function SettingsScreen() {
                             <>
                                 <View style={styles.dividerIndent} />
                                 <View style={styles.inputRow}>
-                                    <Text style={styles.inputLabel}>Max Duration (min)</Text>
+                                    <Text style={styles.inputLabel}>{t('settings.maxDuration')}</Text>
                                     <TextInput style={styles.numInput} keyboardType="number-pad" value={maxTimeStr} onChangeText={t => handleTextUpdate('maxDurationMinutes', t, setMaxTimeStr)} maxLength={3} />
                                 </View>
                             </>
@@ -413,32 +250,47 @@ export default function SettingsScreen() {
                     </SettingsGroup>
 
                     {/* TIME PREFERENCE */}
-                    <SettingsGroup title="Time Preference">
+                    <SettingsGroup title={t('settings.timePreference')}>
                         <View style={styles.row}>
                             <View style={[styles.iconWrapper, { backgroundColor: '#6366F1' }]}>
                                 <Ionicons name="time" size={18} color="#FFF" />
                             </View>
                             <View style={styles.rowTextContainer}>
-                                <Text style={styles.rowLabel}>24-Hour Time Format</Text>
+                                <Text style={styles.rowLabel}>{t('settings.format24h')}</Text>
                             </View>
                             <Switch value={!!sprintSettings.use24HourFormat} onValueChange={() => handleToggleSprintSetting('use24HourFormat')} />
                         </View>
                     </SettingsGroup>
 
-                    {/* TAGS & CATEGORIES */}
-                    <SettingsGroup title="Tags & Categories">
-                        <TouchableOpacity style={styles.navRow} onPress={() => router.push('/color-settings')}>
-                            <View style={[styles.iconWrapper, { backgroundColor: '#EC4899' }]}>
-                                <Ionicons name="color-palette" size={18} color="#FFF" />
-                            </View>
-                            <View style={styles.rowTextContainer}>
-                                <Text style={styles.rowLabel}>Color Meanings</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                        </TouchableOpacity>
-                    </SettingsGroup>
+
                     
                     {/* NOTE: Account security and danger zone moved to account.tsx */}
+
+                    {/* LANGUAGE */}
+                    <SettingsGroup title={t('settings.language')}>
+                        <View style={styles.inputRow}>
+                            <View style={[styles.iconWrapper, { backgroundColor: '#FF9500' }]}>
+                                <Ionicons name="language" size={18} color="#FFF" />
+                            </View>
+                            <View style={styles.rowTextContainer}>
+                                <Text style={styles.rowLabel}>{t('settings.language')}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                {['en', 'fr', 'es', 'zh'].map(lang => (
+                                    <TouchableOpacity
+                                        key={lang}
+                                        style={{ padding: 6, borderRadius: 6, backgroundColor: sprintSettings.language === lang || (!sprintSettings.language && lang === 'en') ? '#007AFF' : '#E5E5EA' }}
+                                        onPress={() => {
+                                            handleUpdateSprintSetting('language', lang);
+                                            i18n.changeLanguage(lang);
+                                        }}
+                                    >
+                                        <Text style={{ color: sprintSettings.language === lang || (!sprintSettings.language && lang === 'en') ? '#FFF' : '#333', fontSize: 14, fontWeight: 'bold' }}>{lang.toUpperCase()}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    </SettingsGroup>
 
                     <Text style={styles.versionText}>{t('settings.version')}</Text>
 

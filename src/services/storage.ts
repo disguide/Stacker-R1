@@ -60,6 +60,7 @@ export interface GoalItem {
     cancelled?: boolean;
     cancelledAt?: number;
     events?: GoalEvent[];
+    deadline?: string;
     note?: string;
     targetCount?: number;
     currentCount?: number;

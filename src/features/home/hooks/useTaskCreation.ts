@@ -122,7 +122,7 @@ export function useTaskCreation({
         let resolvedTitle = rawTitle;
 
         if (autoColorResult) {
-            const regex = new RegExp(`\\b${escapeRegex(autoColorResult.matchedKeyword)}\\b`, 'gi');
+            const regex = new RegExp(`\\b${escapeRegex(autoColorResult.matchedKeyword)}\\b`, 'g');
             const cleaned = rawTitle.replace(regex, '').replace(/\s+/g, ' ').trim();
             if (cleaned.length > 0) {
                 resolvedTitle = cleaned;
@@ -168,7 +168,7 @@ export function useTaskCreation({
             if (autoColorResult) {
                 finalColor = autoColorResult.color;
                 
-                const regex = new RegExp(`\\b${escapeRegex(autoColorResult.matchedKeyword)}\\b`, 'gi');
+                const regex = new RegExp(`\\b${escapeRegex(autoColorResult.matchedKeyword)}\\b`, 'g');
                 const cleaned = finalTitle.replace(regex, '').replace(/\s+/g, ' ').trim();
                 if (cleaned.length > 0) {
                     finalTitle = cleaned;

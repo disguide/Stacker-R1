@@ -11,6 +11,7 @@ import {
     ActivityIndicator,
     Modal
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,6 +51,7 @@ const getMoodColor = (rating: number) => {
 };
 
 const MoodCounterButton = ({ day, onPress }: { day: LogDay, onPress: () => void }) => {
+    const { t } = useTranslation();
     const scale = useRef(new Animated.Value(1)).current;
     const tilt = useRef(new Animated.Value(0)).current;
 
@@ -74,7 +76,7 @@ const MoodCounterButton = ({ day, onPress }: { day: LogDay, onPress: () => void 
             onPress={handlePress}
             activeOpacity={0.7}
         >
-            <Text style={styles.moodLabelText}>MOOD</Text>
+            <Text style={styles.moodLabelText}>{t('journal.mood')}</Text>
             <Animated.View style={{ transform: [{ scale }, { rotate: rotation }] }}>
                 <Text style={[styles.moodNumberText, { color: getMoodColor(day.rating) }]}>{`${day.rating}/10`}</Text>
             </Animated.View>
@@ -83,6 +85,7 @@ const MoodCounterButton = ({ day, onPress }: { day: LogDay, onPress: () => void 
 };
 
 export default function JournalScreen() {
+    const { t, i18n } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
@@ -262,7 +265,7 @@ export default function JournalScreen() {
         } else {
             newSavedIds.add(sprint.id);
             await StorageService.saveSavedSprint(sprint);
-            setToastMessage("It's been saved!");
+            setToastMessage(t('journal.savedToast'));
             setTimeout(() => setToastMessage(null), 2500);
         }
         setSavedSprintIds(newSavedIds);
@@ -372,7 +375,7 @@ export default function JournalScreen() {
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <Ionicons name="chevron-back" size={28} color="#3E362E" />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Journal</Text>
+                    <Text style={styles.headerTitle}>{t('journal.title')}</Text>
                 </View>
                 <TouchableOpacity 
                     style={styles.vaultButton}
@@ -391,7 +394,7 @@ export default function JournalScreen() {
                     const isToday = day.date === toISODateString(new Date());
                     const [y, m, d] = day.date.split('-').map(Number);
                     const dateObj = new Date(y, m - 1, d);
-                    const dateParts = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+                    const dateParts = dateObj.toLocaleDateString(i18n.language, { weekday: 'long', month: 'long', day: 'numeric' });
                     const formattedTitle = `${dateParts} ${getDayCounter(day.date).toUpperCase()}`;
 
                     // Entry animation only for the first day block
@@ -431,7 +434,7 @@ export default function JournalScreen() {
                             <View style={[styles.reflectionCard, { marginTop: 0, marginBottom: 24 }]}>
                                 <View style={styles.reflectionHeader}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                        <Text style={styles.reflectionTitle}>Reflection</Text>
+                                        <Text style={styles.reflectionTitle}>{t('journal.reflection')}</Text>
                                         {day.rating > 0 && (
                                             <TouchableOpacity 
                                                 onPress={() => {
@@ -453,7 +456,7 @@ export default function JournalScreen() {
                                 </View>
                                 <TextInput
                                     style={styles.reflectionInput}
-                                    placeholder="Notes for yourself..."
+                                    placeholder={t('journal.notesPlaceholder')}
                                     placeholderTextColor="#C4B7A6"
                                     multiline
                                     scrollEnabled={false}
@@ -470,7 +473,7 @@ export default function JournalScreen() {
                             {/* 3. Tasks Completed (All tasks) */}
                             {day.tasks.length > 0 && (
                                 <View style={styles.listSection}>
-                                    <Text style={styles.sectionHeading}>Tasks Completed</Text>
+                                    <Text style={styles.sectionHeading}>{t('journal.tasksCompleted')}</Text>
                                     <View style={{ gap: 10 }}>
                                         {day.tasks.map((task) => (
                                             <View key={task.id} style={styles.taskItemRow}>
@@ -504,7 +507,7 @@ export default function JournalScreen() {
                             {/* 4. Sprints Completed */}
                             {day.sprints.length > 0 && (
                                 <View style={styles.listSection}>
-                                    <Text style={styles.sectionHeading}>Focus Sessions</Text>
+                                    <Text style={styles.sectionHeading}>{t('journal.focusSessions')}</Text>
                                     <View style={{ gap: 8 }}>
                                     {day.sprints.map((sprint, sIdx) => (
                                         <View key={sprint.id || sIdx} style={styles.sprintItemRow}>
@@ -517,7 +520,7 @@ export default function JournalScreen() {
                                                     <Ionicons name="flash-outline" size={16} color="#C19A6B" />
                                                 </View>
                                                 <View style={{ flex: 1 }}>
-                                                    <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
+                                                    <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || t('journal.defaultFocusTitle')}</Text>
                                                     {sprint.note && <Text style={styles.sprintLogNote}>"{sprint.note}"</Text>}
                                                 </View>
                                                 <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}m</Text>
@@ -576,9 +579,9 @@ export default function JournalScreen() {
                         </View>
                         <ScrollView style={{maxHeight: Dimensions.get('window').height * 0.6}} showsVerticalScrollIndicator={false}>
                             <Text style={styles.sprintModalDate}>
-                                {new Date(selectedSprint.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                {new Date(selectedSprint.date).toLocaleDateString(i18n.language, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                             </Text>
-                            <Text style={styles.sprintModalTitle}>{selectedSprint.primaryTask || 'Focus Session'}</Text>
+                            <Text style={styles.sprintModalTitle}>{selectedSprint.primaryTask || t('journal.defaultFocusTitle')}</Text>
                             
                             <View style={styles.sprintModalStatsRow}>
                                 <View style={styles.sprintModalStatBox}>
@@ -588,21 +591,21 @@ export default function JournalScreen() {
                                 {selectedSprint.taskCount ? (
                                     <View style={styles.sprintModalStatBox}>
                                         <Ionicons name="checkmark-done" size={18} color="#10B981" />
-                                        <Text style={[styles.sprintModalStatLabel, { color: '#10B981' }]}>{selectedSprint.taskCount} Tasks</Text>
+                                        <Text style={[styles.sprintModalStatLabel, { color: '#10B981' }]}>{selectedSprint.taskCount} {t('journal.tasks')}</Text>
                                     </View>
                                 ) : null}
                             </View>
 
                             {selectedSprint.note ? (
                                 <View style={styles.sprintModalNoteBox}>
-                                    <Text style={styles.sprintModalNoteLabel}>SESSION NOTE</Text>
+                                    <Text style={styles.sprintModalNoteLabel}>{t('journal.sessionNote')}</Text>
                                     <Text style={styles.sprintModalNoteText}>"{selectedSprint.note}"</Text>
                                 </View>
                             ) : null}
 
                             {selectedSprint.timelineEvents && selectedSprint.timelineEvents.length > 0 && (
                                 <View style={styles.sprintModalTimeline}>
-                                    <Text style={styles.sprintModalNoteLabel}>TIMELINE</Text>
+                                    <Text style={styles.sprintModalNoteLabel}>{t('journal.timeline')}</Text>
                                     {selectedSprint.timelineEvents.map((evt: any, i: number, arr: any[]) => (
                                         <View key={i} style={styles.sprintTimelineRow}>
                                             <View style={styles.sprintTimelineVisuals}>

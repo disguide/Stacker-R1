@@ -137,18 +137,18 @@ export default function ColorSettingsScreen() {
     };
 
     const handleAddKeyword = (colorId: string) => {
-        const kw = (pendingKeyword[colorId] || '').trim().toLowerCase();
+        const kw = (pendingKeyword[colorId] || '').trim();
         if (!kw) return;
 
         const conflictColor = colors.find(c => 
-            c.id !== colorId && (c.keywords || []).some(k => k.toLowerCase() === kw)
+            c.id !== colorId && (c.keywords || []).some(k => k === kw)
         );
 
         const doAdd = () => {
             const newColors = colors.map(c => {
                 if (c.id !== colorId) return c;
                 const existing = c.keywords || [];
-                if (existing.some(k => k.toLowerCase() === kw)) return c;
+                if (existing.some(k => k === kw)) return c;
                 return { ...c, keywords: [...existing, kw] };
             });
             LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
