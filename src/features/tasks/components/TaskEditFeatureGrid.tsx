@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Switch, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { THEME, styles } from '../styles/taskEditDrawerStyles';
 import { FeatureKey } from '../../../components/TaskFeatureCarousel';
@@ -46,6 +47,7 @@ export default function TaskEditFeatureGrid({
     clearReminder,
     toggleReminder
 }: TaskEditFeatureGridProps) {
+    const { t } = useTranslation();
     return (
         <View style={styles.featureGrid}>
             {/* Deadline Card */}
@@ -58,13 +60,13 @@ export default function TaskEditFeatureGrid({
                 <View style={styles.featureIconContainer}>
                     <MaterialCommunityIcons name="calendar-clock" size={20} color={deadline ? THEME.textPrimary : THEME.textSecondary} />
                 </View>
-                <Text style={styles.featureLabel}>Deadline</Text>
+                <Text style={styles.featureLabel}>{t('common.deadline')}</Text>
                 <Text style={[styles.featureValue, deadline && styles.featureValueActive]} numberOfLines={1}>
                     {deadline
                         ? deadline.match(/^\d{2}:\d{2}$/)
                             ? formatTime(deadline)
                             : formatDateShort(deadline)
-                        : 'None'}
+                        : t('common.none')}
                 </Text>
                 {deadline && (
                     <TouchableOpacity
@@ -133,9 +135,9 @@ export default function TaskEditFeatureGrid({
                         </View>
                     )}
                 </View>
-                <Text style={styles.featureLabel}>Tags</Text>
+                <Text style={styles.featureLabel}>{t('common.tags')}</Text>
                 <Text style={[styles.featureValue, { textTransform: 'capitalize' }]} numberOfLines={1}>
-                    {taskType || 'Task'}
+                    {taskType || t('common.none')}
                 </Text>
                 {color && <View style={{ position: 'absolute', bottom: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />}
             </TouchableOpacity>
@@ -151,9 +153,9 @@ export default function TaskEditFeatureGrid({
                     <View style={styles.featureIconContainer}>
                         <MaterialCommunityIcons name="repeat" size={20} color={recurrence ? THEME.textPrimary : THEME.textSecondary} />
                     </View>
-                    <Text style={styles.featureLabel}>Repeat</Text>
+                    <Text style={styles.featureLabel}>{t('common.repeat')}</Text>
                     <Text style={[styles.featureValue, recurrence && styles.featureValueActive]} numberOfLines={1}>
-                        {recurrence ? (recurrence.frequency.charAt(0).toUpperCase() + recurrence.frequency.slice(1)) : 'Never'}
+                        {recurrence ? recurrence.frequency : t('common.never')}
                     </Text>
                     {recurrence && (
                         <TouchableOpacity
@@ -176,7 +178,7 @@ export default function TaskEditFeatureGrid({
                     <View style={styles.featureIconContainer}>
                         <MaterialCommunityIcons name="bell-outline" size={20} color={reminderOffset !== null && reminderEnabled ? THEME.textPrimary : THEME.textSecondary} />
                     </View>
-                    <Text style={styles.featureLabel}>Remind</Text>
+                    <Text style={styles.featureLabel}>{t('common.remind')}</Text>
                     <Text style={[
                         styles.featureValue,
                         reminderOffset !== null && reminderEnabled && styles.featureValueActive,
@@ -188,7 +190,7 @@ export default function TaskEditFeatureGrid({
                                     {formatTime(reminderTime || '09:00')}
                                 </>
                             )
-                            : 'None'}
+                            : t('common.none')}
                     </Text>
                     {reminderOffset !== null && (
                         <View style={{ position: 'absolute', top: 8, right: 8, padding: 4 }}>

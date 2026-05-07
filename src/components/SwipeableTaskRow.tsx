@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, PanResponder, Animated, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { TagDefinition } from '../services/storage'; // Import type
 
@@ -98,7 +99,7 @@ interface SwipeableTaskRowProps {
 // Helper to calculate remaining time locally
 const calculateRemainingTime = (estimatedTime: string, progress: number) => {
     if (!estimatedTime) return null;
-    if (progress >= 100) return 'Done';
+    if (progress >= 100) return i18n.t('common.done');
 
     let totalMinutes = 0;
 
@@ -131,11 +132,14 @@ const calculateRemainingTime = (estimatedTime: string, progress: number) => {
     const h = Math.floor(remaining / 60);
     const m = remaining % 60;
 
+    const hUnit = i18n.t('editor.unit_h');
+    const mUnit = i18n.t('editor.unit_m');
+
     // Format output: 1h45, 45min, or 2h
     if (h > 0) {
-        return m > 0 ? `${h}h${m}` : `${h}h`;
+        return m > 0 ? `${h}${hUnit}${m}` : `${h}${hUnit}`;
     } else {
-        return `${m}min`;
+        return `${m}${mUnit}`;
     }
 };
 

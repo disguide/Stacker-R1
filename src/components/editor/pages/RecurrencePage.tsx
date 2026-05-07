@@ -1,27 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../constants';
 import { ActionBar } from '../common/ActionBar';
 import { RecurrenceRule, RecurrenceFrequency, WeekDay } from '../../../services/storage';
-
-const FREQUENCIES: { label: string; value: RecurrenceFrequency | 'none' }[] = [
-    { label: 'Does not repeat', value: 'none' },
-    { label: 'Daily', value: 'daily' },
-    { label: 'Weekly', value: 'weekly' },
-    { label: 'Monthly', value: 'monthly' },
-    { label: 'Yearly', value: 'yearly' },
-];
-
-const WEEKDAYS: { label: string; value: WeekDay }[] = [
-    { label: 'M', value: 'MO' },
-    { label: 'T', value: 'TU' },
-    { label: 'W', value: 'WE' },
-    { label: 'T', value: 'TH' },
-    { label: 'F', value: 'FR' },
-    { label: 'S', value: 'SA' },
-    { label: 'S', value: 'SU' },
-];
+import { useTranslation } from 'react-i18next';
 
 export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose }: {
     width: number;
@@ -29,6 +12,26 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
     onRecurrenceChange: (rule: RecurrenceRule | null) => void;
     onClose: () => void;
 }) {
+    const { t } = useTranslation();
+
+    const FREQUENCIES: { label: string; value: RecurrenceFrequency | 'none' }[] = [
+        { label: t('recurrence.none'), value: 'none' },
+        { label: t('recurrence.daily'), value: 'daily' },
+        { label: t('recurrence.weekly'), value: 'weekly' },
+        { label: t('recurrence.monthly'), value: 'monthly' },
+        { label: t('recurrence.yearly'), value: 'yearly' },
+    ];
+
+    const WEEKDAYS: { label: string; value: WeekDay }[] = [
+        { label: t('calendar.daysShort.1', { defaultValue: 'M' }), value: 'MO' },
+        { label: t('calendar.daysShort.2', { defaultValue: 'T' }), value: 'TU' },
+        { label: t('calendar.daysShort.3', { defaultValue: 'W' }), value: 'WE' },
+        { label: t('calendar.daysShort.4', { defaultValue: 'T' }), value: 'TH' },
+        { label: t('calendar.daysShort.5', { defaultValue: 'F' }), value: 'FR' },
+        { label: t('calendar.daysShort.6', { defaultValue: 'S' }), value: 'SA' },
+        { label: t('calendar.daysShort.0', { defaultValue: 'S' }), value: 'SU' },
+    ];
+
     const [frequency, setFrequency] = useState<RecurrenceFrequency | 'none'>('none');
     const [intervalVal, setIntervalVal] = useState(1);
     const [selectedDays, setSelectedDays] = useState<Set<WeekDay>>(new Set());
@@ -87,12 +90,12 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
     };
 
     const getFrequencyPlural = () => {
-        const p = intervalVal > 1 ? 's' : '';
+        const count = intervalVal;
         switch (frequency) {
-            case 'daily': return `day${p}`;
-            case 'weekly': return `week${p}`;
-            case 'monthly': return `month${p}`;
-            case 'yearly': return `year${p}`;
+            case 'daily': return t('editor.unit_day', { count });
+            case 'weekly': return t('editor.unit_week', { count });
+            case 'monthly': return t('editor.unit_month', { count });
+            case 'yearly': return t('editor.unit_year', { count });
             default: return '';
         }
     };
@@ -136,7 +139,7 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
                         
                         {/* Stepper for Interval */}
                         <View style={s.stepperCard}>
-                            <Text style={s.sectionLabel}>Repeat every</Text>
+                            <Text style={s.sectionLabel}>{t('recurrence.repeatEvery')}</Text>
                             
                             <View style={s.stepperControls}>
                                 <TouchableOpacity 
@@ -172,7 +175,7 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
                         {/* Weekly Day Selector */}
                         {frequency === 'weekly' && (
                             <View style={s.stepperCard}>
-                                <Text style={s.sectionLabel}>On these days</Text>
+                                <Text style={s.sectionLabel}>{t('recurrence.onTheseDays')}</Text>
                                 <View style={s.dayGrid}>
                                     {WEEKDAYS.map(day => {
                                         const isSelected = selectedDays.has(day.value);
@@ -196,7 +199,7 @@ export function RecurrencePage({ width, recurrence, onRecurrenceChange, onClose 
                                     })}
                                 </View>
                                 {selectedDays.size === 0 && (
-                                    <Text style={s.helperText}>If no days are selected, the task repeats based on the start date.</Text>
+                                    <Text style={s.helperText}>{t('recurrence.noDaysHelper')}</Text>
                                 )}
                             </View>
                         )}

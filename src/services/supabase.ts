@@ -6,15 +6,54 @@ const SECURE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK
 };
 
+const CHUNK_SIZE = 1800; // safely under the 2048-byte SecureStore limit
+
 const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => {
+  getItem: async (key: string): Promise<string | null> => {
+    // Try chunked first
+    const countStr = await SecureStore.getItemAsync(`${key}__chunkCount`, SECURE_OPTIONS);
+    if (countStr) {
+      const count = parseInt(countStr, 10);
+      let value = '';
+      for (let i = 0; i < count; i++) {
+        const chunk = await SecureStore.getItemAsync(`${key}__chunk_${i}`, SECURE_OPTIONS);
+        if (chunk == null) return null;
+        value += chunk;
+      }
+      return value;
+    }
+    // Fallback: try reading as a plain value (for keys written before this change)
     return SecureStore.getItemAsync(key, SECURE_OPTIONS);
   },
-  setItem: (key: string, value: string) => {
-    return SecureStore.setItemAsync(key, value, SECURE_OPTIONS);
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (value.length <= CHUNK_SIZE) {
+      // Small enough — store directly and clear any old chunks
+      await SecureStore.setItemAsync(key, value, SECURE_OPTIONS);
+      await SecureStore.deleteItemAsync(`${key}__chunkCount`, SECURE_OPTIONS).catch(() => {});
+      return;
+    }
+    // Split into chunks
+    const chunks: string[] = [];
+    for (let i = 0; i < value.length; i += CHUNK_SIZE) {
+      chunks.push(value.slice(i, i + CHUNK_SIZE));
+    }
+    for (let i = 0; i < chunks.length; i++) {
+      await SecureStore.setItemAsync(`${key}__chunk_${i}`, chunks[i], SECURE_OPTIONS);
+    }
+    await SecureStore.setItemAsync(`${key}__chunkCount`, String(chunks.length), SECURE_OPTIONS);
+    // Remove plain key if it existed before
+    await SecureStore.deleteItemAsync(key, SECURE_OPTIONS).catch(() => {});
   },
-  removeItem: (key: string) => {
-    return SecureStore.deleteItemAsync(key, SECURE_OPTIONS);
+  removeItem: async (key: string): Promise<void> => {
+    const countStr = await SecureStore.getItemAsync(`${key}__chunkCount`, SECURE_OPTIONS);
+    if (countStr) {
+      const count = parseInt(countStr, 10);
+      for (let i = 0; i < count; i++) {
+        await SecureStore.deleteItemAsync(`${key}__chunk_${i}`, SECURE_OPTIONS).catch(() => {});
+      }
+      await SecureStore.deleteItemAsync(`${key}__chunkCount`, SECURE_OPTIONS).catch(() => {});
+    }
+    await SecureStore.deleteItemAsync(key, SECURE_OPTIONS).catch(() => {});
   },
 };
 

@@ -14,7 +14,7 @@ import Slider from '@react-native-community/slider';
 import SwipeableTaskRow from '../src/components/SwipeableTaskRow';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const GOAL_PALETTE = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EF4444', '#EC4899', '#06B6D4', '#F97316'];
 
 // Shared Element Animation refs (module-level for cross-screen coordination)
@@ -30,12 +30,13 @@ const getMoodColor = (rating: number) => {
 };
 
 const MoodCounterButton = ({ rating, onPress }: { rating: number, onPress: () => void }) => {
+    const { t } = useTranslation();
     const scale = useRef(new Animated.Value(1)).current;
     const tilt = useRef(new Animated.Value(0)).current;
     const rotation = tilt.interpolate({ inputRange: [-1, 0, 1], outputRange: ['-15deg', '0deg', '15deg'] });
     const handlePress = () => {
         scale.setValue(1.6);
-        tilt.setValue(Math.random() > 0.5 ? 1 : -1); 
+        tilt.setValue(Math.random() > 0.5 ? 1 : -1);
         Animated.parallel([
             Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 150 }),
             Animated.spring(tilt, { toValue: 0, useNativeDriver: true, friction: 4, tension: 150 })
@@ -44,7 +45,7 @@ const MoodCounterButton = ({ rating, onPress }: { rating: number, onPress: () =>
     };
     return (
         <TouchableOpacity style={styles.moodPillSmall} onPress={handlePress} activeOpacity={0.7}>
-            <Text style={styles.moodLabelText}>MOOD</Text>
+            <Text style={styles.moodLabelText}>{t('journal.mood')}</Text>
             <Animated.View style={{ transform: [{ scale }, { rotate: rotation }] }}>
                 <Text style={[styles.moodNumberText, { color: getMoodColor(rating) }]}>{`${rating}/10`}</Text>
             </Animated.View>
@@ -53,7 +54,7 @@ const MoodCounterButton = ({ rating, onPress }: { rating: number, onPress: () =>
 };
 
 export default function ProfileScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { user } = useAuth();
@@ -71,7 +72,7 @@ export default function ProfileScreen() {
     const [calMonth, setCalMonth] = useState(new Date().getMonth());
     const [isAddingGoal, setIsAddingGoal] = useState(false);
     const [isScrollEnabled, setIsScrollEnabled] = useState(true);
-    const [editingGoal, setEditingGoal] = useState<{item: any, listType: 'goals' | 'antigoals'} | null>(null);
+    const [editingGoal, setEditingGoal] = useState<{ item: any, listType: 'goals' | 'antigoals' } | null>(null);
     const [editGoalTitle, setEditGoalTitle] = useState('');
     const [editGoalNote, setEditGoalNote] = useState('');
     const [editGoalTarget, setEditGoalTarget] = useState('100');
@@ -179,9 +180,9 @@ export default function ProfileScreen() {
             ...(profile.goals || []),
             ...(profile.antigoals || [])
         ].filter(g => !g.isCompleted && !g.cancelled);
-        
+
         if (allActive.length === 0) return null;
-        
+
         // Find the one that's been active longest (earliest created_at)
         return [...allActive].sort((a, b) => {
             const aTime = a.created_at || Date.now();
@@ -227,9 +228,9 @@ export default function ProfileScreen() {
 
     const saveChanges = async () => {
         setIsSaving(true);
-        
+
         let finalProfile = { ...profile };
-        
+
         // 1. ENSURE ALL LOCAL ASSETS ARE REMOTE
         // We do this again here in case the background upload from handlePickImage 
         // hasn't finished or was interrupted.
@@ -240,7 +241,7 @@ export default function ProfileScreen() {
                     const url = await ImageUploadService.upload(finalProfile.avatar!, user.id, 'avatar');
                     if (url) finalProfile.avatar = url;
                 }
-                
+
                 if (ImageUploadService.isLocalUri(finalProfile.banner)) {
                     if (__DEV__) console.log('[Profile] Syncing banner before save...');
                     const url = await ImageUploadService.upload(finalProfile.banner!, user.id, 'banner');
@@ -380,16 +381,16 @@ export default function ProfileScreen() {
     };
 
     const openEditGoalModal = (item: any, listType: 'goals' | 'antigoals') => {
-        setEditingGoal({item, listType});
+        setEditingGoal({ item, listType });
         setEditGoalTitle(item.title);
         setEditGoalNote(item.note || '');
         setEditGoalTarget((item.targetCount || 10).toString());
         setSelectedCategory(item.category || 'traits');
-        
+
         // Initialize Date state for the calendar picker
         if (item.deadline) {
             const [y, m, d] = item.deadline.split('-').map(Number);
-            const dateObj = new Date(y, m-1, d);
+            const dateObj = new Date(y, m - 1, d);
             dateObj.setHours(12, 0, 0, 0);
             setQuickAddDeadline(dateObj);
             setCalYear(dateObj.getFullYear());
@@ -405,15 +406,15 @@ export default function ProfileScreen() {
 
     const saveGoalEdit = () => {
         if (!editingGoal) return;
-        
+
         const now = Date.now();
         const deadlineStr = quickAddDeadline
             ? quickAddDeadline.toISOString().split('T')[0]
             : undefined;
 
         let newProfile = { ...profile };
-        const updater = (g: any) => g.id === editingGoal.item.id ? { 
-            ...g, 
+        const updater = (g: any) => g.id === editingGoal.item.id ? {
+            ...g,
             title: editGoalTitle,
             note: editGoalNote.trim(),
             category: selectedCategory,
@@ -426,7 +427,7 @@ export default function ProfileScreen() {
         } else {
             newProfile.antigoals = (newProfile.antigoals || []).map(updater);
         }
-        
+
         setProfile(newProfile);
         StorageService.saveProfile(newProfile);
         setEditingGoal(null);
@@ -441,11 +442,17 @@ export default function ProfileScreen() {
             try {
                 const deadlineDate = new Date(deadlineStr);
                 const today = new Date();
-                today.setHours(0,0,0,0);
+                today.setHours(0, 0, 0, 0);
                 const diff = deadlineDate.getTime() - today.getTime();
                 const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                daysRemaining = days === 0 ? 'Today' : days < 0 ? 'Exp' : `${days}d`;
-            } catch (e) {}
+                if (days === 0) {
+                    daysRemaining = t('profile.todayShort');
+                } else if (days < 0) {
+                    daysRemaining = t('profile.expShort');
+                } else {
+                    daysRemaining = `${days}${t('journal.d')}`;
+                }
+            } catch (e) { }
         }
 
         const opacity = isCompleted ? 0.6 : 1;
@@ -454,19 +461,19 @@ export default function ProfileScreen() {
         const borderColor = isAntiGoal ? '#FEE2E2' : '#E0F2FE';
 
         return (
-            <TouchableOpacity 
-                key={item.id} 
+            <TouchableOpacity
+                key={item.id}
                 activeOpacity={0.7}
                 onPress={() => openEditGoalModal(item, listType)}
-                style={{ 
+                style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    backgroundColor: cardBg, 
-                    borderRadius: 16, 
+                    backgroundColor: cardBg,
+                    borderRadius: 16,
                     paddingVertical: 12,
-                    paddingHorizontal: 14, 
-                    marginBottom: 8, 
-                    borderWidth: 1.5, 
+                    paddingHorizontal: 14,
+                    marginBottom: 8,
+                    borderWidth: 1.5,
                     borderColor: borderColor,
                     opacity,
                     shadowColor: "#000",
@@ -476,7 +483,7 @@ export default function ProfileScreen() {
                     elevation: 1,
                 }}
             >
-                <TouchableOpacity 
+                <TouchableOpacity
                     onPress={() => toggleGoalCompletion(item.id, true, listType)}
                     style={[
                         styles.checkbox,
@@ -492,11 +499,11 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
 
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text 
+                    <Text
                         numberOfLines={1}
-                        style={{ 
-                            fontSize: 15, 
-                            fontWeight: '700', 
+                        style={{
+                            fontSize: 15,
+                            fontWeight: '700',
                             color: '#1E293B',
                             textDecorationLine: isCompleted ? 'line-through' : 'none',
                             letterSpacing: -0.2
@@ -509,24 +516,24 @@ export default function ProfileScreen() {
                             {item.note}
                         </Text>
                     ) : item.category ? (
-                        <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 1, fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            {item.category}
+                        <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 1, fontWeight: '500', letterSpacing: 0.5 }}>
+                            {t(`profile.${item.category}`)}
                         </Text>
                     ) : null}
                 </View>
 
                 {daysRemaining !== '' && !isCompleted && (
-                    <View style={{ 
-                        backgroundColor: daysRemaining === 'Exp' ? '#FEF2F2' : (isAntiGoal ? '#FEE2E2' : '#E0F2FE'),
+                    <View style={{
+                        backgroundColor: daysRemaining === t('profile.expShort') ? '#FEF2F2' : (isAntiGoal ? '#FEE2E2' : '#E0F2FE'),
                         paddingHorizontal: 8,
                         paddingVertical: 4,
                         borderRadius: 8,
                         marginLeft: 8
                     }}>
-                        <Text style={{ 
-                            fontSize: 11, 
-                            fontWeight: '800', 
-                            color: daysRemaining === 'Exp' ? '#EF4444' : color 
+                        <Text style={{
+                            fontSize: 11,
+                            fontWeight: '800',
+                            color: daysRemaining === t('profile.expShort') ? '#EF4444' : color
                         }}>
                             {daysRemaining}
                         </Text>
@@ -543,11 +550,11 @@ export default function ProfileScreen() {
 
         const updater = (g: any) => {
             if (g.id !== id || g.isCompleted) return g;
-            
+
             const tgt = g.targetCount || 10;
             const current = (g.currentCount || 0) + 1;
             const isCompleted = current >= tgt;
-            
+
             if (isCompleted) {
                 showNoteModal = true;
             }
@@ -563,7 +570,7 @@ export default function ProfileScreen() {
         } else {
             newProfile.antigoals = (newProfile.antigoals || []).map(updater);
         }
-        
+
         setProfile(newProfile);
         await StorageService.saveProfile(newProfile);
 
@@ -578,7 +585,7 @@ export default function ProfileScreen() {
 
         const updater = (g: any) => {
             if (g.id !== id || g.isCompleted) return g;
-            
+
             const tgt = g.targetCount || 10;
             const current = Math.floor(Math.max(0, Math.min(newValue, tgt)));
             const isCompleted = current >= tgt;
@@ -598,7 +605,7 @@ export default function ProfileScreen() {
         } else {
             newProfile.antigoals = (newProfile.antigoals || []).map(updater);
         }
-        
+
         setProfile(newProfile);
         await StorageService.saveProfile(newProfile);
 
@@ -665,12 +672,12 @@ export default function ProfileScreen() {
 
     const cancelGoalItem = async (id: string, listType: 'goals' | 'antigoals') => {
         Alert.alert(
-            "Cancel Goal?",
-            "This will move the goal to your timeline as cancelled. Are you sure?",
+            t('profile.cancelGoalTitle'),
+            t('profile.cancelGoalMsg'),
             [
-                { text: "No", style: "cancel" },
+                { text: t('common.no'), style: "cancel" },
                 {
-                    text: "Yes, Cancel",
+                    text: t('profile.yesCancel'),
                     style: "destructive",
                     onPress: async () => {
                         let newProfile = { ...profile };
@@ -706,9 +713,9 @@ export default function ProfileScreen() {
         const task = await StorageService.removeFromHistory(taskId);
         if (task) {
             const activeTasks = await StorageService.loadActiveTasks();
-            await StorageService.saveActiveTasks([{ 
-                ...task, 
-                isCompleted: false, 
+            await StorageService.saveActiveTasks([{
+                ...task,
+                isCompleted: false,
                 completedAt: undefined,
                 date: toISODateString(new Date()),
                 daysRolled: undefined,
@@ -776,23 +783,23 @@ export default function ProfileScreen() {
                                 onPress={() => scrollToSection('profile')}
                                 style={[styles.sectionTab, activeSection === 'profile' && styles.sectionTabActive]}
                             >
-                                <Text style={[styles.sectionTabText, activeSection === 'profile' && styles.sectionTabTextActive]}>Profile</Text>
+                                <Text style={[styles.sectionTabText, activeSection === 'profile' && styles.sectionTabTextActive]}>{t('profile.profile')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => scrollToSection('goals')}
                                 style={[styles.sectionTab, activeSection === 'goals' && styles.sectionTabActive]}
                             >
-                                <Text style={[styles.sectionTabText, activeSection === 'goals' && styles.sectionTabTextActive]}>Goals</Text>
+                                <Text style={[styles.sectionTabText, activeSection === 'goals' && styles.sectionTabTextActive]}>{t('profile.goalsTab')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => scrollToSection('sprints')}
                                 style={[styles.sectionTab, activeSection === 'sprints' && styles.sectionTabActive]}
                             >
-                                <Text style={[styles.sectionTabText, activeSection === 'sprints' && styles.sectionTabTextActive]}>Archive</Text>
+                                <Text style={[styles.sectionTabText, activeSection === 'sprints' && styles.sectionTabTextActive]}>{t('profile.archive')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
-                    
+
                     {/* Balanced right side with Settings Button */}
                     <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingsBtn}>
                         <View style={styles.backCircle}>
@@ -805,7 +812,7 @@ export default function ProfileScreen() {
                     <View style={styles.syncOverlay}>
                         <View style={styles.syncModal}>
                             <Ionicons name="cloud-upload" size={32} color="#007AFF" />
-                            <Text style={styles.syncText}>Uploading Banner...</Text>
+                            <Text style={styles.syncText}>{t('profile.uploadingBanner')}</Text>
                         </View>
                     </View>
                 )}
@@ -831,15 +838,15 @@ export default function ProfileScreen() {
                     >
                         <View style={styles.profileTabContent}>
                             <View style={styles.bannerContainer}>
-                                <Text style={styles.fillerTitle}>Personal overview</Text>
+                                <Text style={styles.fillerTitle}>{t('profile.personalOverview')}</Text>
                                 <View style={styles.profileEditWrapper}>
                                     {isEditing ? (
                                         <TouchableOpacity onPress={saveChanges} style={styles.editProfileBtnInline}>
-                                            <Text style={[styles.editProfileText, { color: '#007AFF' }]}>{t('profile.done')}</Text>
+                                            <Text style={[styles.editProfileText, { color: '#007AFF' }]}>{t('common.done')}</Text>
                                         </TouchableOpacity>
                                     ) : (
                                         <TouchableOpacity onPress={handleEditToggle} style={styles.editProfileBtnInline}>
-                                            <Text style={styles.editProfileText}>Edit</Text>
+                                            <Text style={styles.editProfileText}>{t('common.edit')}</Text>
                                         </TouchableOpacity>
                                     )}
                                 </View>
@@ -850,7 +857,7 @@ export default function ProfileScreen() {
                                 activeOpacity={isEditing ? 0.8 : 1}
                                 onPress={() => handlePickImage('banner')}
                                 disabled={!isEditing}
-                                style={styles.bannerWrapper}
+                                style={[styles.bannerWrapper, { marginBottom: 16 }]}
                             >
                                 {profile.banner ? (
                                     <Image source={{ uri: profile.banner }} style={styles.bannerImage} />
@@ -893,14 +900,18 @@ export default function ProfileScreen() {
                                                 style={styles.userNameInput}
                                                 value={profile.name}
                                                 onChangeText={(text) => updateProfile({ name: text })}
-                                                placeholder="Name"
+                                                placeholder={t('profile.addName')}
                                                 placeholderTextColor="#94A3B8"
                                             />
                                         ) : (
-                                            <Text style={styles.userNameText}>{profile.name || "Add a name"}</Text>
+                                            <Text style={styles.userNameText}>{profile.name || t('profile.addName')}</Text>
                                         )}
-                                        <Text style={styles.handleText}>@stacker</Text>
-                                    
+                                        {longestActiveGoal && (
+                                            <View style={styles.longestGoalBadge}>
+                                                <Ionicons name="medal-outline" size={14} color="#C19A6B" />
+                                                <Text style={styles.longestGoalText}>{t('profile.longestGoal', { title: longestActiveGoal.title })}</Text>
+                                            </View>
+                                        )}
                                     </View>
                                 </View>
 
@@ -911,14 +922,14 @@ export default function ProfileScreen() {
                                             style={styles.userBioInput}
                                             value={profile.bio || ''}
                                             onChangeText={(text) => updateProfile({ bio: text })}
-                                            placeholder="Add a bio..."
+                                            placeholder={t('profile.addBio')}
                                             placeholderTextColor="#94A3B8"
                                             multiline
                                         />
                                     ) : (
                                         <View style={styles.bioDisplayBox}>
                                             <Text style={styles.userBioText}>
-                                                {profile.bio || "No description yet."}
+                                                {profile.bio || t('profile.noDescription')}
                                             </Text>
                                         </View>
                                     )}
@@ -936,53 +947,64 @@ export default function ProfileScreen() {
                         keyboardShouldPersistTaps="handled"
                     >
                         <View style={styles.goalsTabContent}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 }}>
-                                <Text style={[styles.fillerTitle, { marginLeft: 0, marginBottom: 0 }]}>Objectives</Text>
+                            <View style={styles.bannerContainer}>
+                                <Text style={styles.fillerTitle}>{t('profile.activityTimeline')}</Text>
                             </View>
 
                             {/* --- TIMELINE HERO --- */}
                             {!isEditing && (
-                                <View style={[styles.archivedSectionBlock, { marginHorizontal: 12, marginBottom: 16 }]}>
+                                <View style={{ marginBottom: 16 }}>
                                     <TouchableOpacity
-                                        style={styles.timelineHeroBlock}
                                         onPress={() => router.push('/timeline')}
                                         activeOpacity={0.8}
                                     >
-                                        <View style={styles.heroContentInner}>
-                                            <View style={styles.timelineHeroHeader}>
-                                                <View style={styles.timelineIconBox}>
-                                                    <Ionicons name="git-commit-outline" size={22} color="#FFF" />
+                                        <LinearGradient
+                                            colors={['#0F172A', '#1E293B']}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                            style={styles.timelineHeroBlock}
+                                        >
+                                            <View style={styles.heroContentInner}>
+                                                <View style={styles.timelineHeroHeader}>
+                                                    <View style={styles.timelineIconBox}>
+                                                        <Ionicons name="git-commit-outline" size={20} color="#FFF" />
+                                                    </View>
+                                                    <Text style={styles.timelineHeroTag}>{t('profile.activityTimeline')}</Text>
                                                 </View>
-                                                <Text style={styles.timelineHeroTag}>ACTIVITY & TIMELINE</Text>
+                                                <Text style={styles.timelineHeroTitle}>{t('profile.goalsTimeline')}</Text>
+                                                {longestActiveGoal ? (
+                                                    <View style={styles.timelineHeroInsight}>
+                                                        <Ionicons name="trending-up" size={14} color="#FFF" />
+                                                        <Text style={styles.timelineInsightText}>
+                                                            {t('profile.longestGoal', { title: longestActiveGoal.title })}
+                                                        </Text>
+                                                    </View>
+                                                ) : (
+                                                    <Text style={styles.timelineHeroSub}>{t('profile.timelineSub')}</Text>
+                                                )}
                                             </View>
-                                            <Text style={styles.timelineHeroTitle}>Goals Timeline</Text>
-                                            {longestActiveGoal ? (
-                                                <View style={styles.timelineHeroInsight}>
-                                                    <Ionicons name="trending-up" size={14} color="rgba(255,255,255,0.7)" />
-                                                    <Text style={styles.timelineInsightText}>
-                                                        Longest goal: {longestActiveGoal.title}
-                                                    </Text>
-                                                </View>
-                                            ) : (
-                                                <Text style={styles.timelineHeroSub}>View your daily work flow and milestones</Text>
-                                            )}
-                                        </View>
-                                        <View style={styles.timelineHeroArrow}>
-                                            <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.6)" />
-                                        </View>
+                                            <View style={styles.timelineHeroArrow}>
+                                                <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.4)" />
+                                            </View>
+                                        </LinearGradient>
                                     </TouchableOpacity>
                                 </View>
                             )}
 
+                            {/* Objectives Header */}
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12, marginTop: 12 }}>
+                                <Text style={[styles.fillerTitle, { marginLeft: 0, marginBottom: 0 }]}>{t('profile.objectives')}</Text>
+                            </View>
+
                             {/* --- GOALS & ANTI-GOALS STACKED --- */}
                             <View style={{ paddingHorizontal: 12, gap: 20 }}>
-                                
+
                                 {/* GOALS BOX */}
-                                <View style={{ 
-                                    backgroundColor: '#FFF', 
-                                    borderRadius: 28, 
-                                    padding: 24, 
-                                    borderWidth: 1.5, 
+                                <View style={{
+                                    backgroundColor: '#FFF',
+                                    borderRadius: 28,
+                                    padding: 24,
+                                    borderWidth: 1.5,
                                     borderColor: '#E0F2FE',
                                     shadowColor: '#0284C7',
                                     shadowOffset: { width: 0, height: 8 },
@@ -993,32 +1015,38 @@ export default function ProfileScreen() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                             <View style={{ width: 4, height: 16, backgroundColor: '#0284C7', borderRadius: 2 }} />
-                                            <Text style={{ fontSize: 13, fontWeight: '900', color: '#0284C7', letterSpacing: 1.5 }}>GOALS</Text>
+                                            <Text style={{ fontSize: 13, fontWeight: '900', color: '#0284C7', letterSpacing: 1.5 }}>{t('profile.goals')}</Text>
                                         </View>
                                     </View>
-                                    <View>
+                                    <View style={{ paddingLeft: 8 }}>
                                         {(profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).length === 0 ? (
-                                            <Text style={{ fontSize: 14, color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>No active goals</Text>
+                                            <Text style={{ fontSize: 14, color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>{t('profile.noActiveGoals')}</Text>
                                         ) : (
-                                            (profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).map(item => renderGoal(item, 'goals', '#0284C7'))
+                                            (profile.goals || []).filter(g => !g.isCompleted && !g.cancelled).map((item, idx, arr) => (
+                                                <View key={item.id} style={styles.timelineListRow}>
+                                                    <View style={styles.timelineTextContent}>
+                                                        {renderGoal(item, 'goals', '#0284C7')}
+                                                    </View>
+                                                </View>
+                                            ))
                                         )}
-                                        
+
                                         {/* ADD GOAL ROW (Main Menu Style) */}
-                                        <TouchableOpacity 
-                                            style={{ marginTop: 12, paddingVertical: 12 }} 
-                                            onPress={() => { 
-                                                setAddingToList('goals'); 
-                                                setIsAddingGoal(true); 
-                                                setQuickAddText(''); 
+                                        <TouchableOpacity
+                                            style={{ marginTop: 12, paddingVertical: 12 }}
+                                            onPress={() => {
+                                                setAddingToList('goals');
+                                                setIsAddingGoal(true);
+                                                setQuickAddText('');
                                                 setQuickAddNote('');
-                                                setQuickAddDeadline(null); 
-                                                setShowCalendar(false); 
+                                                setQuickAddDeadline(null);
+                                                setShowCalendar(false);
                                             }}
                                         >
                                             <View style={{ alignSelf: 'flex-start' }}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                                     <Ionicons name="add-circle" size={22} color="#0284C7" />
-                                                    <Text style={{ color: '#0284C7', fontSize: 16, fontWeight: '700' }}>Add Goal</Text>
+                                                    <Text style={{ color: '#0284C7', fontSize: 16, fontWeight: '700' }}>{t('profile.addGoal')}</Text>
                                                 </View>
                                             </View>
                                         </TouchableOpacity>
@@ -1026,11 +1054,11 @@ export default function ProfileScreen() {
                                 </View>
 
                                 {/* ANTI GOALS BOX */}
-                                <View style={{ 
-                                    backgroundColor: '#FFF', 
-                                    borderRadius: 28, 
-                                    padding: 24, 
-                                    borderWidth: 1.5, 
+                                <View style={{
+                                    backgroundColor: '#FFF',
+                                    borderRadius: 28,
+                                    padding: 24,
+                                    borderWidth: 1.5,
                                     borderColor: '#FEE2E2',
                                     shadowColor: '#DC2626',
                                     shadowOffset: { width: 0, height: 8 },
@@ -1041,32 +1069,38 @@ export default function ProfileScreen() {
                                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                             <View style={{ width: 4, height: 16, backgroundColor: '#DC2626', borderRadius: 2 }} />
-                                            <Text style={{ fontSize: 13, fontWeight: '900', color: '#DC2626', letterSpacing: 1.5 }}>ANTI-GOALS</Text>
+                                            <Text style={{ fontSize: 13, fontWeight: '900', color: '#DC2626', letterSpacing: 1.5 }}>{t('profile.antiGoals')}</Text>
                                         </View>
                                     </View>
-                                    <View>
+                                    <View style={{ paddingLeft: 8 }}>
                                         {(profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).length === 0 ? (
-                                            <Text style={{ fontSize: 14, color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>No anti-goals</Text>
+                                            <Text style={{ fontSize: 14, color: '#94A3B8', fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>{t('profile.noAntiGoals')}</Text>
                                         ) : (
-                                            (profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).map(item => renderGoal(item, 'antigoals', '#DC2626'))
+                                            (profile.antigoals || []).filter(g => !g.isCompleted && !g.cancelled).map((item, idx, arr) => (
+                                                <View key={item.id} style={styles.timelineListRow}>
+                                                    <View style={styles.timelineTextContent}>
+                                                        {renderGoal(item, 'antigoals', '#DC2626')}
+                                                    </View>
+                                                </View>
+                                            ))
                                         )}
 
                                         {/* ADD ANTI-GOAL ROW (Main Menu Style) */}
-                                        <TouchableOpacity 
-                                            style={{ marginTop: 12, paddingVertical: 12 }} 
-                                            onPress={() => { 
-                                                setAddingToList('antigoals'); 
-                                                setIsAddingGoal(true); 
-                                                setQuickAddText(''); 
+                                        <TouchableOpacity
+                                            style={{ marginTop: 12, paddingVertical: 12 }}
+                                            onPress={() => {
+                                                setAddingToList('antigoals');
+                                                setIsAddingGoal(true);
+                                                setQuickAddText('');
                                                 setQuickAddNote('');
-                                                setQuickAddDeadline(null); 
-                                                setShowCalendar(false); 
+                                                setQuickAddDeadline(null);
+                                                setShowCalendar(false);
                                             }}
                                         >
                                             <View style={{ alignSelf: 'flex-start' }}>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                                     <Ionicons name="add-circle" size={22} color="#DC2626" />
-                                                    <Text style={{ color: '#DC2626', fontSize: 16, fontWeight: '700' }}>Add Anti-Goal</Text>
+                                                    <Text style={{ color: '#DC2626', fontSize: 16, fontWeight: '700' }}>{t('profile.addAntiGoal')}</Text>
                                                 </View>
                                             </View>
                                         </TouchableOpacity>
@@ -1086,8 +1120,8 @@ export default function ProfileScreen() {
                         keyboardShouldPersistTaps="handled"
                     >
                         <View style={styles.sprintsTabContent}>
-                            <Text style={styles.fillerTitle}>Hall of Fame</Text>
-                            <View style={styles.bestDaysContainer}>
+                            <Text style={styles.fillerTitle}>{t('profile.hallOfFame')}</Text>
+                            <View style={[styles.bestDaysContainer, { marginHorizontal: 0 }]}>
                                 <TouchableOpacity
                                     activeOpacity={0.9}
                                     onPress={() => router.push('/achievements')}
@@ -1096,27 +1130,34 @@ export default function ProfileScreen() {
                                         colors={['#F59E0B', '#FBBF24']}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
-                                        style={styles.heroCard}
+                                        style={styles.timelineHeroBlock}
                                     >
-                                        <View style={styles.heroBadge}>
-                                            <Ionicons name="trophy" size={12} color="#F59E0B" />
-                                            <Text style={styles.heroBadgeText}>LIFETIME CAREER</Text>
-                                        </View>
                                         <View style={styles.heroContentInner}>
-                                            <View style={styles.heroMain}>
-                                                <Text style={styles.heroTime}>{formatDuration(careerStats.totalWorkSeconds)}</Text>
-                                                <Text style={styles.heroTask} numberOfLines={1}>Total Deep Focus Time</Text>
-                                            </View>
-                                            <View style={styles.heroFooter}>
-                                                <View style={styles.heroStat}>
-                                                    <Ionicons name="checkmark-done-circle" size={16} color="rgba(255,255,255,0.9)" />
-                                                    <Text style={styles.heroStatText}>{careerStats.totalWins} Total Wins</Text>
+                                            <View style={styles.timelineHeroHeader}>
+                                                <View style={[styles.timelineIconBox, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                                                    <Ionicons name="trophy" size={18} color="#FFF" />
                                                 </View>
-                                                <View style={styles.heroStat}>
-                                                    <Ionicons name="ribbon" size={16} color="rgba(255,255,255,0.9)" />
-                                                    <Text style={styles.heroStatText}>{careerStats.totalAchievements} Achievements</Text>
+                                                <Text style={styles.timelineHeroTag}>{t('profile.hallOfFame')}</Text>
+                                            </View>
+                                            <Text style={styles.timelineHeroTitle}>{formatDuration(careerStats.totalWorkSeconds)}</Text>
+                                            
+                                            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                    <Ionicons name="checkmark-done-circle" size={14} color="rgba(255,255,255,0.6)" />
+                                                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>
+                                                       {t('profile.totalWins', { count: careerStats.totalWins })}
+                                                    </Text>
+                                                </View>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                    <Ionicons name="ribbon" size={14} color="rgba(255,255,255,0.6)" />
+                                                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '600' }}>
+                                                       {t('profile.achievementsCount', { count: careerStats.totalAchievements })}
+                                                    </Text>
                                                 </View>
                                             </View>
+                                        </View>
+                                        <View style={styles.timelineHeroArrow}>
+                                            <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.4)" />
                                         </View>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -1126,7 +1167,7 @@ export default function ProfileScreen() {
 
                             <View style={styles.bestDaysContainer}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                    <Text style={styles.bestDaysTitle}>Journal</Text>
+                                    <Text style={styles.bestDaysTitle}>{t('journal.title')}</Text>
                                     <TouchableOpacity onPress={() => {
                                         // Exit animation: slide up + fade out
                                         Animated.parallel([
@@ -1141,24 +1182,24 @@ export default function ProfileScreen() {
                                             }, 500);
                                         });
                                     }}>
-                                        <Text style={{ color: '#3B82F6', fontWeight: '700', fontSize: 14 }}>Full Log</Text>
+                                        <Text style={{ color: '#3B82F6', fontWeight: '700', fontSize: 14 }}>{t('profile.viewAll')}</Text>
                                     </TouchableOpacity>
                                 </View>
 
                                 <Animated.View style={[styles.logDayBlock, { transform: [{ translateY: journalCardTranslateY }], opacity: journalCardOpacity }]}>
                                     <View style={styles.dayHeaderRow}>
                                         <Text style={styles.dayTitleText}>
-                                            {`${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} -0D`}
+                                            {`${new Date().toLocaleDateString(i18n.language, { weekday: 'long', month: 'long', day: 'numeric' })} -0${t('journal.d')}`}
                                         </Text>
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             onPress={handleToggleStarDay}
                                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                             style={styles.starCircleButton}
                                         >
-                                            <Ionicons 
-                                                name={"star"} 
-                                                size={20} 
-                                                color={dailyData?.isStarred ? "#F59E0B" : "#CBD5E1"} 
+                                            <Ionicons
+                                                name={"star"}
+                                                size={20}
+                                                color={dailyData?.isStarred ? "#F59E0B" : "#CBD5E1"}
                                             />
                                         </TouchableOpacity>
                                     </View>
@@ -1166,9 +1207,9 @@ export default function ProfileScreen() {
                                     <View style={[styles.reflectionCard, { marginTop: 0, marginBottom: 24 }]}>
                                         <View style={styles.reflectionHeader}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                <Text style={styles.reflectionTitle}>Reflection</Text>
+                                                <Text style={styles.sectionHeader}>{t('profile.objectives')}</Text>
                                                 {(dailyData?.rating || 0) > 0 && (
-                                                    <TouchableOpacity 
+                                                    <TouchableOpacity
                                                         onPress={async () => {
                                                             const todayStr = toISODateString(new Date());
                                                             const newData = { ...(dailyData || { date: todayStr }), rating: 0, updated_at: Date.now() } as DailyData;
@@ -1181,14 +1222,14 @@ export default function ProfileScreen() {
                                                     </TouchableOpacity>
                                                 )}
                                             </View>
-                                            <MoodCounterButton 
-                                                rating={dailyData?.rating || 0} 
-                                                onPress={handleRatingPress} 
+                                            <MoodCounterButton
+                                                rating={dailyData?.rating || 0}
+                                                onPress={handleRatingPress}
                                             />
                                         </View>
                                         <TextInput
                                             style={styles.reflectionInput}
-                                            placeholder="Notes for yourself..."
+                                            placeholder={t('journal.notesPlaceholder')}
                                             placeholderTextColor="#ABB5C2"
                                             multiline
                                             scrollEnabled={false}
@@ -1204,7 +1245,7 @@ export default function ProfileScreen() {
 
                                     {todayTasks.length > 0 && (
                                         <View style={styles.listSection}>
-                                            <Text style={styles.journalSectionHeading}>Tasks Completed</Text>
+                                            <Text style={styles.journalSectionHeading}>{t('journal.tasksCompleted')}</Text>
                                             <View style={{ gap: 10 }}>
                                                 {todayTasks.map((task) => (
                                                     <View key={task.id} style={styles.taskItemRow}>
@@ -1220,20 +1261,20 @@ export default function ProfileScreen() {
 
                                     {sprintHistory.filter(s => s.date === toISODateString(new Date())).length > 0 && (
                                         <View style={styles.listSection}>
-                                            <Text style={styles.journalSectionHeading}>Archived Sessions</Text>
+                                            <Text style={styles.journalSectionHeading}>{t('profile.archivedSessions')}</Text>
                                             <View style={{ gap: 8 }}>
-                                            {sprintHistory.filter(s => s.date === toISODateString(new Date())).map((sprint, sIdx) => (
-                                                <View key={sprint.id || sIdx} style={styles.sprintItemRow}>
-                                                    <View style={styles.sprintIconWrap}>
-                                                        <Ionicons name="flash-outline" size={16} color="#3B82F6" />
+                                                {sprintHistory.filter(s => s.date === toISODateString(new Date())).map((sprint, sIdx) => (
+                                                    <View key={sprint.id || sIdx} style={styles.sprintItemRow}>
+                                                        <View style={styles.sprintIconWrap}>
+                                                            <Ionicons name="flash-outline" size={16} color="#3B82F6" />
+                                                        </View>
+                                                        <View style={{ flex: 1 }}>
+                                                            <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
+                                                            {sprint.note && <Text style={styles.sprintLogNote}>"{sprint.note}"</Text>}
+                                                        </View>
+                                                        <Text style={styles.sprintCardDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}{t('journal.m')}</Text>
                                                     </View>
-                                                    <View style={{ flex: 1 }}>
-                                                        <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
-                                                        {sprint.note && <Text style={styles.sprintLogNote}>"{sprint.note}"</Text>}
-                                                    </View>
-                                                    <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}m</Text>
-                                                </View>
-                                            ))}
+                                                ))}
                                             </View>
                                         </View>
                                     )}
@@ -1257,7 +1298,7 @@ export default function ProfileScreen() {
                 {isAddingGoal && addingToList && (() => {
                     const isGoals = addingToList === 'goals';
                     const accentColor = isGoals ? '#0284C7' : '#DC2626';
-                    const label = isGoals ? 'Goal' : 'Anti-Goal';
+                    const label = isGoals ? t('profile.goal') : t('profile.antiGoal');
 
                     const firstDay = new Date(calYear, calMonth, 1).getDay();
                     const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -1275,30 +1316,30 @@ export default function ProfileScreen() {
                     };
 
                     const deadlineLabel = quickAddDeadline
-                        ? quickAddDeadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                        : 'Set Deadline';
+                        ? quickAddDeadline.toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', year: 'numeric' })
+                        : t('profile.setDeadline');
 
                     const canCreate = quickAddText.trim().length > 0 && quickAddNote.trim().length > 0;
 
                     return (
-                        <Modal 
-                            visible={isAddingGoal} 
-                            animationType="fade" 
-                            transparent={true} 
+                        <Modal
+                            visible={isAddingGoal}
+                            animationType="fade"
+                            transparent={true}
                             onRequestClose={() => { setIsAddingGoal(false); setAddingToList(null); }}
                         >
-                            <KeyboardAvoidingView 
+                            <KeyboardAvoidingView
                                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                                 style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
                             >
-                                <TouchableOpacity 
-                                    style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.6)' }} 
-                                    activeOpacity={1} 
-                                    onPress={() => { setIsAddingGoal(false); setAddingToList(null); }} 
+                                <TouchableOpacity
+                                    style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.6)' }}
+                                    activeOpacity={1}
+                                    onPress={() => { setIsAddingGoal(false); setAddingToList(null); }}
                                 />
-                                <View style={{ 
-                                    backgroundColor: '#FFF', 
-                                    borderRadius: 32, 
+                                <View style={{
+                                    backgroundColor: '#FFF',
+                                    borderRadius: 32,
                                     width: SCREEN_WIDTH * 0.9,
                                     maxHeight: SCREEN_HEIGHT * 0.8,
                                     shadowColor: '#000',
@@ -1310,17 +1351,17 @@ export default function ProfileScreen() {
                                 }}>
                                     {/* Premium Header */}
                                     <View style={{ backgroundColor: accentColor, paddingVertical: 24, paddingHorizontal: 24 }}>
-                                        <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFF' }}>{label.toUpperCase()}</Text>
+                                        <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFF' }}>{t(`profile.${addingToList === 'goals' ? 'goal' : 'antiGoal'}`)}</Text>
                                     </View>
 
                                     <ScrollView style={{ padding: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                                         {/* Title Input */}
                                         <View style={{ marginBottom: 20 }}>
-                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>TITLE</Text>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>{t('profile.title')}</Text>
                                             <TextInput
                                                 ref={quickAddInputRef}
                                                 style={{ fontSize: 18, fontWeight: '600', color: '#0F172A', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' }}
-                                                placeholder={`What is this ${label.toLowerCase()}?`}
+                                                placeholder={t(`profile.${addingToList === 'goals' ? 'goalTitle' : 'antiGoalTitle'}`)}
                                                 placeholderTextColor="#94A3B8"
                                                 value={quickAddText}
                                                 onChangeText={setQuickAddText}
@@ -1330,10 +1371,10 @@ export default function ProfileScreen() {
 
                                         {/* Conditions for Success Input */}
                                         <View style={{ marginBottom: 24 }}>
-                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>CONDITIONS FOR SUCCESS</Text>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>{t('profile.victoryConditions')}</Text>
                                             <TextInput
                                                 style={{ fontSize: 15, fontWeight: '500', color: '#334155', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', minHeight: 80 }}
-                                                placeholder="Define exactly what victory looks like..."
+                                                placeholder={t('profile.victoryDescription')}
                                                 placeholderTextColor="#94A3B8"
                                                 value={quickAddNote}
                                                 onChangeText={setQuickAddNote}
@@ -1343,22 +1384,22 @@ export default function ProfileScreen() {
 
                                         {/* Category Selection */}
                                         <View style={{ marginBottom: 24 }}>
-                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>TYPE</Text>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>{t('profile.type')}</Text>
                                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                                {([['traits', 'Traits'], ['habits', 'Habits'], ['environment', 'Environment'], ['outcomes', 'Outcomes']] as const).map(([key, lbl]) => (
+                                                {([['traits', 'traits'], ['habits', 'habits'], ['environment', 'environment'], ['outcomes', 'outcomes']] as const).map(([key, transKey]) => (
                                                     <TouchableOpacity
                                                         key={key}
                                                         onPress={() => setSelectedCategory(key)}
-                                                        style={{ 
-                                                            paddingHorizontal: 16, 
-                                                            paddingVertical: 10, 
-                                                            borderRadius: 14, 
-                                                            backgroundColor: selectedCategory === key ? accentColor : '#F1F5F9', 
-                                                            borderWidth: 1, 
+                                                        style={{
+                                                            paddingHorizontal: 16,
+                                                            paddingVertical: 10,
+                                                            borderRadius: 14,
+                                                            backgroundColor: selectedCategory === key ? accentColor : '#F1F5F9',
+                                                            borderWidth: 1,
                                                             borderColor: selectedCategory === key ? accentColor : '#E2E8F0',
                                                         }}
                                                     >
-                                                        <Text style={{ fontSize: 13, fontWeight: '700', color: selectedCategory === key ? '#FFF' : '#64748B' }}>{lbl}</Text>
+                                                        <Text style={{ fontSize: 13, fontWeight: '700', color: selectedCategory === key ? '#FFF' : '#64748B' }}>{t(`profile.${transKey}`)}</Text>
                                                     </TouchableOpacity>
                                                 ))}
                                             </View>
@@ -1366,26 +1407,26 @@ export default function ProfileScreen() {
 
                                         {/* Deadline Section */}
                                         <View style={{ marginBottom: 32 }}>
-                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>DEADLINE</Text>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>{t('profile.deadline')}</Text>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                                 <TouchableOpacity
                                                     onPress={() => setShowCalendar(v => !v)}
-                                                    style={{ 
+                                                    style={{
                                                         flex: 1,
-                                                        flexDirection: 'row', 
-                                                        alignItems: 'center', 
-                                                        gap: 10, 
-                                                        padding: 14, 
-                                                        borderRadius: 16, 
-                                                        backgroundColor: quickAddDeadline ? '#EFF6FF' : '#F1F5F9', 
-                                                        borderWidth: 1.5, 
-                                                        borderColor: quickAddDeadline ? '#3B82F6' : '#E2E8F0' 
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        gap: 10,
+                                                        padding: 14,
+                                                        borderRadius: 16,
+                                                        backgroundColor: quickAddDeadline ? '#EFF6FF' : '#F1F5F9',
+                                                        borderWidth: 1.5,
+                                                        borderColor: quickAddDeadline ? '#3B82F6' : '#E2E8F0'
                                                     }}
                                                 >
                                                     <Ionicons name="calendar-outline" size={20} color={quickAddDeadline ? '#3B82F6' : '#94A3B8'} />
-                                                    <Text style={{ fontSize: 15, fontWeight: '700', color: quickAddDeadline ? '#3B82F6' : '#64748B' }}>{deadlineLabel}</Text>
+                                                    <Text style={{ fontSize: 15, fontWeight: '700', color: quickAddDeadline ? '#3B82F6' : '#64748B' }}>{quickAddDeadline ? quickAddDeadline.toLocaleDateString() : t('profile.setDeadline')}</Text>
                                                 </TouchableOpacity>
-                                                
+
                                                 {quickAddDeadline && (
                                                     <TouchableOpacity
                                                         onPress={() => { setQuickAddDeadline(null); setShowCalendar(false); }}
@@ -1396,7 +1437,7 @@ export default function ProfileScreen() {
                                                 )}
 
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 4 }}>
-                                                    <TouchableOpacity 
+                                                    <TouchableOpacity
                                                         onPress={() => shiftDays(-1)}
                                                         style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
                                                     >
@@ -1405,13 +1446,13 @@ export default function ProfileScreen() {
                                                     <View style={{ paddingHorizontal: 8, minWidth: 60, alignItems: 'center' }}>
                                                         <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A' }}>
                                                             {(() => {
-                                                                if (!quickAddDeadline) return "0 days";
-                                                                const diff = Math.round((quickAddDeadline.getTime() - new Date().setHours(0,0,0,0)) / 86400000);
-                                                                return `${diff} days`;
+                                                                if (!quickAddDeadline) return t('profile.daysCount', { count: 0 });
+                                                                const diff = Math.round((quickAddDeadline.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000);
+                                                                return t('profile.daysCount', { count: diff });
                                                             })()}
                                                         </Text>
                                                     </View>
-                                                    <TouchableOpacity 
+                                                    <TouchableOpacity
                                                         onPress={() => shiftDays(1)}
                                                         style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
                                                     >
@@ -1426,28 +1467,28 @@ export default function ProfileScreen() {
                                                         <TouchableOpacity onPress={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }}>
                                                             <Ionicons name="chevron-back" size={20} color="#0F172A" />
                                                         </TouchableOpacity>
-                                                        <Text style={{ fontWeight: '800', fontSize: 16, color: '#0F172A' }}>{MONTHS[calMonth]} {calYear}</Text>
+                                                        <Text style={{ fontWeight: '800', fontSize: 16, color: '#0F172A' }}>{t(`common.months.${calMonth}`)} {calYear}</Text>
                                                         <TouchableOpacity onPress={() => { const d = new Date(calYear, calMonth + 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }}>
                                                             <Ionicons name="chevron-forward" size={20} color="#0F172A" />
                                                         </TouchableOpacity>
                                                     </View>
                                                     <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                                                         {calCells.map((day, idx) => {
-                                                            if (!day) return <View key={`e${idx}`} style={{ width: `${100/7}%`, aspectRatio: 1 }} />;
+                                                            if (!day) return <View key={`e${idx}`} style={{ width: `${100 / 7}%`, aspectRatio: 1 }} />;
                                                             const cellDate = new Date(calYear, calMonth, day);
                                                             const isSelected = quickAddDeadline ? cellDate.toDateString() === quickAddDeadline.toDateString() : false;
                                                             return (
                                                                 <TouchableOpacity
                                                                     key={day}
-                                                                    onPress={() => { cellDate.setHours(12,0,0,0); setQuickAddDeadline(cellDate); setShowCalendar(false); }}
-                                                                    style={{ width: `${100/7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}
+                                                                    onPress={() => { cellDate.setHours(12, 0, 0, 0); setQuickAddDeadline(cellDate); setShowCalendar(false); }}
+                                                                    style={{ width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}
                                                                 >
-                                                                    <View style={{ 
-                                                                        width: 38, 
-                                                                        height: 38, 
-                                                                        borderRadius: 19, 
-                                                                        backgroundColor: isSelected ? accentColor : 'transparent', 
-                                                                        alignItems: 'center', 
+                                                                    <View style={{
+                                                                        width: 38,
+                                                                        height: 38,
+                                                                        borderRadius: 19,
+                                                                        backgroundColor: isSelected ? accentColor : 'transparent',
+                                                                        alignItems: 'center',
                                                                         justifyContent: 'center',
                                                                     }}>
                                                                         <Text style={{ fontSize: 14, fontWeight: isSelected ? '800' : '600', color: isSelected ? '#FFF' : '#0F172A' }}>{day}</Text>
@@ -1463,20 +1504,20 @@ export default function ProfileScreen() {
 
                                     {/* Action Footer */}
                                     <View style={{ flexDirection: 'row', padding: 20, gap: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             onPress={() => { setIsAddingGoal(false); setAddingToList(null); }}
                                             style={{ flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 16, backgroundColor: '#F1F5F9' }}
                                         >
-                                            <Text style={{ fontSize: 15, fontWeight: '700', color: '#64748B' }}>CANCEL</Text>
+                                            <Text style={{ fontSize: 15, fontWeight: '700', color: '#64748B' }}>{t('common.cancel')}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             onPress={() => addGoalItem(quickAddText)}
                                             disabled={!canCreate}
-                                            style={{ 
-                                                flex: 2, 
-                                                paddingVertical: 14, 
-                                                alignItems: 'center', 
-                                                borderRadius: 16, 
+                                            style={{
+                                                flex: 2,
+                                                paddingVertical: 14,
+                                                alignItems: 'center',
+                                                borderRadius: 16,
                                                 backgroundColor: canCreate ? accentColor : '#F1F5F9',
                                                 shadowColor: canCreate ? accentColor : 'transparent',
                                                 shadowOffset: { width: 0, height: 6 },
@@ -1484,7 +1525,7 @@ export default function ProfileScreen() {
                                                 shadowRadius: 10,
                                             }}
                                         >
-                                            <Text style={{ fontSize: 15, fontWeight: '800', color: canCreate ? '#FFF' : '#94A3B8' }}>CREATE {label.toUpperCase()}</Text>
+                                            <Text style={{ fontSize: 15, fontWeight: '800', color: canCreate ? '#FFF' : '#94A3B8' }}>{t('profile.createLabel', { label: t(`profile.${addingToList === 'goals' ? 'goal' : 'antiGoal'}`) })}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -1497,7 +1538,7 @@ export default function ProfileScreen() {
                 {editingGoal && (() => {
                     const isGoals = editingGoal.listType === 'goals';
                     const accentColor = isGoals ? '#0284C7' : '#DC2626';
-                    const label = isGoals ? 'Goal' : 'Anti-Goal';
+                    const label = isGoals ? t('profile.goal') : t('profile.antiGoal');
 
                     const firstDay = new Date(calYear, calMonth, 1).getDay();
                     const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
@@ -1515,30 +1556,30 @@ export default function ProfileScreen() {
                     };
 
                     const deadlineLabel = quickAddDeadline
-                        ? quickAddDeadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                        : 'Set Deadline';
+                        ? quickAddDeadline.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+                        : t('profile.setDeadline');
 
                     const canSave = editGoalTitle.trim().length > 0 && editGoalNote.trim().length > 0;
 
                     return (
-                        <Modal 
-                            visible={!!editingGoal} 
-                            animationType="fade" 
-                            transparent={true} 
+                        <Modal
+                            visible={!!editingGoal}
+                            animationType="fade"
+                            transparent={true}
                             onRequestClose={() => setEditingGoal(null)}
                         >
-                            <KeyboardAvoidingView 
+                            <KeyboardAvoidingView
                                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                                 style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
                             >
-                                <TouchableOpacity 
-                                    style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.6)' }} 
-                                    activeOpacity={1} 
-                                    onPress={() => setEditingGoal(null)} 
+                                <TouchableOpacity
+                                    style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15, 23, 42, 0.6)' }}
+                                    activeOpacity={1}
+                                    onPress={() => setEditingGoal(null)}
                                 />
-                                <View style={{ 
-                                    backgroundColor: '#FFF', 
-                                    borderRadius: 32, 
+                                <View style={{
+                                    backgroundColor: '#FFF',
+                                    borderRadius: 32,
                                     width: SCREEN_WIDTH * 0.9,
                                     maxHeight: SCREEN_HEIGHT * 0.8,
                                     shadowColor: '#000',
@@ -1550,16 +1591,16 @@ export default function ProfileScreen() {
                                 }}>
                                     {/* Premium Header */}
                                     <View style={{ backgroundColor: accentColor, paddingVertical: 24, paddingHorizontal: 24 }}>
-                                        <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFF' }}>{label.toUpperCase()}</Text>
+                                        <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFF' }}>{label}</Text>
                                     </View>
 
                                     <ScrollView style={{ padding: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                                         {/* Title Input */}
                                         <View style={{ marginBottom: 20 }}>
-                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>TITLE</Text>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>{t('profile.title')}</Text>
                                             <TextInput
                                                 style={{ fontSize: 18, fontWeight: '600', color: '#0F172A', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' }}
-                                                placeholder="Goal title"
+                                                placeholder={t('profile.goalTitle')}
                                                 placeholderTextColor="#94A3B8"
                                                 value={editGoalTitle}
                                                 onChangeText={setEditGoalTitle}
@@ -1568,10 +1609,10 @@ export default function ProfileScreen() {
 
                                         {/* Conditions for Success Input */}
                                         <View style={{ marginBottom: 24 }}>
-                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>CONDITIONS FOR SUCCESS</Text>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 8 }}>{t('profile.victoryConditions')}</Text>
                                             <TextInput
                                                 style={{ fontSize: 15, fontWeight: '500', color: '#334155', backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', minHeight: 80 }}
-                                                placeholder="Define exactly what victory looks like..."
+                                                placeholder={t('profile.victoryDescription')}
                                                 placeholderTextColor="#94A3B8"
                                                 value={editGoalNote}
                                                 onChangeText={setEditGoalNote}
@@ -1581,18 +1622,18 @@ export default function ProfileScreen() {
 
                                         {/* Category Selection */}
                                         <View style={{ marginBottom: 24 }}>
-                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>TYPE</Text>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>{t('profile.type')}</Text>
                                             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                                                 {([['traits', 'Traits'], ['habits', 'Habits'], ['environment', 'Environment'], ['outcomes', 'Outcomes']] as const).map(([key, lbl]) => (
                                                     <TouchableOpacity
                                                         key={key}
                                                         onPress={() => setSelectedCategory(key)}
-                                                        style={{ 
-                                                            paddingHorizontal: 16, 
-                                                            paddingVertical: 10, 
-                                                            borderRadius: 14, 
-                                                            backgroundColor: selectedCategory === key ? accentColor : '#F1F5F9', 
-                                                            borderWidth: 1, 
+                                                        style={{
+                                                            paddingHorizontal: 16,
+                                                            paddingVertical: 10,
+                                                            borderRadius: 14,
+                                                            backgroundColor: selectedCategory === key ? accentColor : '#F1F5F9',
+                                                            borderWidth: 1,
                                                             borderColor: selectedCategory === key ? accentColor : '#E2E8F0',
                                                         }}
                                                     >
@@ -1604,20 +1645,20 @@ export default function ProfileScreen() {
 
                                         {/* Deadline Section */}
                                         <View style={{ marginBottom: 32 }}>
-                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>DEADLINE</Text>
+                                            <Text style={{ fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1, marginBottom: 12 }}>{t('profile.deadline')}</Text>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                                 <TouchableOpacity
                                                     onPress={() => setShowCalendar(v => !v)}
-                                                    style={{ 
+                                                    style={{
                                                         flex: 1,
-                                                        flexDirection: 'row', 
-                                                        alignItems: 'center', 
-                                                        gap: 10, 
-                                                        padding: 14, 
-                                                        borderRadius: 16, 
-                                                        backgroundColor: quickAddDeadline ? '#EFF6FF' : '#F1F5F9', 
-                                                        borderWidth: 1.5, 
-                                                        borderColor: quickAddDeadline ? '#3B82F6' : '#E2E8F0' 
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        gap: 10,
+                                                        padding: 14,
+                                                        borderRadius: 16,
+                                                        backgroundColor: quickAddDeadline ? '#EFF6FF' : '#F1F5F9',
+                                                        borderWidth: 1.5,
+                                                        borderColor: quickAddDeadline ? '#3B82F6' : '#E2E8F0'
                                                     }}
                                                 >
                                                     <Ionicons name="calendar-outline" size={20} color={quickAddDeadline ? '#3B82F6' : '#94A3B8'} />
@@ -1634,7 +1675,7 @@ export default function ProfileScreen() {
                                                 )}
 
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', paddingHorizontal: 4 }}>
-                                                    <TouchableOpacity 
+                                                    <TouchableOpacity
                                                         onPress={() => shiftDays(-1)}
                                                         style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
                                                     >
@@ -1643,13 +1684,13 @@ export default function ProfileScreen() {
                                                     <View style={{ paddingHorizontal: 8, minWidth: 60, alignItems: 'center' }}>
                                                         <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A' }}>
                                                             {(() => {
-                                                                if (!quickAddDeadline) return "0 days";
-                                                                const diff = Math.round((quickAddDeadline.getTime() - new Date().setHours(0,0,0,0)) / 86400000);
-                                                                return `${diff} days`;
+                                                                if (!quickAddDeadline) return t('profile.daysCount', { count: 0 });
+                                                                const diff = Math.round((quickAddDeadline.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000);
+                                                                return t('profile.daysCount', { count: diff });
                                                             })()}
                                                         </Text>
                                                     </View>
-                                                    <TouchableOpacity 
+                                                    <TouchableOpacity
                                                         onPress={() => shiftDays(1)}
                                                         style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
                                                     >
@@ -1664,28 +1705,28 @@ export default function ProfileScreen() {
                                                         <TouchableOpacity onPress={() => { const d = new Date(calYear, calMonth - 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }}>
                                                             <Ionicons name="chevron-back" size={20} color="#0F172A" />
                                                         </TouchableOpacity>
-                                                        <Text style={{ fontWeight: '800', fontSize: 16, color: '#0F172A' }}>{MONTHS[calMonth]} {calYear}</Text>
+                                                        <Text style={{ fontWeight: '800', fontSize: 16, color: '#0F172A' }}>{t(`common.months.${calMonth}`)} {calYear}</Text>
                                                         <TouchableOpacity onPress={() => { const d = new Date(calYear, calMonth + 1, 1); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }}>
                                                             <Ionicons name="chevron-forward" size={20} color="#0F172A" />
                                                         </TouchableOpacity>
                                                     </View>
                                                     <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                                                         {calCells.map((day, idx) => {
-                                                            if (!day) return <View key={`e${idx}`} style={{ width: `${100/7}%`, aspectRatio: 1 }} />;
+                                                            if (!day) return <View key={`e${idx}`} style={{ width: `${100 / 7}%`, aspectRatio: 1 }} />;
                                                             const cellDate = new Date(calYear, calMonth, day);
                                                             const isSelected = quickAddDeadline ? cellDate.toDateString() === quickAddDeadline.toDateString() : false;
                                                             return (
                                                                 <TouchableOpacity
                                                                     key={day}
-                                                                    onPress={() => { cellDate.setHours(12,0,0,0); setQuickAddDeadline(cellDate); setShowCalendar(false); }}
-                                                                    style={{ width: `${100/7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}
+                                                                    onPress={() => { cellDate.setHours(12, 0, 0, 0); setQuickAddDeadline(cellDate); setShowCalendar(false); }}
+                                                                    style={{ width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' }}
                                                                 >
-                                                                    <View style={{ 
-                                                                        width: 38, 
-                                                                        height: 38, 
-                                                                        borderRadius: 19, 
-                                                                        backgroundColor: isSelected ? accentColor : 'transparent', 
-                                                                        alignItems: 'center', 
+                                                                    <View style={{
+                                                                        width: 38,
+                                                                        height: 38,
+                                                                        borderRadius: 19,
+                                                                        backgroundColor: isSelected ? accentColor : 'transparent',
+                                                                        alignItems: 'center',
                                                                         justifyContent: 'center',
                                                                     }}>
                                                                         <Text style={{ fontSize: 14, fontWeight: isSelected ? '800' : '600', color: isSelected ? '#FFF' : '#0F172A' }}>{day}</Text>
@@ -1699,7 +1740,7 @@ export default function ProfileScreen() {
                                         </View>
 
                                         {/* Danger Zone */}
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             onPress={() => {
                                                 const list = editingGoal.listType === 'goals' ? profile.goals : profile.antigoals;
                                                 const filtered = (list || []).filter((g: any) => g.id !== editingGoal.item.id);
@@ -1709,26 +1750,26 @@ export default function ProfileScreen() {
                                             style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, marginBottom: 20 }}
                                         >
                                             <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#EF4444' }}>Delete {label}</Text>
+                                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#EF4444' }}>{t('profile.deleteLabel', { label })}</Text>
                                         </TouchableOpacity>
                                     </ScrollView>
 
                                     {/* Action Footer */}
                                     <View style={{ flexDirection: 'row', padding: 20, gap: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             onPress={() => setEditingGoal(null)}
                                             style={{ flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 16, backgroundColor: '#F1F5F9' }}
                                         >
-                                            <Text style={{ fontSize: 15, fontWeight: '700', color: '#64748B' }}>CANCEL</Text>
+                                            <Text style={{ fontSize: 15, fontWeight: '700', color: '#64748B' }}>{t('profile.cancel')}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity
                                             onPress={saveGoalEdit}
                                             disabled={!canSave}
-                                            style={{ 
-                                                flex: 2, 
-                                                paddingVertical: 14, 
-                                                alignItems: 'center', 
-                                                borderRadius: 16, 
+                                            style={{
+                                                flex: 2,
+                                                paddingVertical: 14,
+                                                alignItems: 'center',
+                                                borderRadius: 16,
                                                 backgroundColor: canSave ? accentColor : '#F1F5F9',
                                                 shadowColor: canSave ? accentColor : 'transparent',
                                                 shadowOffset: { width: 0, height: 6 },
@@ -1736,7 +1777,7 @@ export default function ProfileScreen() {
                                                 shadowRadius: 10,
                                             }}
                                         >
-                                            <Text style={{ fontSize: 15, fontWeight: '800', color: canSave ? '#FFF' : '#94A3B8' }}>SAVE CHANGES</Text>
+                                            <Text style={{ fontSize: 15, fontWeight: '800', color: canSave ? '#FFF' : '#94A3B8' }}>{t('profile.saveChanges')}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -1746,19 +1787,19 @@ export default function ProfileScreen() {
                 })()}
 
                 {/* GOAL COMPLETION NOTE MODAL */}
-                <Modal 
-                    visible={isNoteModalVisible} 
-                    transparent 
-                    animationType="fade" 
+                <Modal
+                    visible={isNoteModalVisible}
+                    transparent
+                    animationType="fade"
                     onRequestClose={() => setIsNoteModalVisible(false)}
                 >
-                    <KeyboardAvoidingView 
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-                        style={{ flex: 1 }}
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={{ flex: 1, justifyContent: 'flex-end' }}
                     >
-                        <TouchableOpacity 
-                            style={styles.quickAddBackdrop} 
-                            activeOpacity={1} 
+                        <TouchableOpacity
+                            style={styles.quickAddBackdrop}
+                            activeOpacity={1}
                             onPress={() => {
                                 setIsNoteModalVisible(false);
                                 setPendingGoalAction(null);
@@ -1767,7 +1808,7 @@ export default function ProfileScreen() {
                         <View style={styles.premiumNoteTray}>
                             <View style={styles.noteTrayHandle} />
                             <Text style={styles.noteTrayHeader}>{t('profile.congratsReflections')}</Text>
-                            
+
                             <View style={styles.noteInputWrapper}>
                                 <TextInput
                                     style={styles.premiumNoteInput}
@@ -1778,7 +1819,7 @@ export default function ProfileScreen() {
                                     autoFocus
                                     multiline
                                 />
-                                
+
                                 <TouchableOpacity
                                     onPress={() => {
                                         if (pendingGoalAction) {
@@ -1876,7 +1917,7 @@ const styles = StyleSheet.create({
 
     bannerWrapper: {
         marginHorizontal: 16,
-        borderRadius: 16,
+        borderRadius: 24,
         overflow: 'hidden',
     },
 
@@ -1909,7 +1950,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     avatarImage: { width: 100, height: 100, borderRadius: 16 },
-    avatarPlaceholder: { width: 100, height: 100, borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#000000' },
+    avatarPlaceholder: { width: 100, height: 100, borderRadius: 16, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#E2E8F0' },
     avatarEditOverlay: {
         position: 'absolute',
         top: 0, left: 0, right: 0, bottom: 0,
@@ -1934,6 +1975,17 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     handleText: { fontSize: 15, color: '#64748B', marginLeft: 2 },
+    longestGoalBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FEF9EF',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        marginTop: 6,
+        gap: 4,
+    },
+    longestGoalText: { fontSize: 12, color: '#92742B', fontWeight: '500' },
 
     // Bio Styling
     bioContainer: {
@@ -2066,22 +2118,21 @@ const styles = StyleSheet.create({
 
     // Timeline Hero Block
     timelineHeroBlock: {
-        backgroundColor: '#1E293B',
         borderRadius: 24,
-        padding: 28,
-        marginHorizontal: 8,
+        padding: 24,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
+        marginHorizontal: 16,
+        aspectRatio: 16 / 6,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.2,
         shadowRadius: 15,
         elevation: 8,
-        minHeight: 180,
     },
     heroContentInner: {
         flex: 1,
@@ -2102,10 +2153,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     timelineHeroTag: {
-        fontSize: 10,
-        fontWeight: '900',
-        color: '#94A3B8',
-        letterSpacing: 1.5,
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        letterSpacing: 0.5,
     },
     timelineHeroTitle: {
         fontSize: 22,
@@ -2122,16 +2173,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
         alignSelf: 'flex-start',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        marginTop: 8,
     },
     timelineInsightText: {
         fontSize: 13,
-        color: 'rgba(255,255,255,0.8)',
-        fontWeight: '600',
+        color: '#FFFFFF',
+        fontWeight: '700',
     },
     timelineHeroArrow: {
         width: 40,
@@ -2385,6 +2437,10 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#94A3B8',
     },
+    timelineSubText: {
+        fontSize: 12,
+        color: '#64748B',
+    },
 
     viewAllFooter: {
         flexDirection: 'row',
@@ -2490,6 +2546,11 @@ const styles = StyleSheet.create({
     completedSprintDuration: { fontSize: 14, fontWeight: '700', color: '#3B82F6' },
     sprintLogNote: { fontSize: 13, color: '#94A3B8', marginTop: 2, fontStyle: 'italic' },
     reflectionCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginTop: 8, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+    sectionHeader: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#0F172A',
+    },
     reflectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
     reflectionTitle: { fontSize: 16, fontWeight: 'bold', fontFamily: 'Georgia', color: '#64748B' },
     moodPillSmall: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 16, gap: 6 },

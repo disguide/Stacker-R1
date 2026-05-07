@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { ColorDefinition, StorageService } from '../src/services/storage';
 
 // Enable LayoutAnimation on Android
@@ -48,6 +49,7 @@ const PRESET_COLORS = [
 ];
 
 export default function ColorSettingsScreen() {
+    const { t } = useTranslation();
     const router = useRouter();
     const [colors, setColors] = useState<ColorDefinition[]>([]);
     const [newColorHex, setNewColorHex] = useState('');
@@ -90,7 +92,7 @@ export default function ColorSettingsScreen() {
         if (!newColorHex) return;
         let hex = newColorHex.startsWith('#') ? newColorHex : `#${newColorHex}`;
         if (!/^#[0-9A-F]{6}$/i.test(hex)) {
-            Alert.alert('Invalid Color', 'Please enter a valid Hex code (e.g., #FF5500)');
+            Alert.alert(t('colors.invalidColor'), t('colors.invalidHexMsg'));
             return;
         }
         const newColor: ColorDefinition = {
@@ -119,12 +121,12 @@ export default function ColorSettingsScreen() {
 
     const handleDelete = (id: string) => {
         Alert.alert(
-            'Delete Color Meaning?',
-            'Are you sure you want to permanently remove this color meaning and all of its auto-detect keywords? This action cannot be undone.',
+            t('colors.deleteTitle'),
+            t('colors.deleteConfirmMsg'),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: t('common.delete'),
                     style: 'destructive',
                     onPress: () => {
                         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -159,11 +161,11 @@ export default function ColorSettingsScreen() {
         if (conflictColor) {
             const conflictLabel = conflictColor.label || conflictColor.color;
             Alert.alert(
-                'Keyword Conflict',
-                `"${kw}" is already assigned to ${conflictLabel}.\n\nIf both colors have this keyword, the one that appears first in your task title will win.`,
+                t('colors.keywordConflict'),
+                t('colors.keywordConflictMsg', { keyword: kw, label: conflictLabel }),
                 [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Add Anyway', onPress: doAdd },
+                    { text: t('common.cancel'), style: 'cancel' },
+                    { text: t('colors.addAnyway'), onPress: doAdd },
                 ]
             );
         } else {
@@ -173,12 +175,12 @@ export default function ColorSettingsScreen() {
 
     const handleRemoveKeyword = (colorId: string, kw: string) => {
         Alert.alert(
-            'Remove Keyword',
-            `Are you sure you want to remove the auto-detect keyword "${kw}"?`,
+            t('colors.removeKeyword'),
+            t('colors.removeKeywordMsg', { keyword: kw }),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Remove',
+                    text: t('common.remove'),
                     style: 'destructive',
                     onPress: () => {
                         const newColors = colors.map(c => {
@@ -194,10 +196,10 @@ export default function ColorSettingsScreen() {
     };
 
     const handleReset = () => {
-        Alert.alert('Reset Colors', 'Revert all color settings to default entries?', [
-            { text: 'Cancel', style: 'cancel' },
+        Alert.alert(t('colors.resetColors'), t('colors.resetColorsMsg'), [
+            { text: t('common.cancel'), style: 'cancel' },
             {
-                text: 'Reset',
+                text: t('common.reset'),
                 style: 'destructive',
                 onPress: () => {
                     const defaults = StorageService.getDefaultUserColors();
@@ -213,9 +215,9 @@ export default function ColorSettingsScreen() {
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerBtnPlaceholder}>
-                    <Text style={styles.headerBtnText}>Back</Text>
+                    <Text style={styles.headerBtnText}>{t('common.back')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.title}>Color Settings</Text>
+                <Text style={styles.title}>{t('colors.title')}</Text>
                 <View style={styles.headerDoneBtn} /> 
             </View>
 
@@ -235,7 +237,7 @@ export default function ColorSettingsScreen() {
                 >
 
                     {/* Colors Block */}
-                    <Text style={styles.sectionTitle}>PALETTE & LABELS</Text>
+                    <Text style={styles.sectionTitle}>{t('colors.paletteAndLabels')}</Text>
                     
                     <ReorderablePaletteList
                         colors={colors}
@@ -256,7 +258,7 @@ export default function ColorSettingsScreen() {
                     <View style={[styles.cardGroup, { paddingVertical: isAdding ? 16 : 0 }]}>
                         {isAdding ? (
                             <View style={{ paddingHorizontal: 16 }}>
-                                <Text style={styles.keywordsLabel}>Choose a preset color:</Text>
+                                <Text style={styles.keywordsLabel}>{t('colors.choosePreset')}</Text>
                                 <View style={styles.presetGrid}>
                                     {PRESET_COLORS.map(color => (
                                         <TouchableOpacity 
@@ -267,12 +269,12 @@ export default function ColorSettingsScreen() {
                                     ))}
                                 </View>
                                 
-                                <Text style={[styles.keywordsLabel, { marginTop: 16 }]}>Or enter custom hex code:</Text>
+                                <Text style={styles.keywordsLabel}>{t('colors.enterCustomHex')}</Text>
                                 <View style={[styles.addRow, { paddingHorizontal: 0 }]}>
                                     <Text style={styles.hash}>#</Text>
                                     <TextInput
                                         style={styles.hexInput}
-                                        placeholder="FF00CC"
+                                        placeholder={t('colors.hexPlaceholder')}
                                         value={newColorHex}
                                         onChangeText={setNewColorHex}
                                         maxLength={6}
@@ -280,18 +282,18 @@ export default function ColorSettingsScreen() {
                                         placeholderTextColor="#C7C7CC"
                                     />
                                     <TouchableOpacity onPress={handleAddColor} style={styles.addSaveBtn}>
-                                        <Text style={styles.addSaveBtnText}>Save</Text>
+                                        <Text style={styles.addSaveBtnText}>{t('common.save')}</Text>
                                     </TouchableOpacity>
                                 </View>
                                 
                                 <TouchableOpacity onPress={() => setIsAdding(false)} style={{ alignItems: 'center', marginTop: 12 }}>
-                                    <Text style={styles.addCancelBtnText}>Cancel</Text>
+                                    <Text style={styles.addCancelBtnText}>{t('common.cancel')}</Text>
                                 </TouchableOpacity>
                             </View>
                         ) : (
                             <TouchableOpacity onPress={() => { setIsAdding(true); }} style={styles.addTriggerProminent}>
                                 <Ionicons name="add-circle" size={22} color={IOS_THEME.blue} style={{ marginRight: 8 }} />
-                                <Text style={styles.addTriggerTextProminent}>Add New Color</Text>
+                                <Text style={styles.addTriggerTextProminent}>{t('colors.addNewColor')}</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -300,7 +302,7 @@ export default function ColorSettingsScreen() {
 
                     <TouchableOpacity onPress={handleReset} style={[styles.cardGroup, { marginBottom: 60 }]}>
                         <View style={styles.resetTrigger}>
-                            <Text style={styles.resetTriggerText}>Reset All to Defaults</Text>
+                            <Text style={styles.resetTriggerText}>{t('colors.resetDefaults')}</Text>
                         </View>
                     </TouchableOpacity>
 
@@ -517,6 +519,7 @@ const DraggablePaletteRow = React.memo(function DraggablePaletteRow({
     item, index, isActive, baseTranslateY, scrollOffset, onLayout, onDragStart, onDragMove, onDragEnd,
     handleLabelChange, handleLabelBlur, handleDelete, pendingKeyword, setPendingKeyword, handleAddKeyword, handleRemoveKeyword
 }: any) {
+    const { t } = useTranslation();
     const pan = useRef(new Animated.ValueXY()).current;
     const initialY = useRef(0);
 
@@ -581,7 +584,7 @@ const DraggablePaletteRow = React.memo(function DraggablePaletteRow({
                 
                 <TextInput
                     style={styles.labelInput}
-                    placeholder="Label (e.g. Work, Health)"
+                    placeholder={t('colors.labelPlaceholder')}
                     value={item.label}
                     onChangeText={(text) => handleLabelChange(item.id, text)}
                     onBlur={handleLabelBlur}
@@ -601,7 +604,7 @@ const DraggablePaletteRow = React.memo(function DraggablePaletteRow({
 
             {/* Keywords Editor Segment */}
             <View style={styles.keywordsSection}>
-                <Text style={styles.keywordsLabel}>Auto-detect words:</Text>
+                <Text style={styles.keywordsLabel}>{t('colors.autoDetectWords')}</Text>
                 
                 <View style={styles.kwChips}>
                     {(item.keywords || []).map((kw: string) => (
@@ -617,7 +620,7 @@ const DraggablePaletteRow = React.memo(function DraggablePaletteRow({
                 <View style={styles.kwInputContainer}>
                     <TextInput
                         style={styles.kwInput}
-                        placeholder="Type word and press return..."
+                        placeholder={t('colors.keywordPlaceholder')}
                         placeholderTextColor="#C7C7CC"
                         value={pendingKeyword[item.id] || ''}
                         onChangeText={(text) => setPendingKeyword((prev: any) => ({ ...prev, [item.id]: text }))}
@@ -631,7 +634,7 @@ const DraggablePaletteRow = React.memo(function DraggablePaletteRow({
                         style={[styles.kwAddBtn, { opacity: (pendingKeyword[item.id] || '').trim() ? 1 : 0.5 }]}
                         disabled={!(pendingKeyword[item.id] || '').trim()}
                     >
-                        <Text style={styles.kwAddBtnText}>Add</Text>
+                        <Text style={styles.kwAddBtnText}>{t('common.add')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>

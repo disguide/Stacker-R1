@@ -11,7 +11,7 @@ import { flushSync } from '../src/services/SyncService';
 
 const SettingsGroup = ({ title, children }: { title?: string, children: React.ReactNode }) => (
     <View style={styles.groupContainer}>
-        {title && <Text style={styles.groupTitle}>{title.toUpperCase()}</Text>}
+        {title && <Text style={styles.groupTitle}>{title}</Text>}
         <View style={styles.groupBlock}>
             {children}
         </View>
@@ -52,21 +52,21 @@ export default function AccountScreen() {
 
     const handleDeleteAccount = () => {
         Alert.alert(
-            "Delete Account?",
-            "This will permanently delete your account. This action cannot be undone.",
+            t('account.deleteAccount'),
+            t('account.deleteAccountMsg'),
             [
                 { text: t('account.cancel'), style: "cancel" },
                 { 
-                    text: "Delete", 
+                    text: t('common.delete'), 
                     style: "destructive",
                     onPress: () => {
                         Alert.alert(
-                            "Final Warning",
-                            "Are you absolutely sure you want to delete your cloud account?",
+                            t('account.finalWarning'),
+                            t('account.finalWarningMsg'),
                             [
                                 { text: t('account.cancel'), style: "cancel" },
                                 { 
-                                    text: "Yes, Delete It", 
+                                    text: t('account.yesDeleteIt'), 
                                     style: "destructive",
                                     onPress: async () => {
                                         setIsSyncing(true);
@@ -91,12 +91,12 @@ export default function AccountScreen() {
 
     const handleResetEverything = async () => {
         Alert.alert(
-            "RESET EVERYTHING?",
-            "This will delete ALL goals, anti-goals, sprint history, and statistics. This cannot be undone.",
+            t('account.resetEverything'),
+            t('account.resetEverythingMsg'),
             [
                 { text: t('account.cancel'), style: "cancel" },
                 { 
-                    text: "RESET ALL DATA", 
+                    text: t('account.resetAllData'), 
                     style: "destructive", 
                     onPress: async () => {
                         await StorageService.clearAllData();
@@ -169,7 +169,7 @@ export default function AccountScreen() {
                                     <Text style={{ fontSize: 24 }}>👤</Text>
                                 </View>
                                 <View style={styles.accountInfo}>
-                                    <Text style={styles.accountName}>{user ? (user.email?.split('@')[0] || 'User') : 'Guest'}</Text>
+                                    <Text style={styles.accountName}>{user ? (user.email?.split('@')[0] || t('account.user')) : t('account.guest')}</Text>
                                     <Text style={styles.accountStatus}>{user ? t('account.signedIn') : t('account.unregisteredAccount')}</Text>
                                 </View>
                             </View>
@@ -182,35 +182,44 @@ export default function AccountScreen() {
                                     >
                                         <Text style={[styles.authText, { color: '#FFF' }]}>{t('account.signInCreate')}</Text>
                                     </TouchableOpacity>
-                                    <Text style={styles.authDisclaimer}>Sign in to sync your goals, sprints, and history across all your devices.</Text>
+                                    <Text style={styles.authDisclaimer}>{t('account.authDisclaimer')}</Text>
                                 </View>
                             ) : (
                                 <View style={styles.authForm}>
                                     <Text style={styles.authEmailText}>{user.email}</Text>
-                                    <View style={[styles.authButtons, { flexDirection: 'row', marginTop: 12 }]}>
+                                    <View style={styles.authButtons}>
+                                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                                            <TouchableOpacity 
+                                                style={[styles.authButton, { backgroundColor: '#E2E8F0', flex: 1, opacity: isSyncing ? 0.5 : 1 }]} 
+                                                disabled={isSyncing}
+                                                onPress={async () => {
+                                                    setIsSyncing(true);
+                                                    try {
+                                                        await flushSync();
+                                                    } catch (e) {
+                                                        console.warn('[Account] Pre-switch sync failed:', e);
+                                                    }
+                                                    await supabase.auth.signOut();
+                                                    setIsSyncing(false);
+                                                    router.push('/auth');
+                                                }}
+                                            >
+                                                <Text style={[styles.authText, { color: '#333' }]}>{isSyncing ? t('account.saving') : t('account.switch')}</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity 
+                                                style={[styles.authButton, { backgroundColor: '#F3F4F6', flex: 1, opacity: isSyncing ? 0.5 : 1 }]} 
+                                                disabled={isSyncing}
+                                                onPress={handleSignOut}
+                                            >
+                                                <Text style={[styles.authText, { color: '#4B5563' }]}>{isSyncing ? t('account.syncing') : t('account.signOut')}</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                        
                                         <TouchableOpacity 
-                                            style={[styles.authButton, { backgroundColor: '#E2E8F0', flex: 1, opacity: isSyncing ? 0.5 : 1 }]} 
-                                            disabled={isSyncing}
-                                            onPress={async () => {
-                                                setIsSyncing(true);
-                                                try {
-                                                    await flushSync();
-                                                } catch (e) {
-                                                    console.warn('[Account] Pre-switch sync failed:', e);
-                                                }
-                                                await supabase.auth.signOut();
-                                                setIsSyncing(false);
-                                                router.push('/auth');
-                                            }}
+                                            style={[styles.authButton, { backgroundColor: '#FEE2E2', marginTop: 10 }]} 
+                                            onPress={handleDeleteAccount}
                                         >
-                                            <Text style={[styles.authText, { color: '#333' }]}>{isSyncing ? 'Saving...' : t('account.switch')}</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={[styles.authButton, { backgroundColor: '#EF4444', flex: 1, opacity: isSyncing ? 0.5 : 1 }]} 
-                                            disabled={isSyncing}
-                                            onPress={handleSignOut}
-                                        >
-                                            <Text style={[styles.authText, { color: '#FFF' }]}>{isSyncing ? 'Syncing...' : t('account.signOut')}</Text>
+                                            <Text style={[styles.authText, { color: '#EF4444' }]}>{t('account.deleteCloudAccount')}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -220,13 +229,13 @@ export default function AccountScreen() {
 
                     {/* ACCOUNT SECURITY */}
                     {user && (
-                        <SettingsGroup title="Account Security">
+                        <SettingsGroup title={t('account.accountSecurity')}>
                             <View style={styles.securityItem}>
                                 <Text style={styles.securityLabel}>{t('account.changePassword')}</Text>
                                 <View style={styles.securityInputRow}>
                                     <TextInput 
                                         style={styles.securityInput} 
-                                        placeholder="New Password" 
+                                        placeholder={t('account.newPassword')} 
                                         secureTextEntry 
                                         value={newPassword}
                                         onChangeText={setNewPassword}
@@ -236,7 +245,7 @@ export default function AccountScreen() {
                                         onPress={handleUpdatePassword}
                                         disabled={isSecurityLoading}
                                     >
-                                        <Text style={styles.securityButtonText}>Update</Text>
+                                        <Text style={styles.securityButtonText}>{t('common.update')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -248,7 +257,7 @@ export default function AccountScreen() {
                                 <View style={styles.securityInputRow}>
                                     <TextInput 
                                         style={styles.securityInput} 
-                                        placeholder="New Email Address" 
+                                        placeholder={t('account.newEmail')} 
                                         keyboardType="email-address"
                                         autoCapitalize="none"
                                         value={newEmail}
@@ -259,28 +268,19 @@ export default function AccountScreen() {
                                         onPress={handleUpdateEmail}
                                         disabled={isSecurityLoading}
                                     >
-                                        <Text style={styles.securityButtonText}>Update</Text>
+                                        <Text style={styles.securityButtonText}>{t('common.update')}</Text>
                                     </TouchableOpacity>
                                 </View>
-                                <Text style={styles.securityNote}>Requires verification link sent to your new email.</Text>
+                                <Text style={styles.securityNote}>{t('account.emailVerificationNote')}</Text>
                             </View>
                         </SettingsGroup>
                     )}
                     
                     {/* DANGER ZONE */}
-                    <SettingsGroup>
+                    <SettingsGroup title={t('account.dangerZone')}>
                         <TouchableOpacity style={styles.dangerRow} onPress={handleResetEverything}>
-                            <Text style={styles.dangerText}>Delete All Local Data & Statistics</Text>
+                            <Text style={styles.dangerText}>{t('account.deleteAllLocalData')}</Text>
                         </TouchableOpacity>
-                        
-                        {user && (
-                            <>
-                                <View style={[styles.divider, { marginLeft: 0 }]} />
-                                <TouchableOpacity style={styles.dangerRow} onPress={handleDeleteAccount}>
-                                    <Text style={styles.dangerText}>{t('account.deleteCloudAccount')}</Text>
-                                </TouchableOpacity>
-                            </>
-                        )}
                     </SettingsGroup>
 
                 </ScrollView>
@@ -341,6 +341,7 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         marginLeft: 16,
         marginBottom: 6,
+        textTransform: 'uppercase',
     },
     groupBlock: {
         backgroundColor: '#FFF',

@@ -4,6 +4,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { THEME } from '../constants';
 import { ActionBar } from '../common/ActionBar';
 import { ColorDefinition } from '../../../services/storage';
+import { useTranslation } from 'react-i18next';
 
 const parseDuration = (durationStr?: string | null): number => {
     if (!durationStr) return 0;
@@ -13,15 +14,6 @@ const parseDuration = (durationStr?: string | null): number => {
     if (hoursMatch) totalMinutes += parseInt(hoursMatch[1]) * 60;
     if (minutesMatch) totalMinutes += parseInt(minutesMatch[1]);
     return totalMinutes > 0 ? totalMinutes : 0;
-};
-
-const formatDuration = (minutes: number): string => {
-    if (minutes === 0) return '';
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h > 0 && m > 0) return `${h}h ${m}m`;
-    if (h > 0) return `${h}h`;
-    return `${m}m`;
 };
 
 export const PropertiesPage = React.memo(function PropertiesPage({ width, color, taskType, importance, estimatedTime, onColorChange, onTypeChange, onImportanceChange, onEstimateChange,
@@ -42,15 +34,36 @@ export const PropertiesPage = React.memo(function PropertiesPage({ width, color,
     onRequestColorSettings?: () => void;
     onClose: () => void;
 }) {
+    const { t } = useTranslation();
     // Auto-Save Mode: No local state needed.
     // We use the props directly to drive value, and callbacks update parent immediately.
-    
+
     // Except for Estimate, which uses accumulator state
     const [currentMinutes, setCurrentMinutes] = useState(0);
 
     useEffect(() => {
         setCurrentMinutes(parseDuration(estimatedTime));
     }, [estimatedTime]);
+
+    const formatDuration = (minutes: number): string => {
+        if (minutes === 0) return '';
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        if (h > 0 && m > 0) return `${h}h ${m}m`;
+        if (h > 0) return `${h}h`;
+        return `${m}m`;
+    };
+
+    const formatDurationLocalized = (minutes: number): string => {
+        if (minutes === 0) return '0m';
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        const hUnit = t('editor.unit_h', { defaultValue: 'h' });
+        const mUnit = t('editor.unit_m', { defaultValue: 'm' });
+        if (h > 0 && m > 0) return `${h}${hUnit} ${m}${mUnit}`;
+        if (h > 0) return `${h}${hUnit}`;
+        return `${m}${mUnit}`;
+    };
 
     const addMinutes = (amount: number) => {
         const newVal = currentMinutes + amount;
@@ -80,16 +93,16 @@ export const PropertiesPage = React.memo(function PropertiesPage({ width, color,
 
     return (
         <View style={{ width, flex: 1 }}>
-            <ScrollView 
-                keyboardShouldPersistTaps="always" 
-                contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 20 }} 
-                showsVerticalScrollIndicator={false} 
+            <ScrollView
+                keyboardShouldPersistTaps="always"
+                contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 20 }}
+                showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
             >
                 {/* Type Selection Removed per user request */}
 
                 {/* Importance Selection */}
-                <Text style={p.sectionLabel}>Importance</Text>
+                <Text style={p.sectionLabel}>{t('editor.importance')}</Text>
                 <View style={p.importanceRow}>
                     {[0, 1, 2, 3].map(lvl => (
                         <TouchableOpacity
@@ -107,7 +120,7 @@ export const PropertiesPage = React.memo(function PropertiesPage({ width, color,
                                     p.importanceText,
                                     importance === lvl && p.importanceTextActive,
                                 ]}>
-                                    None
+                                    {t('editor.importanceNone')}
                                 </Text>
                             ) : (
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -128,7 +141,7 @@ export const PropertiesPage = React.memo(function PropertiesPage({ width, color,
 
                 {/* Color Selection */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 10 }}>
-                    <Text style={[p.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>Color</Text>
+                    <Text style={[p.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>{t('editor.color')}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         {color && safeUserColors.find(c => c.color === color)?.label && (
                             <Text style={{ fontSize: 14, color: color, fontWeight: 'bold' }}>
@@ -152,7 +165,7 @@ export const PropertiesPage = React.memo(function PropertiesPage({ width, color,
                             >
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                     <MaterialCommunityIcons name="cog" size={18} color={THEME.textPrimary} />
-                                    <Text style={{ fontSize: 12, fontWeight: '600', color: THEME.textPrimary }}>Edit</Text>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: THEME.textPrimary }}>{t('common.edit')}</Text>
                                 </View>
                             </TouchableOpacity>
                         )}
@@ -189,19 +202,19 @@ export const PropertiesPage = React.memo(function PropertiesPage({ width, color,
                 </View>
 
                 {/* Estimated Time Selection */}
-                <Text style={[p.sectionLabel, { marginTop: 24 }]}>Estimated Time</Text>
-                
+                <Text style={[p.sectionLabel, { marginTop: 24 }]}>{t('editor.estimatedTime')}</Text>
+
                 {/* Display */}
                 <View style={[p.durationDisplay, { marginBottom: 16 }]}>
                     <Text style={p.durationText}>
-                        {currentMinutes > 0 ? formatDuration(currentMinutes) : '0m'}
+                        {formatDurationLocalized(currentMinutes)}
                     </Text>
-                    
+
                     {currentMinutes > 0 && (
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             activeOpacity={0.7}
                             delayPressIn={0}
-                            style={p.durationResetBtn} 
+                            style={p.durationResetBtn}
                             onPress={() => {
                                 setCurrentMinutes(0);
                                 onEstimateChange(null);
@@ -216,11 +229,11 @@ export const PropertiesPage = React.memo(function PropertiesPage({ width, color,
                 {/* Accumulator Buttons */}
                 <View style={p.durationGrid}>
                     {[
-                        { label: '+1m', amount: 1 },
-                        { label: '+5m', amount: 5 },
-                        { label: '+15m', amount: 15 },
-                        { label: '+30m', amount: 30 },
-                        { label: '+1h', amount: 60 },
+                        { label: `+1${t('editor.unit_m', { defaultValue: 'm' })}`, amount: 1 },
+                        { label: `+5${t('editor.unit_m', { defaultValue: 'm' })}`, amount: 5 },
+                        { label: `+15${t('editor.unit_m', { defaultValue: 'm' })}`, amount: 15 },
+                        { label: `+30${t('editor.unit_m', { defaultValue: 'm' })}`, amount: 30 },
+                        { label: `+1${t('editor.unit_h', { defaultValue: 'h' })}`, amount: 60 },
                     ].map(btn => (
                         <TouchableOpacity
                             key={btn.label}

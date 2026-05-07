@@ -5,6 +5,7 @@ import { Task } from '../features/tasks/types';
 import { THEME } from '../constants/theme';
 import { formatDeadline, toISODateString } from '../utils/dateHelpers';
 import ReminderModal from './ReminderModal';
+import { useTranslation } from 'react-i18next';
 
 interface RemindersManagerModalProps {
     visible: boolean;
@@ -13,14 +14,14 @@ interface RemindersManagerModalProps {
     onToggleReminder: (taskId: string, enabled: boolean, time?: string, date?: string, offset?: number) => void;
 }
 
-const ReminderRow = ({ task, onEdit, onDelete, onToggle }: { task: Task, onEdit: () => void, onDelete: () => void, onToggle: (val: boolean) => void }) => {
+const ReminderRow = ({ task, onEdit, onDelete, onToggle, t }: { task: Task, onEdit: () => void, onDelete: () => void, onToggle: (val: boolean) => void, t: any }) => {
     return (
         <TouchableOpacity style={styles.row} onPress={onEdit}>
             <View style={styles.textContainer}>
                 <Text style={styles.taskTitle} numberOfLines={1}>{task.title}</Text>
                 <View style={styles.metaContainer}>
                     <Text style={styles.dateTag}>
-                        {task.reminderDate === toISODateString(new Date()) ? 'Today' : formatDeadline(task.reminderDate || '')}
+                        {task.reminderDate === toISODateString(new Date()) ? t('common.today') : formatDeadline(task.reminderDate || '')}
                     </Text>
                     <View style={styles.reminderTag}>
                         <Ionicons name="notifications" size={16} color="#3B82F6" />
@@ -28,8 +29,6 @@ const ReminderRow = ({ task, onEdit, onDelete, onToggle }: { task: Task, onEdit:
                     </View>
                 </View>
             </View>
-
-
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 <Switch
@@ -52,6 +51,7 @@ const ReminderRow = ({ task, onEdit, onDelete, onToggle }: { task: Task, onEdit:
 };
 
 export default function RemindersManagerModal({ visible, onClose, tasks, onToggleReminder }: RemindersManagerModalProps) {
+    const { t } = useTranslation();
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isReminderModalVisible, setIsReminderModalVisible] = useState(false);
 
@@ -76,8 +76,6 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
         });
 
         // Step 2: Semantic Deduplication (Hide the Database Clones)
-        // If the Rollover System previously created multiple overdue instances of the same task,
-        // we only want to show the ONE most recent version in this list.
         const semanticMap = new Map<string, Task>();
 
         validTasks.forEach(task => {
@@ -119,30 +117,23 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
             } else if (task.date === today && !task.isCompleted) {
                 todayTasks.push(task);
             } else if (task.date > today || (task.rrule && !task.isCompleted)) {
-                // Future or Recurring (assuming recurring shows up here if not completed today)
-                // Note: simplistic check for upcoming. 
-                // If it's old/overdue? It goes to upcoming/other for now or we add "Overdue"
                 if (task.date < today) {
-                    // Overdue - put in Today/Overdue
                     todayTasks.push(task);
                 } else {
                     upcomingTasks.push(task);
                 }
             } else {
-                // Completed or old
-                // If it has active reminder config, meaningful to show?
-                // activeTasks filter already excludes completed unless recurring logic allows
                 upcomingTasks.push(task);
             }
         });
 
         const result = [];
-        if (todayTasks.length > 0) result.push({ title: 'Today & Overdue', data: todayTasks });
-        if (upcomingTasks.length > 0) result.push({ title: 'Upcoming', data: upcomingTasks });
-        if (unscheduledTasks.length > 0) result.push({ title: 'Unscheduled', data: unscheduledTasks });
+        if (todayTasks.length > 0) result.push({ title: t('settings.reminders.sections.today'), data: todayTasks });
+        if (upcomingTasks.length > 0) result.push({ title: t('settings.reminders.sections.upcoming'), data: upcomingTasks });
+        if (unscheduledTasks.length > 0) result.push({ title: t('settings.reminders.sections.unscheduled'), data: unscheduledTasks });
 
         return result;
-    }, [activeTasks]);
+    }, [activeTasks, t]);
 
 
     const handleEdit = (task: Task) => {
@@ -151,16 +142,15 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
     };
 
     const handleDelete = (task: Task) => {
-        // Ask for confirmation to prevent "Deleting all edits" surprise
         Alert.alert(
-            "Remove Reminder?",
-            "This will clear the reminder time and settings for this task.",
+            t('settings.reminders.deleteTitle'),
+            t('settings.reminders.deleteConfirm'),
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t('common.cancel'), style: "cancel" },
                 {
-                    text: "Remove",
+                    text: t('common.remove'),
                     style: "destructive",
-                    onPress: () => onToggleReminder(task.id, false) // Clears config
+                    onPress: () => onToggleReminder(task.id, false)
                 }
             ]
         );
@@ -180,7 +170,7 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
             <View style={styles.overlay}>
                 <View style={styles.container}>
                     <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Active Reminders</Text>
+                        <Text style={styles.headerTitle}>{t('settings.reminders.title')}</Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                             <Ionicons name="close" size={24} color={THEME.textPrimary} />
                         </TouchableOpacity>
@@ -192,9 +182,10 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
                         renderItem={({ item }) => (
                             <ReminderRow
                                 task={item}
-                                onDelete={() => handleDelete(item)}
                                 onEdit={() => handleEdit(item)}
+                                onDelete={() => handleDelete(item)}
                                 onToggle={(val) => onToggleReminder(item.id, val, item.reminderTime, item.reminderDate, item.reminderOffset)}
+                                t={t}
                             />
                         )}
                         renderSectionHeader={({ section: { title } }) => (
@@ -207,7 +198,7 @@ export default function RemindersManagerModal({ visible, onClose, tasks, onToggl
                         ListEmptyComponent={
                             <View style={styles.emptyContainer}>
                                 <Ionicons name="notifications-off-outline" size={48} color={THEME.textSecondary} />
-                                <Text style={styles.emptyText}>No active reminders</Text>
+                                <Text style={styles.emptyText}>{t('settings.reminders.empty')}</Text>
                             </View>
                         }
                     />

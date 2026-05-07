@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -6,6 +7,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMail } from '../../src/features/mail/useMail';
 
 export default function MessageScreen() {
+    const { t, i18n } = useTranslation();
     const insets = useSafeAreaInsets();
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
@@ -23,30 +25,30 @@ export default function MessageScreen() {
     if (!message) {
         return (
             <SafeAreaView style={styles.centered}>
-                <Text style={styles.errorText}>This message could not be found or has been deleted.</Text>
+                <Text style={styles.errorText}>{t('mail.messageNotFound')}</Text>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Text style={styles.backButtonText}>Go Back</Text>
+                    <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
             </SafeAreaView>
         );
     }
 
-    const dateString = new Date(message.date).toLocaleDateString([], {
+    const dateString = new Date(message.date).toLocaleDateString(i18n.language, {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric'
     });
-    const timeString = new Date(message.date).toLocaleTimeString([], {
+    const timeString = new Date(message.date).toLocaleTimeString(i18n.language, {
         hour: '2-digit',
         minute: '2-digit'
     });
 
     const handleDelete = () => {
-        Alert.alert('Delete Message', 'Are you sure you want to delete this message?', [
-            { text: 'Cancel', style: 'cancel' },
+        Alert.alert(t('mail.deleteMessage'), t('mail.deleteConfirm'), [
+            { text: t('common.cancel'), style: 'cancel' },
             {
-                text: 'Delete',
+                text: t('common.delete'),
                 style: 'destructive',
                 onPress: async () => {
                     await moveToTrash(message.id);
@@ -61,7 +63,7 @@ export default function MessageScreen() {
             <View style={styles.navHeader}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerBackBtn}>
                     <Ionicons name="chevron-back" size={28} color="#007AFF" />
-                    <Text style={styles.headerBackText}>Inbox</Text>
+                    <Text style={styles.headerBackText}>{t('mail.inbox')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleDelete} style={styles.headerRightBtn}>
                     <MaterialCommunityIcons name="trash-can-outline" size={24} color="#EF4444" />
@@ -78,7 +80,7 @@ export default function MessageScreen() {
                         </View>
                         <View style={styles.metaTextContainer}>
                             <Text style={styles.sender}>{message.sender}</Text>
-                            <Text style={styles.date}>{dateString} at {timeString}</Text>
+                            <Text style={styles.date}>{dateString} {t('mail.at')} {timeString}</Text>
                         </View>
                     </View>
                 </View>

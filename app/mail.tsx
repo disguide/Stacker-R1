@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Animated, LayoutAnimation } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
@@ -8,6 +9,7 @@ import { useMail } from '../src/features/mail/useMail';
 import { MailMessage } from '../src/services/storage';
 
 export default function MailScreen() {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { inboxMessages, loading, markAllAsRead, moveToTrash } = useMail();
@@ -32,7 +34,7 @@ export default function MailScreen() {
                     <Animated.View style={{ flex: 1, transform: [{ translateX: trans }] }}>
                         <TouchableOpacity style={styles.deleteAction} onPress={() => handleDelete(item.id)}>
                             <MaterialCommunityIcons name="trash-can-outline" size={24} color="#FFF" />
-                            <Text style={styles.actionText}>Trash</Text>
+                            <Text style={styles.actionText}>{t('mail.trash')}</Text>
                         </TouchableOpacity>
                     </Animated.View>
                 </View>
@@ -79,9 +81,9 @@ export default function MailScreen() {
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerBackBtn}>
                     <Ionicons name="chevron-back" size={28} color="#007AFF" />
-                    <Text style={styles.headerBackText}>Back</Text>
+                    <Text style={styles.headerBackText}>{t('common.back')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Inbox</Text>
+                <Text style={styles.headerTitle}>{t('mail.inbox')}</Text>
                 <View style={styles.headerRightGroup}>
                     <TouchableOpacity onPress={markAllAsRead} style={styles.headerIconBtn}>
                         <MaterialCommunityIcons name="email-check-outline" size={24} color="#64748B" />
@@ -99,8 +101,8 @@ export default function MailScreen() {
             ) : inboxMessages.length === 0 ? (
                 <View style={styles.centered}>
                     <MaterialCommunityIcons name="email-open-outline" size={64} color="#E2E8F0" />
-                    <Text style={styles.emptyTitle}>All Caught Up!</Text>
-                    <Text style={styles.emptyText}>You have no mail to read.</Text>
+                    <Text style={styles.emptyTitle}>{t('mail.emptyInbox')}</Text>
+                    <Text style={styles.emptyText}>{t('mail.emptyInboxSub')}</Text>
                 </View>
             ) : (
                 <FlatList

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { VIEW_CONFIG, ViewMode, THEME } from '../constants/theme';
 
 interface ViewMenuProps {
@@ -12,9 +13,10 @@ interface ViewMenuProps {
 }
 
 export const ViewMenu = ({ visible, onClose, onSelectView, currentView, anchor }: ViewMenuProps) => {
+    const { t } = useTranslation();
     const MENU_ITEMS = Object.keys(VIEW_CONFIG).map((mode) => ({
         id: mode as ViewMode,
-        label: VIEW_CONFIG[mode as ViewMode].label,
+        label: t(`common.${mode}`),
         icon: mode === 'day' ? 'today-outline' :
               mode === '3days' ? 'calendar-outline' :
               mode === 'week' ? 'calendar-clear-outline' :
@@ -103,7 +105,7 @@ export const ViewMenu = ({ visible, onClose, onSelectView, currentView, anchor }
                         }
                     ]}
                 >
-                    <Text style={styles.menuTitle}>View Timeline</Text>
+                    <Text style={styles.menuTitle}>{t('common.viewTimeline')}</Text>
                     
                     {MENU_ITEMS.map((item, index) => {
                         return (

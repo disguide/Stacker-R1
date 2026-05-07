@@ -40,7 +40,7 @@ import { styles } from '@/styles/taskListStyles';
 
 const formatDateShort = (dateStr: string) => {
     const d = new Date(dateStr);
-    return `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
+    return `${d.getDate()} ${d.toLocaleDateString(undefined, { month: 'short' })}`;
 };
 
 export default function TaskListScreen() {
@@ -109,12 +109,12 @@ export default function TaskListScreen() {
         const h = Math.floor(totalMinutes / 60);
         const m = totalMinutes % 60;
         let timePart = '';
-        if (h > 0) timePart = m > 0 ? `${h}h ${m}m` : `${h}h`;
-        else if (m > 0) timePart = `${m}m`;
+        if (h > 0) timePart = m > 0 ? `${h}${t('journal.h')} ${m}${t('journal.m')}` : `${h}${t('journal.h')}`;
+        else if (m > 0) timePart = `${m}${t('journal.m')}`;
 
-        if (timePart && tasksWithoutTimeCount > 0) return `${timePart} + ${tasksWithoutTimeCount} tasks`;
+        if (timePart && tasksWithoutTimeCount > 0) return `${timePart} + ${tasksWithoutTimeCount} ${t('common.tasks')}`;
         if (timePart) return timePart;
-        return `${tasksWithoutTimeCount} tasks`;
+        return `${tasksWithoutTimeCount} ${t('common.tasks')}`;
     }, [sprintMode.isSprintSelectionMode, sprintMode.selectedSprintTaskIds, calendarItems]);
     const [userColors, setUserColors] = useState<any[]>([]);
     const [userProfile, setUserProfile] = useState<any>(null);
@@ -419,9 +419,9 @@ export default function TaskListScreen() {
                 visible={ui.isCalendarVisible}
                 onClose={() => ui.setIsCalendarVisible(false)}
                 title={
-                    ui.calendarMode === 'move' ? 'Move Task to Date' : 
-                    (ui.calendarMode === 'pre-add' || ui.calendarMode === 'new') ? 'Add Date' : 
-                    'Change Date'
+                    ui.calendarMode === 'move' ? t('home.moveTaskToDate') : 
+                    (ui.calendarMode === 'pre-add' || ui.calendarMode === 'new') ? t('home.addDate') : 
+                    t('home.changeDate')
                 }
                 onSelectDate={(date: any, hasTime?: boolean) => {
                     let dateStr: string | null = null;
@@ -563,7 +563,7 @@ export default function TaskListScreen() {
                             <Text style={styles.startSprintText}>{t('home.startSprint')}</Text>
                         </View>
                         <Text style={styles.startSprintText}>
-                            {sprintSummary || `${sprintMode.selectedSprintTaskIds.size} tasks`}
+                            {sprintSummary || `${sprintMode.selectedSprintTaskIds.size} ${t('common.tasks')}`}
                         </Text>
                     </TouchableOpacity>
                 </View>

@@ -4,13 +4,14 @@ import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { StorageService, UserProfile, GoalItem, GoalEventType } from '../src/services/storage';
 
 const CATEGORY_COLORS: Record<string, string> = {
-    traits: '#8B5CF6',
-    habits: '#3B82F6',
-    environment: '#F59E0B',
-    outcomes: '#10B981',
+    traits: '#6366F1',      // Indigo
+    habits: '#0EA5E9',      // Sky
+    environment: '#F59E0B', // Amber
+    outcomes: '#10B981',    // Emerald
 };
 const FALLBACK_COLOR = '#94A3B8';
 
@@ -33,6 +34,7 @@ type TLEvent = {
 };
 
 export default function TimelineScreen() {
+    const { t, i18n } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -103,7 +105,7 @@ export default function TimelineScreen() {
         evs.unshift({
             id: 'timeline-start',
             goalId: 'none',
-            title: 'The Journey Begins',
+            title: t('timeline.journeyBegins'),
             isGoal: true,
             type: 'start',
             date: startDate,
@@ -114,7 +116,7 @@ export default function TimelineScreen() {
         evs.push({
             id: 'timeline-present',
             goalId: 'none',
-            title: 'Present Day',
+            title: t('timeline.presentDay'),
             isGoal: true,
             type: 'present',
             date: new Date(),
@@ -145,13 +147,13 @@ export default function TimelineScreen() {
                     if (finalGap > MAX_GAP) {
                         finalGap = MAX_GAP;
                         const jumpLabel = daysDiff >= 30
-                            ? `${Math.floor(daysDiff / 30)} Month${Math.floor(daysDiff / 30) > 1 ? 's' : ''} Later`
-                            : `${Math.floor(daysDiff)} Day${Math.floor(daysDiff) > 1 ? 's' : ''} Later`;
+                            ? t('common.monthsLater', { count: Math.floor(daysDiff / 30) })
+                            : t('common.daysLater', { count: Math.floor(daysDiff) });
 
                         finalEvs.push({
                             id: `jump-${currentEv.id}`,
                             goalId: 'none',
-                            title: 'Time Jump',
+                            title: t('timeline.timeJump'),
                             isGoal: false,
                             type: 'time-jump',
                             date: new Date(prevEv.date.getTime() + (msDiff / 2)),
@@ -176,17 +178,17 @@ export default function TimelineScreen() {
     const deleteEvent = async (goalId: string, eventId: string, type: GoalEventType) => {
         if (!profile) return;
         if (eventId.startsWith('add-')) {
-            Alert.alert('Cannot Delete', 'To delete the creation event, you must delete the entire goal from the main list.');
+            Alert.alert(t('timeline.cannotDeleteTitle'), t('timeline.cannotDeleteMsg'));
             return;
         }
 
         Alert.alert(
-            'Delete Event?',
-            'Are you sure you want to remove this event from the timeline? This cannot be undone.',
+            t('timeline.deleteConfirmTitle'),
+            t('timeline.deleteConfirmMsg'),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: t('common.delete'),
                     style: 'destructive',
                     onPress: async () => {
                         const np = { ...profile };
@@ -217,19 +219,19 @@ export default function TimelineScreen() {
     const renderItem = ({ item, index }: { item: TLEvent; index: number }) => {
         const isExpanded = expandedId === item.id;
         const evColor = getEventColor(item);
-        const actionWord = item.type === 'present' ? 'Timeline' :
-            item.type === 'start' ? 'Timeline' :
-                item.type === 'added' ? 'Added' :
-                    item.type === 'modified' ? 'Reconsidered' :
-                        item.type === 'achieved' ? 'Completed' :
-                            item.type === 'cancelled' ? 'Cancelled' : 'Updated';
+        const actionWord = item.type === 'present' ? t('common.timeline') :
+            item.type === 'start' ? t('common.timeline') :
+                item.type === 'added' ? t('timeline.added') :
+                    item.type === 'modified' ? t('timeline.reconsidered') :
+                        item.type === 'achieved' ? t('timeline.completed') :
+                            item.type === 'cancelled' ? t('timeline.cancelled') : t('timeline.updated');
 
         const isSystemNode = item.type === 'present' || item.type === 'start';
         const isTimeJump = item.type === 'time-jump';
 
         // Unconditional Year Formatting: "23 February 2026"
         const dateOpts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'long', year: 'numeric' };
-        const strippedDateStr = item.date.toLocaleDateString(undefined, dateOpts);
+        const strippedDateStr = item.date.toLocaleDateString(i18n.language, dateOpts);
 
         const dynamicMargin = item.computedMarginTop || 0;
 
@@ -269,8 +271,8 @@ export default function TimelineScreen() {
                 onPress={() => setExpandedId(isExpanded ? null : item.id)}
             >
                 <View style={styles.trackCol}>
-                    <View style={[styles.auraNode, { backgroundColor: evColor + '25', top: 18 }]}>
-                        <View style={[styles.solidDot, { backgroundColor: evColor }]} />
+                    <View style={[styles.auraNode, { backgroundColor: (item.color || evColor) + '25', top: 18 }]}>
+                        <View style={[styles.solidDot, { backgroundColor: item.color || evColor }]} />
                     </View>
                 </View>
 
@@ -281,7 +283,7 @@ export default function TimelineScreen() {
                                 <Text style={[styles.cardActionWord, { color: evColor }]}>{actionWord}</Text>
                                 <View style={[styles.typeTag, { backgroundColor: item.isGoal ? '#DBEAFE' : '#FEE2E2' }]}>
                                     <Text style={[styles.typeTagText, { color: item.isGoal ? '#2563EB' : '#EF4444' }]}>
-                                        {item.isGoal ? 'GOAL' : 'ANTI-GOAL'}
+                                        {item.isGoal ? t('timeline.goal') : t('timeline.antiGoal')}
                                     </Text>
                                 </View>
                             </View>
@@ -296,7 +298,7 @@ export default function TimelineScreen() {
                             <View style={styles.expandedContent}>
                                 {item.goalBase.note ? (
                                     <View style={styles.noteContainer}>
-                                        <Text style={styles.noteLabel}>NOTE</Text>
+                                        <Text style={styles.noteLabel}>{t('timeline.note')}</Text>
                                         <Text style={styles.noteText}>{item.goalBase.note}</Text>
                                     </View>
                                 ) : null}
@@ -304,7 +306,7 @@ export default function TimelineScreen() {
                                 <View style={styles.cardActionsFooter}>
                                     <TouchableOpacity style={styles.cardActionBtn} onPress={() => deleteEvent(item.goalId, item.id, item.type as GoalEventType)}>
                                         <MaterialCommunityIcons name="delete-outline" size={14} color="#64748B" />
-                                        <Text style={styles.cardActionText}>Delete Event</Text>
+                                        <Text style={styles.cardActionText}>{t('timeline.deleteEvent')}</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -333,7 +335,7 @@ export default function TimelineScreen() {
                 activeOpacity={0.7}
             >
                 <Ionicons name="chevron-back" size={28} color="#007AFF" />
-                <Text style={styles.backButtonText}>Back</Text>
+                <Text style={styles.backButtonText}>{t('common.back')}</Text>
             </TouchableOpacity>
 
             <View style={styles.flatListWrapper}>
@@ -448,7 +450,6 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: '700',
         color: '#94A3B8',
-        textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
 
@@ -505,7 +506,6 @@ const styles = StyleSheet.create({
     cardActionWord: {
         fontSize: 11,
         fontWeight: '800',
-        textTransform: 'uppercase',
         letterSpacing: 0.8,
     },
     dateText: {
@@ -601,7 +601,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '700',
         color: '#64748B',
-        textTransform: 'uppercase',
         letterSpacing: 0.5,
         marginBottom: 8,
     },

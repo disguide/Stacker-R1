@@ -10,6 +10,7 @@ import {
     Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -39,6 +40,7 @@ interface CompletedTasksModalProps {
 }
 
 export default function CompletedTasksModal({ visible, onClose, tasks, onRestore, onDelete }: CompletedTasksModalProps) {
+    const { t } = useTranslation();
     if (!visible) return null;
 
     return (
@@ -51,9 +53,9 @@ export default function CompletedTasksModal({ visible, onClose, tasks, onRestore
             <View style={styles.container}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <Text style={styles.title}>Completed History</Text>
+                    <Text style={styles.title}>{t('settings.completed.title')}</Text>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Text style={styles.closeText}>Done</Text>
+                        <Text style={styles.closeText}>{t('common.done')}</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -65,14 +67,16 @@ export default function CompletedTasksModal({ visible, onClose, tasks, onRestore
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
                             <Ionicons name="documents-outline" size={48} color="#CCC" />
-                            <Text style={styles.emptyText}>No completed tasks yet.</Text>
+                            <Text style={styles.emptyText}>{t('settings.completed.empty')}</Text>
                         </View>
                     }
                     renderItem={({ item }) => (
                         <View style={styles.taskItem}>
                             <View style={styles.taskInfo}>
                                 <Text style={styles.taskTitle}>{item.title}</Text>
-                                <Text style={styles.taskDate}>Finished on {item.date}</Text>
+                                <Text style={styles.taskDate}>
+                                    {t('settings.completed.finishedOn', { date: item.date })}
+                                </Text>
                             </View>
 
                             <View style={styles.actions}>

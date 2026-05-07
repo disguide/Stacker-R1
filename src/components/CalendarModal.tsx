@@ -12,6 +12,7 @@ import {
     Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const MODAL_WIDTH = Math.min(SCREEN_WIDTH - 40, 360);
@@ -86,6 +87,7 @@ const DayCell = React.memo(({ date, isSelected, isToday, onSelect }: { date: Dat
 
 // Month Grid Component
 const MonthSection = React.memo(({ data, selectedDate, onSelect }: { data: { date: Date }, selectedDate: Date | null, onSelect: (d: Date) => void }) => {
+    const { t } = useTranslation();
     const monthDate = data.date;
     const days = useMemo(() => {
         const result = [];
@@ -106,7 +108,20 @@ const MonthSection = React.memo(({ data, selectedDate, onSelect }: { data: { dat
         return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
     };
 
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthNames = [
+        t('calendar.months.january'),
+        t('calendar.months.february'),
+        t('calendar.months.march'),
+        t('calendar.months.april'),
+        t('calendar.months.may'),
+        t('calendar.months.june'),
+        t('calendar.months.july'),
+        t('calendar.months.august'),
+        t('calendar.months.september'),
+        t('calendar.months.october'),
+        t('calendar.months.november'),
+        t('calendar.months.december'),
+    ];
 
     return (
         <View style={styles.monthContainer}>
@@ -137,8 +152,19 @@ const ModalHeader = ({ title, onClose }: { title: string, onClose: () => void })
 );
 
 export default function CalendarModal({ visible, onClose, onSelectDate, selectedDate, title }: CalendarModalProps) {
+    const { t } = useTranslation();
     const listRef = useRef<FlatList>(null);
     const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
+
+    const weekdays = useMemo(() => [
+        t('calendar.daysShort.MO'),
+        t('calendar.daysShort.TU'),
+        t('calendar.daysShort.WE'),
+        t('calendar.daysShort.TH'),
+        t('calendar.daysShort.FR'),
+        t('calendar.daysShort.SA'),
+        t('calendar.daysShort.SU'),
+    ], [t]);
 
     // Generate 24 months of data
     const months = useMemo(() => {
@@ -200,11 +226,11 @@ export default function CalendarModal({ visible, onClose, onSelectDate, selected
             <View style={styles.overlay}>
                 <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
                 <View style={styles.calendarCard}>
-                    <ModalHeader title={title || "Move Task to Date"} onClose={onClose} />
+                    <ModalHeader title={title || t('editor.moveTaskToDate')} onClose={onClose} />
                     
                     <View style={styles.calendarContainer}>
                         <View style={styles.weekHeader}>
-                            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+                            {weekdays.map((day, i) => (
                                 <Text key={i} style={styles.weekdayLabel}>{day}</Text>
                             ))}
                         </View>

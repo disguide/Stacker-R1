@@ -15,6 +15,7 @@ import {
     ScrollView,
     Pressable
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import RecurrencePickerModal from './RecurrencePickerModal';
 import { StorageService, Task, ColorDefinition, RecurrenceRule } from '../services/storage';
 import TaskFeatureCarousel, { FeatureKey } from './TaskFeatureCarousel';
@@ -27,10 +28,7 @@ import { SCREEN_HEIGHT, SCREEN_WIDTH, THEME, styles } from '../features/tasks/st
 
 import useTaskReminders from '../features/tasks/hooks/useTaskReminders';
 
-const formatDateShort = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return `${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
-};
+
 
 
 interface TaskEditDrawerProps {
@@ -62,6 +60,7 @@ export default function TaskEditDrawer({
     initialActiveFeature,
     isSubtask
 }: TaskEditDrawerProps) {
+    const { t, i18n } = useTranslation();
     // Debug Log
     // console.log('[TaskEditDrawer] Rendered', { visible, onRequestColorSettings: !!onRequestColorSettings });
     const [title, setTitle] = useState('');
@@ -102,13 +101,18 @@ export default function TaskEditDrawer({
         loadPref();
     }, [visible]);
 
+    const formatDateShort = useCallback((dateStr: string) => {
+        const d = new Date(dateStr);
+        return `${d.getDate()} ${d.toLocaleDateString(i18n.language, { month: 'short' })}`;
+    }, [i18n.language]);
+
     // Helper to format time based on preference
     const formatTime = (time: string) => {
         const [hours, mins] = time.split(':').map(Number);
         if (use24h) {
             return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
         }
-        const period = hours >= 12 ? 'PM' : 'AM';
+        const period = hours >= 12 ? t('common.pm') : t('common.am');
         const displayHours = hours % 12 || 12;
         return `${displayHours}:${mins.toString().padStart(2, '0')} ${period}`;
     };
@@ -349,10 +353,10 @@ export default function TaskEditDrawer({
                                     {completed && <View style={styles.headerCheckboxInner} />}
                                 </TouchableOpacity>
 
-                                <Text style={styles.title}>{task?.id.startsWith('new_temp_') ? 'New Task' : 'Edit Task'}</Text>
+                                <Text style={styles.title}>{task?.id.startsWith('new_temp_') ? t('editor.newTask') : t('editor.editTask')}</Text>
 
                                 <TouchableOpacity onPress={() => handleSave()}>
-                                    <Text style={styles.saveButton}>Done</Text>
+                                    <Text style={styles.saveButton}>{t('common.done')}</Text>
                                 </TouchableOpacity>
                             </View>
 
@@ -360,7 +364,7 @@ export default function TaskEditDrawer({
                                 style={styles.input}
                                 value={title}
                                 onChangeText={setTitle}
-                                placeholder="Task Name"
+                                placeholder={t('editor.taskName')}
                                 placeholderTextColor={THEME.textSecondary}
                             />
 

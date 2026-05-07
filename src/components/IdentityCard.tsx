@@ -111,24 +111,28 @@ export default function IdentityCard({ identity, onUpdate }: IdentityCardProps) 
                             value={identity.anti?.head}
                             placeholder={t('identity.limitingBeliefsPlaceholder')}
                             onPress={() => openEdit('anti', 'head', t('identity.theHead'), t('identity.mindsetBeliefs'), "#EF4444")}
+                            partType="head"
                         />
                         <PartRow
                             label={t('identity.theTorso')} sublabel={t('identity.environmentStandards')} color="#B91C1C"
                             value={identity.anti?.torso}
                             placeholder={t('identity.toxicPlaceholder')}
                             onPress={() => openEdit('anti', 'torso', t('identity.theTorso'), t('identity.environmentStandards'), "#EF4444")}
+                            partType="torso"
                         />
                         <PartRow
                             label={t('identity.theArms')} sublabel={t('identity.badHabitsActions')} color="#B91C1C"
                             value={identity.anti?.arms}
                             placeholder={t('identity.vicesPlaceholder')}
                             onPress={() => openEdit('anti', 'arms', t('identity.theArms'), t('identity.badHabitsActions'), "#EF4444")}
+                            partType="arms"
                         />
                         <PartRow
                             label={t('identity.theLegs')} sublabel={t('identity.negativeOutcomes')} color="#B91C1C"
                             value={identity.anti?.legs}
                             placeholder={t('identity.resultsToAvoidPlaceholder')}
                             onPress={() => openEdit('anti', 'legs', t('identity.theLegs'), t('identity.negativeOutcomes'), "#EF4444")}
+                            partType="legs"
                             isLast
                         />
                     </View>
@@ -153,24 +157,28 @@ export default function IdentityCard({ identity, onUpdate }: IdentityCardProps) 
                             value={identity.hero?.head}
                             placeholder={t('identity.newModelsPlaceholder')}
                             onPress={() => openEdit('hero', 'head', t('identity.theHead'), t('identity.coreValuesVision'), "#3B82F6")}
+                            partType="head"
                         />
                         <PartRow
                             label={t('identity.theTorso')} sublabel={t('identity.highPerformerEnvironment')} color="#1D4ED8"
                             value={identity.hero?.torso}
                             placeholder={t('identity.inspiringNetworkPlaceholder')}
                             onPress={() => openEdit('hero', 'torso', t('identity.theTorso'), t('identity.highPerformerEnvironment'), "#3B82F6")}
+                            partType="torso"
                         />
                         <PartRow
                             label={t('identity.theArms')} sublabel={t('identity.powerHabitsSkills')} color="#1D4ED8"
                             value={identity.hero?.arms}
                             placeholder={t('identity.dailyProtocolsPlaceholder')}
                             onPress={() => openEdit('hero', 'arms', t('identity.theArms'), t('identity.powerHabitsSkills'), "#3B82F6")}
+                            partType="arms"
                         />
                         <PartRow
                             label={t('identity.theLegs')} sublabel={t('identity.targetResultsKPIs')} color="#1D4ED8"
                             value={identity.hero?.legs}
                             placeholder={t('identity.outcomesPlaceholder')}
                             onPress={() => openEdit('hero', 'legs', t('identity.theLegs'), t('identity.targetResultsKPIs'), "#3B82F6")}
+                            partType="legs"
                             isLast
                         />
                     </View>
@@ -216,10 +224,10 @@ export default function IdentityCard({ identity, onUpdate }: IdentityCardProps) 
     );
 }
 
-const PartRow = ({ label, sublabel, value, placeholder, onPress, color, isLast }: any) => (
+const PartRow = ({ label, sublabel, value, placeholder, onPress, color, isLast, partType }: any) => (
     <TouchableOpacity style={[styles.partRow, !isLast && styles.borderBottom]} onPress={onPress} activeOpacity={0.7}>
         <View style={styles.partIcon}>
-            <Ionicons name={getIcon(label)} size={20} color={color} />
+            <Ionicons name={getIcon(partType)} size={20} color={color} />
         </View>
         <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 }}>
@@ -236,11 +244,11 @@ const PartRow = ({ label, sublabel, value, placeholder, onPress, color, isLast }
     </TouchableOpacity>
 );
 
-const getIcon = (label: string) => {
-    if (label.includes('HEAD')) return 'skull-outline';
-    if (label.includes('TORSO')) return 'shirt-outline';
-    if (label.includes('ARMS')) return 'barbell-outline';
-    if (label.includes('LEGS')) return 'footsteps-outline';
+const getIcon = (partType: BodyPart) => {
+    if (partType === 'head') return 'skull-outline';
+    if (partType === 'torso') return 'shirt-outline';
+    if (partType === 'arms') return 'barbell-outline';
+    if (partType === 'legs') return 'footsteps-outline';
     return 'body-outline';
 };
 

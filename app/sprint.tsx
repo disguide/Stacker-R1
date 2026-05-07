@@ -199,8 +199,8 @@ export default function SprintScreen() {
             if (remainingSec > 0) {
                 await Notifications.scheduleNotificationAsync({
                     content: {
-                        title: "Sprint Complete",
-                        body: `You've reached your ${settings.maxDurationMinutes} minute goal!`,
+                        title: t('sprints.sprintCompleteTitle'),
+                        body: t('sprints.sprintCompleteMsg', { count: settings.maxDurationMinutes }),
                         sound: true,
                     },
                     trigger: { 
@@ -219,8 +219,8 @@ export default function SprintScreen() {
             if (remainingSec > 0) {
                 await Notifications.scheduleNotificationAsync({
                     content: {
-                        title: "Break Time!",
-                        body: "Time for a short break.",
+                        title: t('sprints.breakTimeTitle'),
+                        body: t('sprints.breakTimeMsg'),
                         sound: true,
                     },
                     trigger: { 
@@ -238,8 +238,8 @@ export default function SprintScreen() {
             if (remainingSec > 0) {
                 await Notifications.scheduleNotificationAsync({
                     content: {
-                        title: "Break Over",
-                        body: "Time to get back to work!",
+                        title: t('sprints.breakOverTitle'),
+                        body: t('sprints.breakOverMsg'),
                         sound: true,
                     },
                     trigger: { 
@@ -273,14 +273,14 @@ export default function SprintScreen() {
             const limitSec = (settings.maxDurationMinutes || 0) * 60;
             if (totalSecondsRef.current >= limitSec) {
                 // Record the "away" segment before ending
-                recordCurrentSegment(now, isPaused ? "Break (Background)" : "Work (Background)");
+                recordCurrentSegment(now, isPaused ? t('sprints.breakAway') : t('sprints.workAway'));
                 
                 // Goal reached! Show the alert immediately on return
                 Alert.alert(
-                    "Sprint Complete", 
-                    `You've reached your ${settings.maxDurationMinutes} minute goal while you were away!`,
+                    t('sprints.sprintCompleteTitle'), 
+                    t('sprints.sprintCompleteMsg', { count: settings.maxDurationMinutes }),
                     [{ 
-                        text: "View Summary", 
+                        text: t('sprints.viewSummary'), 
                         onPress: () => {
                             const finalTasks = [...completedTasksRef.current, ...tasksRef.current];
                             finishSprint(finalTasks);
@@ -302,7 +302,7 @@ export default function SprintScreen() {
                 const transitionTime = (backgroundTimeRef.current || now) + (remainingToBreak * 1000);
                 
                 // 1. Record the Work part of background time
-                recordCurrentSegment(transitionTime, "Work (Away)");
+                recordCurrentSegment(transitionTime, t('sprints.workAway'));
                 
                 workSecondsRef.current += remainingToBreak;
                 intervalWorkSecondsRef.current = 0;
@@ -333,7 +333,7 @@ export default function SprintScreen() {
                 const transitionTime = (backgroundTimeRef.current || now) + ((breakLimitSec - pauseElapsedRef.current) * 1000);
                 
                 // 1. Record the Break part
-                recordCurrentSegment(transitionTime, "Break (Away)");
+                recordCurrentSegment(transitionTime, t('sprints.breakAway'));
 
                 breakSecondsRef.current += (breakLimitSec - pauseElapsedRef.current);
                 setPauseElapsed(breakLimitSec);
@@ -347,7 +347,7 @@ export default function SprintScreen() {
                 setBreakPhase('none');
                 setElapsedSeconds(totalSecondsRef.current);
 
-                Alert.alert("Break Over", "You're all caught up! Back to work.");
+                Alert.alert(t('sprints.breakOverTitle'), t('sprints.breakOverMsg'));
             } else {
                 // Still in break
                 breakSecondsRef.current += gapSeconds;
@@ -360,81 +360,91 @@ export default function SprintScreen() {
         currentSegmentStartTimeRef.current = now;
     };
 
-    // Timer Effect (The Single Heartbeat)
+    // Ref-based Timer Handler to avoid stale closures and unnecessary interval restarts
+    const timerHandler = () => {
+        totalSecondsRef.current += 1;
+
+        if (!isPausedRef.current) {
+            // WORK TICK
+            workSecondsRef.current += 1;
+            intervalWorkSecondsRef.current += 1;
+            setElapsedSeconds(totalSecondsRef.current);
+
+            // Auto-Break Check (Work-Only)
+            if (settings.autoBreakMode && settings.autoBreakWorkTime && settings.autoBreakWorkTime > 0) {
+                const workSecondsLimit = settings.autoBreakWorkTime * 60;
+                if (intervalWorkSecondsRef.current >= workSecondsLimit) {
+                    intervalWorkSecondsRef.current = 0; 
+                    triggerAutoBreak();
+                }
+            }
+        } else {
+            // BREAK TICK
+            breakSecondsRef.current += 1;
+            const nextPauseElapsed = pauseElapsedRef.current + 1;
+            setPauseElapsed(nextPauseElapsed);
+            pauseElapsedRef.current = nextPauseElapsed;
+            setElapsedSeconds(totalSecondsRef.current);
+
+            // Break Countdown Check
+            if (breakPhaseRef.current === 'active' && breakDurationRef.current > 0) {
+                if (nextPauseElapsed >= breakDurationRef.current * 60) {
+                    handleResume();
+                    Vibration.vibrate([0, 500, 200, 500]);
+                    Alert.alert(t('sprints.breakOverTitle'), t('sprints.breakOverCountdownMsg'));
+                }
+            }
+        }
+
+        // Sprint End Check
+        if (settings.maxDurationEnabled && settings.maxDurationMinutes && settings.maxDurationMinutes > 0) {
+            const limitSeconds = settings.maxDurationMinutes * 60;
+            if (totalSecondsRef.current >= limitSeconds) {
+                // We'll let the next tick or a separate check handle the UI to avoid interval collision
+                // but for now, we follow the existing logic
+                Alert.alert(
+                    t('sprints.sprintCompleteTitle'),
+                    t('sprints.sprintCompleteMsg', { count: settings.maxDurationMinutes }),
+                    [{ 
+                        text: t('sprints.viewSummary'), 
+                        onPress: () => {
+                            const finalTasks = [...completedTasksRef.current, ...tasksRef.current];
+                            finishSprint(finalTasks);
+                        } 
+                    }]
+                );
+            }
+        }
+    };
+
+    const timerHandlerRef = useRef(timerHandler);
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        timerHandlerRef.current = timerHandler;
+    });
+
+    // Timer Effect (The Single Stable Heartbeat)
+    useEffect(() => {
+        let interval: NodeJS.Timeout | null = null;
         if (settings.showTimer) {
             interval = setInterval(() => {
-                totalSecondsRef.current += 1;
-
-                if (!isPaused) {
-                    // WORK TICK
-                    workSecondsRef.current += 1;
-                    intervalWorkSecondsRef.current += 1;
-                    setElapsedSeconds(totalSecondsRef.current);
-
-                    // Auto-Break Check (Work-Only)
-                    // GUARD: only if mode is on AND setting > 0
-                    if (settings.autoBreakMode && settings.autoBreakWorkTime && settings.autoBreakWorkTime > 0) {
-                        const workSecondsLimit = settings.autoBreakWorkTime * 60;
-                        if (intervalWorkSecondsRef.current >= workSecondsLimit) {
-                            intervalWorkSecondsRef.current = 0; // Reset for next interval
-                            triggerAutoBreak();
-                        }
-                    }
-                } else {
-                    // BREAK TICK
-                    breakSecondsRef.current += 1;
-                    const nextPauseElapsed = pauseElapsedRef.current + 1;
-                    setPauseElapsed(nextPauseElapsed);
-                    pauseElapsedRef.current = nextPauseElapsed;
-                    setElapsedSeconds(totalSecondsRef.current);
-
-                    // Break Countdown Check
-                    if (breakPhaseRef.current === 'active' && breakDurationRef.current > 0) {
-                        if (nextPauseElapsed >= breakDurationRef.current * 60) {
-                            handleResume();
-                            Vibration.vibrate([0, 500, 200, 500]);
-                            Alert.alert('Break Over', 'Your break time is up! Back to work.');
-                        }
-                    }
-                }
-
-                // Sprint End Check (Absolute / Wall-Clock)
-                // GUARD: only if enabled AND minutes > 0
-                if (settings.maxDurationEnabled && settings.maxDurationMinutes && settings.maxDurationMinutes > 0) {
-                    const limitSeconds = settings.maxDurationMinutes * 60;
-                    if (totalSecondsRef.current >= limitSeconds) {
-                        clearInterval(interval);
-                        Alert.alert(
-                            "Sprint Complete", 
-                            `You've reached your ${settings.maxDurationMinutes} minute goal! Great work.`,
-                            [{ 
-                                text: "View Summary", 
-                                onPress: () => {
-                                    // Include ALL tasks (using REFS to avoid stale closures)
-                                    const finalTasks = [...completedTasksRef.current, ...tasksRef.current];
-                                    finishSprint(finalTasks);
-                                } 
-                            }]
-                        );
-                    }
-                }
+                timerHandlerRef.current();
             }, 1000);
         }
-        return () => clearInterval(interval);
-    }, [settings.showTimer, isPaused, breakPhase, breakDuration, settings.autoBreakMode, settings.autoBreakWorkTime, settings.maxDurationEnabled, settings.maxDurationMinutes]);
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [settings.showTimer]);
     // NOTE: Removed 'pauseElapsed' from dependency to prevent timer restarts
 
     const recordCurrentSegment = (endTime: number, explicitTitle?: string) => {
         const duration = Math.floor((endTime - currentSegmentStartTimeRef.current) / 1000);
         if (duration > 0) { // Only log meaningful segments
             let type: 'task' | 'break' | 'pause' = 'task';
-            let title = explicitTitle || (tasksRef.current.length > 0 ? tasksRef.current[0].title : 'Unknown Task');
+            let title = explicitTitle || (tasksRef.current.length > 0 ? tasksRef.current[0].title : t('sprints.unknownTask'));
 
             if (isPausedRef.current) {
                 type = breakPhaseRef.current === 'active' ? 'break' : 'pause';
-                title = type === 'break' ? 'Break' : 'Paused';
+                title = type === 'break' ? t('sprints.break') : t('sprints.paused');
             }
 
             timelineRef.current.push({
@@ -480,7 +490,7 @@ export default function SprintScreen() {
                 setTimeout(() => {
                     handleResume();
                     Vibration.vibrate([0, 500, 200, 500]);
-                    Alert.alert('Break Over', 'Your break time is up! Back to work.');
+                    Alert.alert(t('sprints.breakOverTitle'), t('sprints.breakOverCountdownMsg'));
                 }, 0);
             }
             return newDuration;
@@ -489,7 +499,7 @@ export default function SprintScreen() {
 
     const formatMinutesOnly = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
-        return `${mins}m`;
+        return `${mins}${t('journal.m')}`;
     };
 
     const formatCountdown = (seconds: number) => {
@@ -506,7 +516,7 @@ export default function SprintScreen() {
         setBreakDuration(settings.autoBreakDuration || 5);
         setPauseElapsed(0);
         Vibration.vibrate();
-        Alert.alert("Break Time!", "Great job! Time for a short break.");
+        Alert.alert(t('sprints.breakTimeTitle'), t('sprints.breakTimeMsg'));
     };
 
     const formatTimerDisplay = () => {
@@ -563,10 +573,10 @@ export default function SprintScreen() {
         
         const now = Date.now();
         const subtask = tasks[0].subtasks?.find(st => st.id === subtaskId);
-        const subtaskTitle = subtask ? subtask.title : 'Subtask';
+        const subtaskTitle = subtask ? subtask.title : t('sprints.subtask');
         
         // Record the switch to this subtask focus
-        recordCurrentSegment(now, `Subtask: ${subtaskTitle}`);
+        recordCurrentSegment(now, t('sprints.subtaskLabel', { title: subtaskTitle }));
 
         setTasks(prev => {
             if (!prev[0]) return prev;
@@ -785,7 +795,7 @@ export default function SprintScreen() {
                                 onPress={breakPhase === 'claiming' ? handleStartBreak : handleResume}
                             >
                                 <Text style={styles.forestPillText}>
-                                    {breakPhase === 'claiming' ? 'Start' : 'Back to Work'}
+                                    {breakPhase === 'claiming' ? t('sprints.start') : t('sprints.backToWork')}
                                 </Text>
                                 <Ionicons 
                                     name="arrow-forward" 

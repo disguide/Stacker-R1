@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { StorageService, SavedSprint } from '../src/services/storage';
 
 const { width } = Dimensions.get('window');
@@ -11,6 +12,7 @@ const { width } = Dimensions.get('window');
 export default function AchievementsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { t, i18n } = useTranslation();
     
     // Data States
     const [personalSprints, setPersonalSprints] = useState<SavedSprint[]>([]);
@@ -59,8 +61,8 @@ export default function AchievementsScreen() {
     const systemMilestones = useMemo(() => [
         {
             id: '10h',
-            title: '10 Hour Club',
-            description: 'Log 10 hours of deep work time.',
+            title: t('achievements.milestones.hourClub.title'),
+            description: t('achievements.milestones.hourClub.description'),
             target: 36000,
             current: totalWorkSeconds,
             icon: 'time',
@@ -71,8 +73,8 @@ export default function AchievementsScreen() {
         },
         {
             id: '100tasks',
-            title: 'Centurion',
-            description: 'Complete 100 tasks during focus sprints.',
+            title: t('achievements.milestones.centurion.title'),
+            description: t('achievements.milestones.centurion.description'),
             target: 100,
             current: totalWins,
             icon: 'checkmark-done-circle',
@@ -83,8 +85,8 @@ export default function AchievementsScreen() {
         },
         {
             id: 'first_sprint',
-            title: 'First Step',
-            description: 'Complete your first focus sprint.',
+            title: t('achievements.milestones.firstStep.title'),
+            description: t('achievements.milestones.firstStep.description'),
             target: 1,
             current: totalWorkSeconds > 0 ? 1 : 0,
             icon: 'footsteps',
@@ -93,7 +95,7 @@ export default function AchievementsScreen() {
             currentFormat: totalWorkSeconds > 0 ? 1 : 0,
             targetFormat: 1
         }
-    ], [totalWorkSeconds, totalWins]);
+    ], [totalWorkSeconds, totalWins, t]);
 
     const renderBarGraph = (sprint: SavedSprint) => {
         if (!sprint.timelineEvents || sprint.timelineEvents.length === 0) {
@@ -127,8 +129,8 @@ export default function AchievementsScreen() {
             return (
                 <View style={styles.emptyContainer}>
                     <Ionicons name="trophy-outline" size={48} color="#CBD5E1" />
-                    <Text style={styles.emptyText}>You haven't saved any master sprints yet.</Text>
-                    <Text style={styles.emptySub}>Save your best focus sessions from the summary screen to build your Hall of Fame.</Text>
+                    <Text style={styles.emptyText}>{t('achievements.noSprints')}</Text>
+                    <Text style={styles.emptySub}>{t('achievements.noSprintsSub')}</Text>
                 </View>
             );
         }
@@ -142,9 +144,9 @@ export default function AchievementsScreen() {
         return (
             <View style={styles.carouselSection}>
                 <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionHeader, { marginBottom: 0, paddingHorizontal: 0 }]}>Personal Sprints</Text>
+                    <Text style={[styles.sectionHeader, { marginBottom: 0, paddingHorizontal: 0 }]}>{t('achievements.personalSprints')}</Text>
                     <TouchableOpacity onPress={() => router.push('/all-sprints')}>
-                        <Text style={styles.viewAllText}>View All</Text>
+                        <Text style={styles.viewAllText}>{t('achievements.viewAll')}</Text>
                     </TouchableOpacity>
                 </View>
                 <FlatList
@@ -161,12 +163,12 @@ export default function AchievementsScreen() {
                         >
                             {/* 1. Date */}
                             <Text style={styles.carouselDate} numberOfLines={1}>
-                                {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                {new Date(item.date).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', year: 'numeric' })}
                             </Text>
 
                             {/* 2. Title */}
                             <Text style={styles.carouselTitle} numberOfLines={2}>
-                                {item.primaryTask || 'Focus Session'}
+                                {item.primaryTask || t('achievements.focusSession')}
                             </Text>
                             
                             {/* 3. Vertical Bar Graph */}
@@ -180,7 +182,7 @@ export default function AchievementsScreen() {
                                     {formatDuration(item.durationSeconds)}
                                 </Text>
                                 <Text style={styles.carouselTaskCount}>
-                                    {item.taskCount || 0} Tasks
+                                    {item.taskCount || 0} {t('achievements.tasks')}
                                 </Text>
                             </View>
                         </TouchableOpacity>
@@ -203,7 +205,7 @@ export default function AchievementsScreen() {
                             {isUnlocked && (
                                 <View style={styles.unlockedBadge}>
                                     <Ionicons name="checkmark-circle" size={14} color="#FFF" />
-                                    <Text style={styles.unlockedText}>UNLOCKED</Text>
+                                    <Text style={styles.unlockedText}>{t('achievements.unlocked')}</Text>
                                 </View>
                             )}
                             
@@ -222,7 +224,7 @@ export default function AchievementsScreen() {
 
                             <View style={styles.progressContainer}>
                                 <View style={styles.progressHeader}>
-                                    <Text style={styles.progressLabel}>Progress</Text>
+                                    <Text style={styles.progressLabel}>{t('achievements.progress')}</Text>
                                     <Text style={styles.progressText}>
                                         {milestone.currentFormat}{milestone.formatSuffix} / {milestone.targetFormat}{milestone.formatSuffix}
                                     </Text>
@@ -250,9 +252,9 @@ export default function AchievementsScreen() {
             <View style={styles.topBar}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.exitBtn}>
                     <Ionicons name="chevron-back" size={24} color="#0F172A" />
-                    <Text style={styles.backButtonText}>Back</Text>
+                    <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Achievements</Text>
+                <Text style={styles.headerTitle}>{t('achievements.title')}</Text>
                 <View style={{ width: 60 }} />
             </View>
 
@@ -266,7 +268,7 @@ export default function AchievementsScreen() {
                 {renderPersonal()}
                 
                 <View style={styles.sectionDivider} />
-                <Text style={[styles.sectionHeader, { paddingHorizontal: 20 }]}>System Achievements</Text>
+                <Text style={[styles.sectionHeader, { paddingHorizontal: 20 }]}>{t('achievements.systemAchievements')}</Text>
                 
                 {/* BOTTOM PART: System Achievements */}
                 <View style={{ paddingHorizontal: 20 }}>
@@ -289,9 +291,9 @@ export default function AchievementsScreen() {
                         </View>
                         <ScrollView style={{maxHeight: Dimensions.get('window').height * 0.6}} showsVerticalScrollIndicator={false}>
                             <Text style={styles.modalDate}>
-                                {new Date(selectedSprint.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                {new Date(selectedSprint.date).toLocaleDateString(i18n.language, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                             </Text>
-                            <Text style={styles.modalTitle}>{selectedSprint.primaryTask || 'Focus Session'}</Text>
+                            <Text style={styles.modalTitle}>{selectedSprint.primaryTask || t('achievements.focusSession')}</Text>
                             
                             <View style={styles.modalStatsRow}>
                                 <View style={styles.modalStatBox}>
@@ -301,21 +303,21 @@ export default function AchievementsScreen() {
                                 {selectedSprint.taskCount ? (
                                     <View style={styles.modalStatBox}>
                                         <Ionicons name="checkmark-done" size={18} color="#10B981" />
-                                        <Text style={[styles.modalStatLabel, { color: '#10B981' }]}>{selectedSprint.taskCount} Tasks</Text>
+                                        <Text style={[styles.modalStatLabel, { color: '#10B981' }]}>{selectedSprint.taskCount} {t('achievements.tasks')}</Text>
                                     </View>
                                 ) : null}
                             </View>
 
                             {selectedSprint.note ? (
                                 <View style={styles.modalNoteBox}>
-                                    <Text style={styles.modalNoteLabel}>SESSION NOTE</Text>
+                                    <Text style={styles.modalNoteLabel}>{t('achievements.sessionNote')}</Text>
                                     <Text style={styles.modalNoteText}>"{selectedSprint.note}"</Text>
                                 </View>
                             ) : null}
 
                             {selectedSprint.timelineEvents && selectedSprint.timelineEvents.length > 0 && (
                                 <View style={styles.modalTimeline}>
-                                    <Text style={styles.modalNoteLabel}>TIMELINE</Text>
+                                    <Text style={styles.modalNoteLabel}>{t('achievements.timeline')}</Text>
                                     {selectedSprint.timelineEvents.map((evt: any, i: number, arr: any[]) => (
                                         <View key={i} style={styles.timelineRow}>
                                             <View style={styles.timelineVisuals}>

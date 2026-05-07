@@ -10,12 +10,15 @@ const ROW_HEIGHT = 36;
 
 interface CalendarMonthData { date: Date; }
 
+import { useTranslation } from 'react-i18next';
+
 export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
     width: number;
     deadline: string | null;
     onDeadlineChange: (dl: string | null) => void;
     onClose: () => void;
 }) {
+    const { t, i18n } = useTranslation();
     const scrollRef = useRef<FlatList>(null);
     const [tempSelectedDate, setTempSelectedDate] = useState<Date | null>(null);
     const [hasTime, setHasTime] = useState(false);
@@ -67,7 +70,7 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
         }
     }, [deadline]);
 
-    const months = useMemo(() => {
+    const monthsData = useMemo(() => {
         const result: CalendarMonthData[] = [];
         const start = new Date();
         start.setDate(1);
@@ -124,9 +127,9 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
         if (!tempSelectedDate) return null;
         const today = new Date();
         const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-        if (isSameDay(tempSelectedDate, today)) return 'Today';
-        if (isSameDay(tempSelectedDate, tomorrow)) return 'Tomorrow';
-        return tempSelectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        if (isSameDay(tempSelectedDate, today)) return t('editor.today');
+        if (isSameDay(tempSelectedDate, tomorrow)) return t('editor.tomorrow');
+        return tempSelectedDate.toLocaleDateString(i18n.language, { weekday: 'short', month: 'short', day: 'numeric' });
     };
 
     const renderChips = () => (
@@ -143,7 +146,7 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
             ) : (
                 <TouchableOpacity style={st.chipEmpty} onPress={() => setShowTimeWheel(false)}>
                     <Ionicons name="calendar-outline" size={14} color={THEME.textSecondary} />
-                    <Text style={st.chipEmptyText}>No date</Text>
+                    <Text style={st.chipEmptyText}>{t('editor.noDate')}</Text>
                 </TouchableOpacity>
             )}
             {/* Time chip */}
@@ -158,7 +161,7 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
             ) : (
                 <TouchableOpacity style={st.chipEmpty} onPress={() => setShowTimeWheel(true)}>
                     <MaterialCommunityIcons name="clock-plus-outline" size={14} color={THEME.textSecondary} />
-                    <Text style={st.chipEmptyText}>Add time</Text>
+                    <Text style={st.chipEmptyText}>{t('editor.addTime')}</Text>
                 </TouchableOpacity>
             )}
         </View>
@@ -172,9 +175,9 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
                 <View style={st.timeHeader}>
                     <TouchableOpacity onPress={() => { setHasTime(true); setShowTimeWheel(false); }} style={st.backBtn}>
                         <Ionicons name="chevron-back" size={22} color={THEME.accent} />
-                        <Text style={st.backText}>Date</Text>
+                        <Text style={st.backText}>{t('editor.date')}</Text>
                     </TouchableOpacity>
-                    <Text style={st.timeHeaderTitle}>Due Time</Text>
+                    <Text style={st.timeHeaderTitle}>{t('editor.dueTime')}</Text>
                     {/* 24h toggle */}
                     <TouchableOpacity onPress={toggle24h} style={st.formatToggle}>
                         <Text style={[st.formatToggleText, is24h && { color: THEME.accent, fontWeight: '700' }]}>
@@ -206,11 +209,14 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
     }
 
     // ─── CALENDAR VIEW ──────────────────────────────────────────────
+    const daysInitials = t('calendar.days', { returnObjects: true }) as string[];
+    const monthNames = t('calendar.months', { returnObjects: true }) as string[];
+
     return (
         <View style={{ width, flex: 1 }}>
             {/* Weekday columns */}
             <View style={st.weekdayRow}>
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+                {daysInitials.map((day, i) => (
                     <Text key={i} style={st.weekdayText}>{day}</Text>
                 ))}
             </View>
@@ -219,7 +225,7 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
             {/* Scrollable Calendar */}
             <FlatList
                 ref={scrollRef as any}
-                data={months}
+                data={monthsData}
                 keyExtractor={(item) => item.date.toISOString()}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
@@ -234,6 +240,7 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
                 renderItem={({ item }) => (
                     <MemoizedMonth
                         item={item}
+                        monthNames={monthNames}
                         tempSelectedDate={tempSelectedDate}
                         onDateSelect={handleDateSelect}
                     />
@@ -252,9 +259,6 @@ export function DeadlinePage({ width, deadline, onDeadlineChange, onClose }: {
 export default React.memo(DeadlinePage);
 
 // ─── Helpers ────────────────────────────────────────────────────────
-const monthNames = ["January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"];
-
 const isToday = (d: Date) => {
     const now = new Date();
     return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -266,8 +270,8 @@ const isSameDay = (d1: Date, d2: Date | null) => {
 };
 
 // ─── Memoized Month ─────────────────────────────────────────────────
-const MemoizedMonth = React.memo(({ item, tempSelectedDate, onDateSelect }: {
-    item: CalendarMonthData; tempSelectedDate: Date | null; onDateSelect: (d: Date) => void;
+const MemoizedMonth = React.memo(({ item, monthNames, tempSelectedDate, onDateSelect }: {
+    item: CalendarMonthData; monthNames: string[]; tempSelectedDate: Date | null; onDateSelect: (d: Date) => void;
 }) => {
     const monthDate = item.date;
     const days = useMemo(() => {
@@ -304,6 +308,7 @@ const MemoizedMonth = React.memo(({ item, tempSelectedDate, onDateSelect }: {
         </View>
     );
 }, (prev, next) => {
+    if (prev.monthNames !== next.monthNames) return false;
     const wasIn = prev.tempSelectedDate && prev.tempSelectedDate.getMonth() === prev.item.date.getMonth() && prev.tempSelectedDate.getFullYear() === prev.item.date.getFullYear();
     const isIn = next.tempSelectedDate && next.tempSelectedDate.getMonth() === next.item.date.getMonth() && next.tempSelectedDate.getFullYear() === next.item.date.getFullYear();
     if (!wasIn && !isIn) return true;

@@ -4,6 +4,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { ActionBar } from '../common/ActionBar';
 import { TimeWheelPanel } from '../common/TimeWheelPanel';
 import { StorageService } from '../../../services/storage';
+import { useTranslation } from 'react-i18next';
 
 export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnabled, onReminderChange, onClose }: {
     width: number;
@@ -13,6 +14,7 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
     onReminderChange: (offset: number | null, time: string | null) => void;
     onClose: () => void;
 }) {
+    const { t } = useTranslation();
     const parseTime = (t: string | null) => {
         if (!t) return { h: 9, m: 0 };
         const [h, m] = t.split(':').map(Number);
@@ -74,7 +76,7 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
             return `${String(tempHour).padStart(2, '0')}:${String(tempMinute).padStart(2, '0')}`;
         }
         const h12 = tempHour % 12 || 12;
-        const period = tempHour >= 12 ? 'PM' : 'AM';
+        const period = tempHour >= 12 ? t('common.pm', { defaultValue: 'PM' }) : t('common.am', { defaultValue: 'AM' });
         return `${h12}:${String(tempMinute).padStart(2, '0')} ${period}`;
     };
 
@@ -94,7 +96,7 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
                             marginBottom: 20
                         }}
                     >
-                        <Text style={{ fontSize: 12, fontWeight: '600' }}>{is24h ? '24H Mode' : '12H Mode'}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '600' }}>{is24h ? t('editor.24hMode') : t('editor.12hMode')}</Text>
                     </TouchableOpacity>
 
                     <TimeWheelPanel
@@ -120,7 +122,7 @@ export function ReminderPage({ width, reminderOffset, reminderTime, reminderEnab
                 ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' }}>
                         <MaterialCommunityIcons name="bell-off-outline" size={16} color="#64748B" />
-                        <Text style={{ fontSize: 14, fontWeight: '500', color: '#64748B' }}>No Reminder</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: '#64748B' }}>{t('editor.noReminder')}</Text>
                     </View>
                 )}
             </View>

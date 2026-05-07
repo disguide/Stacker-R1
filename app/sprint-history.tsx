@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'rea
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { StorageService, SavedSprint } from '../src/services/storage';
 
 const THEME = {
@@ -14,6 +15,7 @@ const THEME = {
 };
 
 export default function SprintHistoryScreen() {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [history, setHistory] = useState<SavedSprint[]>([]);
@@ -28,20 +30,20 @@ export default function SprintHistoryScreen() {
     const formatDuration = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
-        if (h > 0) return `${h}h ${m}m`;
-        return `${m}m`;
+        if (h > 0) return `${h}${t('journal.h')} ${m}${t('journal.m')}`;
+        return `${m}${t('journal.m')}`;
     };
 
     const handleDelete = async (id: string, e: any) => {
         if (e && e.stopPropagation) e.stopPropagation();
         
         Alert.alert(
-            "Delete Sprint?",
-            "Are you sure you want to remove this session from your history? This cannot be undone.",
+            t('sprints.deleteTitle'),
+            t('sprints.deleteMsg'),
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t('common.cancel'), style: "cancel" },
                 { 
-                    text: "Delete", 
+                    text: t('common.delete'), 
                     style: "destructive", 
                     onPress: async () => {
                         await StorageService.deleteSprintHistory(id);
@@ -59,7 +61,7 @@ export default function SprintHistoryScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                     <Ionicons name="chevron-back" size={28} color={THEME.accent} />
                 </TouchableOpacity>
-                <Text style={styles.title}>Sprint History</Text>
+                <Text style={styles.title}>{t('sprints.historyTitle')}</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -67,7 +69,7 @@ export default function SprintHistoryScreen() {
                 {history.length === 0 ? (
                     <View style={styles.emptyContainer}>
                         <Ionicons name="calendar-outline" size={64} color="#CBD5E1" />
-                        <Text style={styles.emptyText}>No sprint history yet.</Text>
+                        <Text style={styles.emptyText}>{t('sprints.noHistory')}</Text>
                     </View>
                 ) : (
                     history.map((sprint) => {
@@ -83,7 +85,7 @@ export default function SprintHistoryScreen() {
                                     <View style={{ flex: 1 }}>
                                         <View style={styles.titleRow}>
                                             <Text style={styles.sprintTitle} numberOfLines={1}>
-                                                {sprint.primaryTask || 'Focus Session'}
+                                                {sprint.primaryTask || t('journal.defaultFocusTitle')}
                                             </Text>
                                             <Text style={styles.sprintDate}>
                                                 {new Date(sprint.date).toLocaleDateString(undefined, { 
@@ -93,9 +95,9 @@ export default function SprintHistoryScreen() {
                                             </Text>
                                         </View>
                                         <View style={styles.statsRow}>
-                                            <Text style={styles.statText}>{formatDuration(sprint.durationSeconds)} Focus</Text>
+                                            <Text style={styles.statText}>{formatDuration(sprint.durationSeconds)} {t('sprints.focus')}</Text>
                                             <View style={styles.statDot} />
-                                            <Text style={styles.statText}>{sprint.taskCount || 0} tasks</Text>
+                                            <Text style={styles.statText}>{sprint.taskCount || 0} {t('journal.tasks')}</Text>
                                         </View>
                                     </View>
                                     <View style={styles.headerActions}>
@@ -114,7 +116,7 @@ export default function SprintHistoryScreen() {
                                 {isExpanded && (
                                     <View style={styles.expandedContent}>
                                         <View style={styles.divider} />
-                                        <Text style={styles.sectionLabel}>TIMELINE</Text>
+                                        <Text style={styles.sectionLabel}>{t('journal.timeline')}</Text>
                                         {sprint.timelineEvents && sprint.timelineEvents.map((evt: any, idx: number, arr: any[]) => {
                                             const isTask = evt.type === 'task';
                                             const isBreak = evt.type === 'break';

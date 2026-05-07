@@ -29,7 +29,7 @@ export const ImageUploadService = {
 
             // Read the file from local storage as base64
             const base64 = await FileSystem.readAsStringAsync(localUri, { 
-                encoding: FileSystem.EncodingType.Base64 
+                encoding: 'base64'
             });
             
             // Decode base64 to ArrayBuffer (required for Supabase upload)

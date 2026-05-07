@@ -225,6 +225,7 @@ export const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
         color: THEME.textSecondary,
+        textTransform: 'capitalize',
     },
     featureValueActive: {
         color: THEME.textPrimary,

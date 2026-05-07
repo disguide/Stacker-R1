@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, KeyboardAvoidingVi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../src/services/supabase';
 import { StorageService } from '../src/services/storage';
 import { migrateGuestToCloud } from '../src/services/SyncService';
 import { useAuth } from '../src/providers/AuthProvider';
 
 export default function AuthScreen() {
+    const { t } = useTranslation();
     const router = useRouter();
     const { user, authEvent } = useAuth();
     const [emailFlow, setEmailFlow] = useState(false);
@@ -41,7 +43,7 @@ export default function AuthScreen() {
 
     const handleEmailAuth = async (isSignUp: boolean) => {
         if (!authEmail || (!recoveryMode && !authPassword)) {
-            Alert.alert('Error', 'Please enter email and password');
+            Alert.alert(t('common.error'), t('auth.enterEmailPass'));
             return;
         }
         setAuthLoading(true);
@@ -51,10 +53,10 @@ export default function AuthScreen() {
             const { error } = await supabase.auth.updateUser({ password: authPassword });
             setAuthLoading(false);
             if (error) {
-                Alert.alert('Error', error.message);
+                Alert.alert(t('common.error'), error.message);
             } else {
-                Alert.alert('Success', 'Password updated successfully!', [
-                    { text: 'OK', onPress: () => {
+                Alert.alert(t('common.success'), t('profile.passwordUpdated'), [
+                    { text: t('common.done'), onPress: () => {
                         setRecoveryMode(false);
                         markAuthSeenAndProceed();
                     }}
@@ -69,11 +71,11 @@ export default function AuthScreen() {
             
         setAuthLoading(false);
         if (error) {
-            Alert.alert('Error', error.message);
+            Alert.alert(t('common.error'), error.message);
         } else {
             if (isSignUp) {
-                Alert.alert('Success', 'Check your email for the confirmation link!', [
-                    { text: 'OK', onPress: markAuthSeenAndProceed }
+                Alert.alert(t('common.success'), t('auth.checkEmail'), [
+                    { text: t('common.done'), onPress: markAuthSeenAndProceed }
                 ]);
             } else {
                 markAuthSeenAndProceed();
@@ -83,7 +85,7 @@ export default function AuthScreen() {
 
     const handleForgotPassword = async () => {
         if (!authEmail) {
-            Alert.alert('Error', 'Please enter your email address first.');
+            Alert.alert(t('common.error'), t('auth.enterEmailFirst'));
             return;
         }
         setAuthLoading(true);
@@ -93,9 +95,9 @@ export default function AuthScreen() {
         setAuthLoading(true);
         setAuthLoading(false);
         if (error) {
-            Alert.alert('Error', error.message);
+            Alert.alert(t('common.error'), error.message);
         } else {
-            Alert.alert('Success', 'Reset link sent! Check your inbox.');
+            Alert.alert(t('common.success'), t('auth.resetLinkSent'));
         }
     };
 
@@ -105,16 +107,16 @@ export default function AuthScreen() {
                 <Ionicons name="arrow-back" size={24} color="#000" />
             </TouchableOpacity>
             
-            <Text style={styles.headerTitle}>{recoveryMode ? 'Reset Password' : 'Sign In with Email'}</Text>
+            <Text style={styles.headerTitle}>{recoveryMode ? t('auth.resetPassword') : t('auth.signInEmail')}</Text>
             <Text style={styles.subtitle}>
                 {recoveryMode 
-                    ? 'Enter a new password for your account.' 
-                    : 'Enter your email and password to continue.'}
+                    ? t('auth.resetPasswordSub') 
+                    : t('auth.signInSub')}
             </Text>
 
             <TextInput 
                 style={styles.input} 
-                placeholder="Email Address" 
+                placeholder={t('auth.emailPlaceholder')}
                 value={authEmail} 
                 onChangeText={setAuthEmail} 
                 autoCapitalize="none" 
@@ -122,7 +124,7 @@ export default function AuthScreen() {
             />
             <TextInput 
                 style={styles.input} 
-                placeholder={recoveryMode ? "New Password" : "Password"} 
+                placeholder={recoveryMode ? t('account.newPassword') : t('auth.passwordPlaceholder')} 
                 value={authPassword} 
                 onChangeText={setAuthPassword} 
                 secureTextEntry 
@@ -130,7 +132,7 @@ export default function AuthScreen() {
 
             {!recoveryMode && (
                 <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPasswordButton}>
-                    <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                    <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>
                 </TouchableOpacity>
             )}
             
@@ -140,7 +142,7 @@ export default function AuthScreen() {
                     onPress={() => handleEmailAuth(false)}
                     disabled={authLoading}
                 >
-                    {authLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryButtonText}>{recoveryMode ? 'Save Password' : 'Sign In'}</Text>}
+                    {authLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primaryButtonText}>{recoveryMode ? t('auth.savePassword') : t('auth.signIn')}</Text>}
                 </TouchableOpacity>
 
                 {!recoveryMode && (
@@ -149,7 +151,7 @@ export default function AuthScreen() {
                         onPress={() => handleEmailAuth(true)}
                         disabled={authLoading}
                     >
-                        {authLoading ? <ActivityIndicator color="#007AFF" /> : <Text style={styles.secondaryButtonText}>Create Account</Text>}
+                        {authLoading ? <ActivityIndicator color="#007AFF" /> : <Text style={styles.secondaryButtonText}>{t('auth.createAccount')}</Text>}
                     </TouchableOpacity>
                 )}
             </View>
@@ -163,7 +165,7 @@ export default function AuthScreen() {
                      <Ionicons name="layers" size={48} color="#000" />
                 </View>
                 <Text style={styles.brandTitle}>Stacker</Text>
-                <Text style={styles.subtitle}>Supercharge your productivity.</Text>
+                <Text style={styles.subtitle}>{t('auth.brandSlogan')}</Text>
             </View>
 
             <View style={styles.optionsBlock}>
@@ -172,7 +174,7 @@ export default function AuthScreen() {
                     onPress={() => Alert.alert('Coming Soon', 'Sign in with Apple will be available in the next update.')}
                 >
                     <Ionicons name="logo-apple" size={22} color="#FFF" style={styles.optionIcon} />
-                    <Text style={[styles.optionText, { color: '#FFF' }]}>Continue with Apple</Text>
+                    <Text style={[styles.optionText, { color: '#FFF' }]}>{t('auth.continueApple')}</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
@@ -180,7 +182,7 @@ export default function AuthScreen() {
                     onPress={() => Alert.alert('Coming Soon', 'Sign in with Google will be available in the next update.')}
                 >
                     <Ionicons name="logo-google" size={22} color="#333" style={styles.optionIcon} />
-                    <Text style={[styles.optionText, { color: '#333' }]}>Continue with Google</Text>
+                    <Text style={[styles.optionText, { color: '#333' }]}>{t('auth.continueGoogle')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
@@ -188,22 +190,22 @@ export default function AuthScreen() {
                     onPress={() => setEmailFlow(true)}
                 >
                     <Ionicons name="mail-outline" size={22} color="#333" style={styles.optionIcon} />
-                    <Text style={[styles.optionText, { color: '#333' }]}>Continue with Email</Text>
+                    <Text style={[styles.optionText, { color: '#333' }]}>{t('auth.continueEmail')}</Text>
                 </TouchableOpacity>
             </View>
 
             <View style={styles.guestSeparator}>
                 <View style={[styles.line, { backgroundColor: '#F3F4F6' }]} />
-                <Text style={styles.orText}>OR</Text>
+                <Text style={styles.orText}>{t('auth.or')}</Text>
                 <View style={[styles.line, { backgroundColor: '#F3F4F6' }]} />
             </View>
 
             <TouchableOpacity style={styles.guestButton} onPress={markAuthSeenAndProceed}>
-                <Text style={styles.guestButtonText}>Continue as Guest</Text>
+                <Text style={styles.guestButtonText}>{t('auth.continueGuest')}</Text>
             </TouchableOpacity>
             
             <Text style={styles.disclaimerText}>
-                No account required to use the core features.
+                {t('auth.guestDisclaimer')}
             </Text>
         </View>
     );

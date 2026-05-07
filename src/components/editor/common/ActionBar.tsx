@@ -2,12 +2,15 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { THEME } from '../constants';
+import { useTranslation } from 'react-i18next';
 
 export function ActionBar({ onReset, onConfirm, hasValue }: {
     onReset: () => void;
     onConfirm: () => void;
     hasValue: boolean;
 }) {
+    const { t } = useTranslation();
+
     return (
         <View
             style={p.actionBarContainer}
@@ -20,11 +23,11 @@ export function ActionBar({ onReset, onConfirm, hasValue }: {
                     disabled={!hasValue}
                 >
                 <MaterialCommunityIcons name="close" size={18} color="#EF4444" />
-                <Text style={p.resetBtnText}>Reset</Text>
+                <Text style={p.resetBtnText}>{t('common.reset')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[p.actionBtn, p.confirmBtn]} onPress={onConfirm}>
                 <Ionicons name="checkmark" size={18} color="#FFF" />
-                <Text style={p.confirmBtnText}>Confirm</Text>
+                <Text style={p.confirmBtnText}>{t('common.confirm')}</Text>
             </TouchableOpacity>
             </View>
 

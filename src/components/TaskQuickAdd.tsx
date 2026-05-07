@@ -29,6 +29,8 @@ interface TaskQuickAddProps {
     onClearRecurrence: () => void;
 }
 
+import { useTranslation } from 'react-i18next';
+
 export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
     visible,
     isSubtask,
@@ -48,6 +50,7 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
     recurrence,
     onClearRecurrence
 }) => {
+    const { t } = useTranslation();
     const inputRef = useRef<TextInput>(null);
 
     // Auto-focus when becoming visible
@@ -79,7 +82,7 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                         <TextInput
                             ref={inputRef}
                             style={styles.addTaskInput}
-                            placeholder={isSubtask ? "Add a subtask..." : "Write something..."}
+                            placeholder={isSubtask ? t('home.addSubtask') : t('home.writeSomething')}
                             placeholderTextColor="#999"
                             value={title}
                             onChangeText={onChangeTitle}
@@ -87,7 +90,7 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                             onSubmitEditing={onSave}
                         />
                         <TouchableOpacity onPress={onSave} style={styles.tactileButton}>
-                            <Text style={styles.tactileButtonText}>Save</Text>
+                            <Text style={styles.tactileButtonText}>{t('common.save')}</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -126,8 +129,8 @@ export const TaskQuickAdd: React.FC<TaskQuickAddProps> = ({
                             <TouchableOpacity onPress={onClearRecurrence} style={styles.miniChip}>
                                 <Text style={styles.miniChipText}>
                                     {recurrence.frequency === 'weekly' && recurrence.daysOfWeek
-                                        ? 'Custom W'
-                                        : recurrence.frequency.charAt(0).toUpperCase() + recurrence.frequency.slice(1)}
+                                        ? t('common.customW')
+                                        : recurrence.frequency}
                                 </Text>
                             </TouchableOpacity>
                         )}
@@ -228,6 +231,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#475569',
         fontWeight: '500',
+        textTransform: 'capitalize',
     },
     cancelBtn: {
         width: 32,

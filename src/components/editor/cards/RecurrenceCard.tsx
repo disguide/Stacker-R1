@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { EditorCardProps } from '../types';
 import { RecurrenceRule } from '../../../features/tasks/types';
@@ -11,21 +12,21 @@ export interface RecurrenceCardProps extends EditorCardProps {
 }
 
 const FREQUENCIES = [
-    { id: 'daily', label: 'Daily' },
-    { id: 'weekly', label: 'Weekly' },
-    { id: 'monthly', label: 'Monthly' },
-    { id: 'yearly', label: 'Yearly' },
+    { id: 'daily', key: 'common.daily' },
+    { id: 'weekly', key: 'common.weekly' },
+    { id: 'monthly', key: 'common.monthly' },
+    { id: 'yearly', key: 'common.yearly' },
 ];
 
 export function RecurrenceCard({ isActive, onActivate, recurrence, date, onChange }: RecurrenceCardProps) {
+    const { t } = useTranslation();
 
     // --- HELPERS ---
     const summary = useMemo(() => {
-        if (!recurrence) return "No Repeat";
-        const freq = recurrence.frequency.charAt(0).toUpperCase() + recurrence.frequency.slice(1);
-        if (recurrence.interval > 1) return `Every ${recurrence.interval} ${recurrence.frequency}s`;
-        return freq;
-    }, [recurrence]);
+        if (!recurrence) return t('common.noRepeat');
+        if (recurrence.interval > 1) return t('common.everyInterval', { count: recurrence.interval, freq: t(`common.${recurrence.frequency}`) });
+        return t(`common.${recurrence.frequency}`);
+    }, [recurrence, t]);
 
     const handleSelectFreq = (freq: 'daily' | 'weekly' | 'monthly' | 'yearly') => {
         let daysOfWeek: any[] | undefined = undefined;
@@ -40,7 +41,7 @@ export function RecurrenceCard({ isActive, onActivate, recurrence, date, onChang
                 }
             }
             // Get 2-letter MO/TU/etc.
-            const dayCode = targetDate.toLocaleDateString('en-US', { weekday: 'short' }).substring(0, 2).toUpperCase();
+            const dayCode = targetDate.toLocaleDateString('en-US', { weekday: 'short' }).substring(0, 2);
             daysOfWeek = [dayCode];
         }
 
@@ -70,7 +71,7 @@ export function RecurrenceCard({ isActive, onActivate, recurrence, date, onChang
     // --- RENDER ACTIVE (Input) ---
     return (
         <View style={styles.cardActive}>
-            <Text style={styles.activeHeader}>Recurrence</Text>
+            <Text style={styles.activeHeader}>{t('common.recurrence')}</Text>
 
             <View style={styles.optionsList}>
                 {FREQUENCIES.map((f) => {
@@ -85,7 +86,7 @@ export function RecurrenceCard({ isActive, onActivate, recurrence, date, onChang
                             onPress={() => handleSelectFreq(f.id as any)}
                         >
                             <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
-                                {f.label}
+                                {t(f.key)}
                             </Text>
                             {isSelected && <MaterialCommunityIcons name="check" size={20} color="#FFF" />}
                         </TouchableOpacity>
@@ -99,7 +100,7 @@ export function RecurrenceCard({ isActive, onActivate, recurrence, date, onChang
             </TouchableOpacity> */}
 
             <TouchableOpacity style={styles.clearButton} onPress={() => onChange(undefined)}>
-                <Text style={styles.clearText}>Stop Repeating</Text>
+                <Text style={styles.clearText}>{t('common.stopRepeating')}</Text>
             </TouchableOpacity>
         </View>
     );
@@ -138,6 +139,7 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: '600',
         color: '#333',
+        textTransform: 'capitalize',
     },
 
     // ACTIVE

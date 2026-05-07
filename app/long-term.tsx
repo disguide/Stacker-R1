@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal, Dimensions, ScrollView, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Modal, Dimensions, ScrollView, TextInput, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
+import { useTranslation } from 'react-i18next';
 import { useTaskController } from '../src/features/tasks/hooks/useTaskController';
 import { useTaskUI } from '../src/features/tasks/hooks/useTaskUI';
 import { Task } from '../src/features/tasks/types';
@@ -28,6 +29,7 @@ import { styles as taskStyles } from '../src/styles/taskListStyles';
 type ListItem = Task | string;
 
 export default function LongTermScreen() {
+    const { t, i18n } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { tasks, toggleTask, updateTask, deleteTask, addTask, toggleSubtask, updateSubtask } = useTaskController();
@@ -48,6 +50,9 @@ export default function LongTermScreen() {
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [isListScrollEnabled, setIsListScrollEnabled] = useState(true);
     const [userColors, setUserColors] = useState<any[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const searchInputRef = useRef<TextInput>(null);
+    const [isSearchActive, setIsSearchActive] = useState(false);
 
     useEffect(() => {
         // Load colors for the horizon view as well
@@ -169,11 +174,37 @@ export default function LongTermScreen() {
         return data;
     }, [tasks]);
 
+    // --- SEARCH FILTER ---
+    const filteredData = useMemo(() => {
+        const q = searchQuery.toLowerCase().trim();
+
+        if (!q) return horizonData;
+
+        const result: ListItem[] = [];
+        let pendingHeaders: string[] = [];
+
+        for (const item of horizonData) {
+            if (typeof item === 'string') {
+                pendingHeaders.push(item);
+            } else {
+                const task = item as Task;
+                if (task.title.toLowerCase().includes(q)) {
+                    result.push(...pendingHeaders);
+                    pendingHeaders = [];
+                    result.push(item);
+                } else {
+                    pendingHeaders = [];
+                }
+            }
+        }
+        return result;
+    }, [horizonData, searchQuery]);
+
     const stickyHeaderIndices = useMemo(() => {
-        return horizonData
+        return filteredData
             .map((item, index) => (typeof item === 'string' ? index : null))
             .filter((item) => item !== null) as number[];
-    }, [horizonData]);
+    }, [filteredData]);
 
     // --- HANDLERS ---
 
@@ -308,12 +339,12 @@ export default function LongTermScreen() {
     const confirmDelete = (task: Task) => {
         if (task.rrule || task.recurrence) {
             Alert.alert(
-                "Delete Repeating Task",
-                "Do you want to delete just this instance or all future tasks?",
+                t('longterm.deleteRepeatingTask'),
+                t('longterm.deleteRepeatingMsg'),
                 [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "This One Only", onPress: () => handleDeleteTask(task.id, task.date, 'single') },
-                    { text: "All Future Tasks", onPress: () => handleDeleteTask(task.id, task.date, 'future'), style: "destructive" }
+                    { text: t('common.cancel'), style: "cancel" },
+                    { text: t('longterm.thisInstance'), onPress: () => handleDeleteTask(task.id, task.date, 'single') },
+                    { text: t('longterm.allFuture'), onPress: () => handleDeleteTask(task.id, task.date, 'future'), style: "destructive" }
                 ]
             );
         } else {
@@ -488,21 +519,68 @@ export default function LongTermScreen() {
                     <TouchableOpacity onPress={handleBack} style={s.backBtn}>
                         <Ionicons name="arrow-back" size={24} color="#FFF" />
                     </TouchableOpacity>
-                    <Text style={s.headerTitle}>Long Shot 🔭</Text>
-                    <View style={{ width: 40 }} />
+                    <Text style={s.headerTitle}>{t('common.horizon')} 🔭</Text>
+                    <TouchableOpacity
+                        onPress={() => {
+                            setIsSearchActive(true);
+                            setTimeout(() => searchInputRef.current?.focus(), 100);
+                        }}
+                        style={s.searchIconBtn}
+                    >
+                        <Ionicons name="search" size={22} color="#94A3B8" />
+                    </TouchableOpacity>
                 </View>
-                <Text style={s.headerSubtitle}>Horizon View</Text>
+
+                {/* Search Bar */}
+                {isSearchActive && (
+                    <View style={s.searchRow}>
+                        <View style={s.searchBarWrapper}>
+                            <Ionicons name="search" size={16} color="#64748B" />
+                            <TextInput
+                                ref={searchInputRef}
+                                style={s.searchInput}
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                                placeholder={t('common.searchTasks')}
+                                placeholderTextColor="#64748B"
+                                autoCapitalize="none"
+                                returnKeyType="search"
+                            />
+                            {searchQuery.length > 0 && (
+                                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                    <Ionicons name="close-circle" size={16} color="#64748B" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <TouchableOpacity
+                            onPress={() => {
+                                setIsSearchActive(false);
+                                setSearchQuery('');
+                            }}
+                            style={s.searchCancelBtn}
+                        >
+                            <Text style={s.searchCancelText}>{t('common.cancel')}</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {!isSearchActive && <Text style={s.headerSubtitle}>{t('common.horizon')}</Text>}
             </View>
-            <View style={s.content}>
-                {horizonData.length === 0 ? (
+
+            <KeyboardAvoidingView
+                style={s.content}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={0}
+            >
+                {filteredData.length === 0 ? (
                     <View style={s.emptyState}>
                         <MaterialCommunityIcons name="telescope" size={64} color="#CBD5E1" />
-                        <Text style={s.emptyText}>The horizon is clear.</Text>
-                        <Text style={s.emptySubText}>Add a yearly engine or a future goal!</Text>
+                        <Text style={s.emptyText}>{searchQuery ? t('common.noResults') : t('longterm.clearHorizon')}</Text>
+                        <Text style={s.emptySubText}>{searchQuery ? t('longterm.searchTip') : t('longterm.addGoalTip')}</Text>
                     </View>
                 ) : (
                     <FlashList<ListItem>
-                        data={horizonData}
+                        data={filteredData}
                         // @ts-ignore - types conflict with React 19
                         estimatedItemSize={70}
                         getItemType={(item) => typeof item === 'string' ? 'header' : 'row'}
@@ -529,7 +607,7 @@ export default function LongTermScreen() {
                                                     s.dayName,
                                                     isTodayDate && s.todayDayName
                                                 ]}>
-                                                    {dateObj.getDate()} {dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                                                    {dateObj.getDate()} {dateObj.toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' })}
                                                 </Text>
                                                 <Text style={[s.dateSubtext, { marginLeft: 8 }]}>
                                                     • {getDaysDifference(dateObj)} - {getDayName(dateObj)}
@@ -540,14 +618,17 @@ export default function LongTermScreen() {
                                 }
 
                                 // Section Header
-                                const title = item === 'SECTION_SINGLE' ? 'Single Action Items' : 'Recurring Actions';
-                                const icon = item === 'SECTION_SINGLE' ? 'checkbox-blank-circle-outline' : 'sync';
+                                const isSingle = item === 'SECTION_SINGLE';
+                                const title = isSingle ? t('longterm.singleActionItems') : t('longterm.recurringActions');
+                                const icon = isSingle ? 'checkbox-blank-circle-outline' : 'sync';
                                 return (
-                                    <View style={s.sectionHeader}>
-                                        <View style={s.sectionHeaderBadge}>
-                                            <MaterialCommunityIcons name={icon as any} size={14} color="#FFF" />
+                                    <View>
+                                        <View style={s.sectionHeader}>
+                                            <View style={s.sectionHeaderBadge}>
+                                                <MaterialCommunityIcons name={icon as any} size={14} color="#FFF" />
+                                            </View>
+                                            <Text style={s.sectionHeaderText}>{title}</Text>
                                         </View>
-                                        <Text style={s.sectionHeaderText}>{title}</Text>
                                     </View>
                                 );
                             }
@@ -625,7 +706,7 @@ export default function LongTermScreen() {
                         contentContainerStyle={{ paddingBottom: 100 }}
                     />
                 )}
-            </View >
+            </KeyboardAvoidingView>
 
             <TouchableOpacity style={s.fab} onPress={handleAddPress}>
                 <Ionicons name="add" size={30} color="#FFF" />
@@ -655,9 +736,9 @@ export default function LongTermScreen() {
                 visible={isCalendarVisible}
                 onClose={() => setIsCalendarVisible(false)}
                 title={
-                    calendarMode === 'move' ? 'Move Task to Date' : 
-                    calendarMode === 'add' ? 'Add Date' : 
-                    'Change Date'
+                    calendarMode === 'move' ? t('home.moveTaskToDate') : 
+                    calendarMode === 'add' ? t('home.addDate') : 
+                    t('home.changeDate')
                 }
                 onSelectDate={handleSelectDate}
                 selectedDate={calendarMode === 'edit' ? (editingSubtask ? editingSubtask.subtask.deadline : editingTask?.deadline) : null}
@@ -746,7 +827,47 @@ const s = StyleSheet.create({
     },
     header: {
         backgroundColor: '#0F172A',
-        paddingBottom: 16,
+        paddingBottom: 12,
+    },
+    searchIconBtn: {
+        padding: 8,
+        width: 40,
+        alignItems: 'center',
+    },
+    searchRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingTop: 4,
+        paddingBottom: 8,
+        gap: 8,
+    },
+    searchBarWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1E293B',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        gap: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        color: '#F1F5F9',
+        padding: 0,
+    },
+    searchCancelBtn: {
+        paddingHorizontal: 4,
+        paddingVertical: 6,
+    },
+    searchCancelText: {
+        fontSize: 14,
+        color: '#94A3B8',
+        fontWeight: '600',
     },
     headerTop: {
         flexDirection: 'row',

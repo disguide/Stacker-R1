@@ -11,6 +11,7 @@ import {
     ScrollView,
 } from 'react-native';
 import { StorageService } from '../services/storage';
+import { useTranslation } from 'react-i18next';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -160,9 +161,11 @@ const WheelPicker = ({ items, selectedValue, onChange, formatLabel, loop = true 
 const hours24 = Array.from({ length: 24 }, (_, i) => i);
 const hours12 = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const minutes = Array.from({ length: 60 }, (_, i) => i);
-const periods = ['AM', 'PM'];
 
 export default function ReminderModal({ visible, onClose, onSelectReminder, initialOffset = 0, initialTime }: ReminderModalProps) {
+    const { t } = useTranslation();
+    const periods = [t('common.am', { defaultValue: 'AM' }), t('common.pm', { defaultValue: 'PM' })];
+
     // Offset is now hardcoded to 0 (Same day)
     const [offset] = useState(0);
 
@@ -212,12 +215,14 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
     // Time Helpers
     const isPm = hour >= 12;
     const current12hHour = hour % 12 || 12;
-    const currentPeriod = isPm ? 'PM' : 'AM';
+    const currentPeriod = isPm ? t('common.pm', { defaultValue: 'PM' }) : t('common.am', { defaultValue: 'AM' });
 
-    const handlePeriodChange = (newPeriod: 'AM' | 'PM') => {
-        if (newPeriod === 'PM' && hour < 12) {
+    const handlePeriodChange = (newPeriod: string) => {
+        const pmLabel = t('common.pm', { defaultValue: 'PM' });
+        const amLabel = t('common.am', { defaultValue: 'AM' });
+        if (newPeriod === pmLabel && hour < 12) {
             setHour(h => h + 12);
-        } else if (newPeriod === 'AM' && hour >= 12) {
+        } else if (newPeriod === amLabel && hour >= 12) {
             setHour(h => h - 12);
         }
     };
@@ -238,13 +243,13 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
                 <View style={styles.card} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.title}>Set Reminder Time</Text>
+                    <Text style={styles.title}>{t('editor.setReminderTime')}</Text>
 
                     <View style={styles.pickersRow}>
                         {/* Time Picker - Now centered and full width */}
                         <View style={[styles.column, { width: '100%' }]}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                                <Text style={[styles.label, { marginBottom: 0 }]}>Select Time</Text>
+                                <Text style={[styles.label, { marginBottom: 0 }]}>{t('editor.selectTime')}</Text>
                                 <TouchableOpacity onPress={toggle24h} style={{ marginLeft: 10, paddingVertical: 3, paddingHorizontal: 6, borderWidth: 1.5, borderColor: '#DDD', borderRadius: 6, backgroundColor: '#F8F9FA' }}>
                                     <Text style={{ fontSize: 11, fontWeight: '700', color: '#666' }}>{is24h ? '24H' : '12H'}</Text>
                                 </TouchableOpacity>
@@ -274,11 +279,11 @@ export default function ReminderModal({ visible, onClose, onSelectReminder, init
                     {/* Footer — Unified pattern */}
                     <View style={styles.footer}>
                         <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                            <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
                         </TouchableOpacity>
                         <View style={{ flex: 1 }} />
                         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                            <Text style={styles.saveButtonText}>Confirm</Text>
+                            <Text style={styles.saveButtonText}>{t('common.confirm')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

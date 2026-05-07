@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Animated, LayoutAnimation } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useRouter } from 'expo-router';
@@ -8,6 +9,7 @@ import { useMail } from '../src/features/mail/useMail';
 import { MailMessage } from '../src/services/storage';
 
 export default function TrashScreen() {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { trashedMessages, emptyTrash, restoreFromTrash, deleteMessage } = useMail();
@@ -36,11 +38,11 @@ export default function TrashScreen() {
                     <Animated.View style={{ flex: 1, flexDirection: 'row', transform: [{ translateX: trans }] }}>
                         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#10B981' }]} onPress={() => handleRestore(item.id)}>
                             <MaterialCommunityIcons name="restore" size={24} color="#FFF" />
-                            <Text style={styles.actionText}>Restore</Text>
+                            <Text style={styles.actionText}>{t('mail.restore')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#EF4444' }]} onPress={() => handlePermanentDelete(item.id)}>
                             <MaterialCommunityIcons name="delete-forever" size={24} color="#FFF" />
-                            <Text style={styles.actionText}>Purge</Text>
+                            <Text style={styles.actionText}>{t('mail.purge')}</Text>
                         </TouchableOpacity>
                     </Animated.View>
                 </View>
@@ -76,19 +78,19 @@ export default function TrashScreen() {
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerBackBtn}>
                     <Ionicons name="chevron-back" size={28} color="#007AFF" />
-                    <Text style={styles.headerBackText}>Inbox</Text>
+                    <Text style={styles.headerBackText}>{t('mail.inbox')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Trash</Text>
+                <Text style={styles.headerTitle}>{t('mail.trash')}</Text>
                 <TouchableOpacity onPress={emptyTrash} style={styles.headerRightBtn} disabled={trashedMessages.length === 0}>
-                    <Text style={[styles.headerLinkText, trashedMessages.length === 0 && styles.disabledText]}>Empty</Text>
+                    <Text style={[styles.headerLinkText, trashedMessages.length === 0 && styles.disabledText]}>{t('mail.emptyTrashBtn')}</Text>
                 </TouchableOpacity>
             </View>
 
             {trashedMessages.length === 0 ? (
                 <View style={styles.centered}>
                     <MaterialCommunityIcons name="delete-empty-outline" size={64} color="#E2E8F0" />
-                    <Text style={styles.emptyTitle}>Trash is Empty</Text>
-                    <Text style={styles.emptyText}>Deleted messages will appear here.</Text>
+                    <Text style={styles.emptyTitle}>{t('mail.emptyTrash')}</Text>
+                    <Text style={styles.emptyText}>{t('mail.emptyTrashSub')}</Text>
                 </View>
             ) : (
                 <FlatList

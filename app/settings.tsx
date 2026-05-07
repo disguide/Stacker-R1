@@ -13,7 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SettingsGroup = ({ title, children }: { title?: string, children: React.ReactNode }) => (
     <View style={styles.groupContainer}>
-        {title && <Text style={styles.groupTitle}>{title.toUpperCase()}</Text>}
+        {title && <Text style={styles.groupTitle}>{title}</Text>}
         <View style={styles.groupBlock}>
             {children}
         </View>
@@ -351,6 +351,7 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         marginLeft: 16,
         marginBottom: 6,
+        textTransform: 'uppercase',
     },
     groupBlock: {
         backgroundColor: '#FFF',

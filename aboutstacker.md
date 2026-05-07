@@ -70,9 +70,11 @@ Every user profile has a dual identity composed of four distinct body parts, rep
 *   **Legs (Outcomes):** Long-term achievements, career results, and final finish lines.
 
 ### B. The Mirror Logic
-- **The Hero Identity:** Built and strengthened by completing tasks associated with self-improvement and positive growth. Each body part "levels up" as you finish tasks categorized in that domain.
-- **The Anti-Hero Identity:** Represents the "Procrastinator Self." This identity is influenced when you roll tasks repeatedly or delete them because they were "Too hard today."
+- **The Hero Identity:** Built and strengthened by completing tasks associated with self-improvement and positive growth. Each body part "levels up" as you finish tasks categorized in that domain. (Note: Visualized in R1 primarily through the **Goals Timeline** and **Hall of Fame** stats).
+- **The Anti-Hero Identity:** Represents the "Procrastinator Self." This identity is influenced when you roll tasks repeatedly or delete them. (Note: Visualized in R1 through the **Anti-Goals** list and **Shame Metrics**).
 - **The Archive:** The Profile screen displays these identities as part of a "Personal Identity Timeline," allowing users to see their character evolve over time based on their work habits.
+
+*Implementation Note:* The discrete "Body Parts" (Head, Torso, Arms, Legs) system is available via the `IdentityCard` component but is currently prioritized behind the list-based Goals and Anti-Goals system for R1 launch.
 
 ---
 

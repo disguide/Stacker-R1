@@ -8,6 +8,7 @@ import {
     Dimensions,
     Platform
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 // Theme Constants — Unified with CalendarModal / ReminderModal
 const THEME = {
@@ -37,16 +38,8 @@ const parseDuration = (durationStr?: string | null): number => {
     return totalMinutes > 0 ? totalMinutes : 0;
 };
 
-const formatDuration = (minutes: number): string => {
-    if (minutes === 0) return '';
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h > 0 && m > 0) return `${h}h ${m}m`;
-    if (h > 0) return `${h}h`;
-    return `${m}m`;
-};
-
 export default function DurationPickerModal({ visible, onClose, onSelectDuration, initialDuration }: DurationPickerModalProps) {
+    const { t } = useTranslation();
     const [currentMinutes, setCurrentMinutes] = useState(0);
 
     useEffect(() => {
@@ -54,6 +47,26 @@ export default function DurationPickerModal({ visible, onClose, onSelectDuration
             setCurrentMinutes(parseDuration(initialDuration));
         }
     }, [visible, initialDuration]);
+
+    const formatDuration = (minutes: number): string => {
+        if (minutes === 0) return '';
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        if (h > 0 && m > 0) return `${h}h ${m}m`;
+        if (h > 0) return `${h}h`;
+        return `${m}m`;
+    };
+
+    const formatDurationLocalized = (minutes: number): string => {
+        if (minutes === 0) return '0m';
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        const hUnit = t('editor.unit_h', { defaultValue: 'h' });
+        const mUnit = t('editor.unit_m', { defaultValue: 'm' });
+        if (h > 0 && m > 0) return `${h}${hUnit} ${m}${mUnit}`;
+        if (h > 0) return `${h}${hUnit}`;
+        return `${m}${mUnit}`;
+    };
 
     const addMinutes = (amount: number) => {
         setCurrentMinutes(prev => prev + amount);
@@ -83,43 +96,43 @@ export default function DurationPickerModal({ visible, onClose, onSelectDuration
         >
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
                 <View style={styles.card} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.title}>Estimate Time</Text>
+                    <Text style={styles.title}>{t('editor.estimatedTime')}</Text>
 
                     {/* Display */}
                     <View style={styles.displayContainer}>
                         <Text style={styles.displayText}>
-                            {currentMinutes > 0 ? formatDuration(currentMinutes) : '0m'}
+                            {formatDurationLocalized(currentMinutes)}
                         </Text>
                     </View>
 
                     {/* Accumulator Buttons */}
                     <View style={styles.buttonsGrid}>
                         <TouchableOpacity style={styles.timeBtn} onPress={() => addMinutes(1)}>
-                            <Text style={styles.timeBtnText}>+1m</Text>
+                            <Text style={styles.timeBtnText}>+1{t('editor.unit_m', { defaultValue: 'm' })}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.timeBtn} onPress={() => addMinutes(5)}>
-                            <Text style={styles.timeBtnText}>+5m</Text>
+                            <Text style={styles.timeBtnText}>+5{t('editor.unit_m', { defaultValue: 'm' })}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.timeBtn} onPress={() => addMinutes(15)}>
-                            <Text style={styles.timeBtnText}>+15m</Text>
+                            <Text style={styles.timeBtnText}>+15{t('editor.unit_m', { defaultValue: 'm' })}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.timeBtn} onPress={() => addMinutes(30)}>
-                            <Text style={styles.timeBtnText}>+30m</Text>
+                            <Text style={styles.timeBtnText}>+30{t('editor.unit_m', { defaultValue: 'm' })}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.timeBtn} onPress={() => addMinutes(60)}>
-                            <Text style={styles.timeBtnText}>+1h</Text>
+                            <Text style={styles.timeBtnText}>+1{t('editor.unit_h', { defaultValue: 'h' })}</Text>
                         </TouchableOpacity>
                     </View>
 
                     {/* Footer — Unified pattern */}
                     <View style={styles.footer}>
                         <TouchableOpacity onPress={handleReset} style={styles.cancelButton}>
-                            <Text style={styles.cancelButtonText}>Reset</Text>
+                            <Text style={styles.cancelButtonText}>{t('common.reset')}</Text>
                         </TouchableOpacity>
                         <View style={{ flex: 1 }} />
                         <TouchableOpacity onPress={handleConfirm} style={styles.saveButton}>
                             <Text style={styles.saveButtonText}>
-                                {currentMinutes > 0 ? `Confirm ${formatDuration(currentMinutes)}` : 'Confirm'}
+                                {currentMinutes > 0 ? `${t('common.confirm')} ${formatDurationLocalized(currentMinutes)}` : t('common.confirm')}
                             </Text>
                         </TouchableOpacity>
                     </View>

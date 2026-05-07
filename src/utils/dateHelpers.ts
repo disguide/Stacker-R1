@@ -103,10 +103,11 @@ export const formatDeadline = (dateString: string): string => {
     const day = deadlineDate.getDate();
 
     let relative = '';
-    if (diffDays === 0) relative = 'Today';
-    else if (diffDays === 1) relative = '1D';
-    else if (diffDays > 1) relative = `${diffDays}D`;
-    else if (diffDays < 0) relative = `${diffDays}D`;
+    const dayShorthand = i18n.t('journal.d');
+    if (diffDays === 0) relative = i18n.t('editor.today');
+    else if (diffDays === 1) relative = `1${dayShorthand}`;
+    else if (diffDays > 1) relative = `${diffDays}${dayShorthand}`;
+    else if (diffDays < 0) relative = `${diffDays}${dayShorthand}`;
 
     return `${relative} • ${month} ${day}${timeStr}`;
 };
@@ -163,10 +164,13 @@ export const formatMinutesAsTime = (totalMinutes: number): string => {
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
 
+    const hUnit = i18n.t('editor.unit_h');
+    const mUnit = i18n.t('editor.unit_m');
+
     if (h > 0) {
-        return m > 0 ? `${h}h${m}min` : `${h}h`;
+        return m > 0 ? `${h}${hUnit}${m}${mUnit}` : `${h}${hUnit}`;
     }
-    return `${m}min`;
+    return `${m}${mUnit}`;
 };
 
 /**
@@ -183,5 +187,5 @@ export const getDaysDifference = (date: Date): string => {
     const diffTime = target.getTime() - today.getTime();
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-    return `${diffDays}D`;
+    return `${diffDays}${i18n.t('journal.d')}`;
 };

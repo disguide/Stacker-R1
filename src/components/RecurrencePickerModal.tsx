@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, TextInput, Switch, Platform } from 'react-native';
 import { RecurrenceRule, RecurrenceFrequency, WeekDay } from '../services/storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 interface RecurrencePickerModalProps {
     visible: boolean;
@@ -10,33 +11,32 @@ interface RecurrencePickerModalProps {
     initialRule?: RecurrenceRule | null; // For editing
 }
 
-const FREQUENCIES: { label: string; value: RecurrenceFrequency }[] = [
-    { label: 'Day', value: 'daily' },
-    { label: 'Week', value: 'weekly' },
-    { label: 'Month', value: 'monthly' },
-    { label: 'Year', value: 'yearly' },
-];
-
-const WEEKDAYS: { label: string; value: WeekDay }[] = [
-    { label: 'M', value: 'MO' },
-    { label: 'T', value: 'TU' },
-    { label: 'W', value: 'WE' },
-    { label: 'T', value: 'TH' },
-    { label: 'F', value: 'FR' },
-    { label: 'S', value: 'SA' },
-    { label: 'S', value: 'SU' },
-];
-
 export default function RecurrencePickerModal({ visible, onClose, onSave, initialRule }: RecurrencePickerModalProps) {
+    const { t } = useTranslation();
     const [viewMode, setViewMode] = useState<'presets' | 'custom'>('presets');
+
+    const FREQUENCIES: { label: string; value: RecurrenceFrequency }[] = useMemo(() => [
+        { label: t('common.day', { defaultValue: 'Day' }), value: 'daily' },
+        { label: t('common.week', { defaultValue: 'Week' }), value: 'weekly' },
+        { label: t('common.month', { defaultValue: 'Month' }), value: 'monthly' },
+        { label: t('common.year', { defaultValue: 'Year' }), value: 'yearly' },
+    ], [t]);
+
+    const WEEKDAYS: { label: string; value: WeekDay }[] = useMemo(() => [
+        { label: t('calendar.daysShort.MO', { defaultValue: 'M' }), value: 'MO' },
+        { label: t('calendar.daysShort.TU', { defaultValue: 'T' }), value: 'TU' },
+        { label: t('calendar.daysShort.WE', { defaultValue: 'W' }), value: 'WE' },
+        { label: t('calendar.daysShort.TH', { defaultValue: 'T' }), value: 'TH' },
+        { label: t('calendar.daysShort.FR', { defaultValue: 'F' }), value: 'FR' },
+        { label: t('calendar.daysShort.SA', { defaultValue: 'S' }), value: 'SA' },
+        { label: t('calendar.daysShort.SU', { defaultValue: 'S' }), value: 'SU' },
+    ], [t]);
 
     // Custom State
     const [frequency, setFrequency] = useState<RecurrenceFrequency>('weekly');
     const [interval, setInterval] = useState<string>('1');
     const [selectedDays, setSelectedDays] = useState<Set<WeekDay>>(new Set());
     const [hasEndDate, setHasEndDate] = useState(false);
-    // Ideally use a DatePicker here, but for MVP keep it simple or strictly "Never" vs "On Date" logic later
-    // For now, let's stick to "Never" or "After X occurrences" if requested, else simple endless.
 
     useEffect(() => {
         if (initialRule) {
@@ -61,7 +61,6 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
             frequency,
             interval: repeatInterval,
             daysOfWeek: frequency === 'weekly' && selectedDays.size > 0 ? Array.from(selectedDays) : undefined,
-            // endDate: ... logic
         };
         onSave(rule);
         onClose();
@@ -105,33 +104,33 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
                 <View style={styles.container} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.title}>Recurrence</Text>
+                    <Text style={styles.title}>{t('editor.recurrence')}</Text>
 
                     <ScrollView style={styles.content}>
                         {viewMode === 'presets' ? (
                             <View style={styles.presetList}>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('none')}>
-                                    <Text style={styles.presetText}>Does not repeat</Text>
+                                    <Text style={styles.presetText}>{t('editor.recurrencePresets.none')}</Text>
                                     {initialRule === null && <Ionicons name="checkmark" size={20} color="blue" />}
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('daily')}>
-                                    <Text style={styles.presetText}>Every day</Text>
+                                    <Text style={styles.presetText}>{t('editor.recurrencePresets.daily')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('weekly')}>
-                                    <Text style={styles.presetText}>Every week</Text>
+                                    <Text style={styles.presetText}>{t('editor.recurrencePresets.weekly')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('monthly')}>
-                                    <Text style={styles.presetText}>Every month</Text>
+                                    <Text style={styles.presetText}>{t('editor.recurrencePresets.monthly')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('yearly')}>
-                                    <Text style={styles.presetText}>Every year</Text>
+                                    <Text style={styles.presetText}>{t('editor.recurrencePresets.yearly')}</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.presetItem} onPress={() => handlePreset('weekdays')}>
-                                    <Text style={styles.presetText}>Every weekday (Mon-Fri)</Text>
+                                    <Text style={styles.presetText}>{t('editor.recurrencePresets.weekdays')}</Text>
                                 </TouchableOpacity>
 
                                 <TouchableOpacity style={styles.customBtn} onPress={() => setViewMode('custom')}>
-                                    <Text style={styles.customBtnText}>Custom...</Text>
+                                    <Text style={styles.customBtnText}>{t('common.customEllipsis')}</Text>
                                     <Ionicons name="chevron-forward" size={20} color="#666" />
                                 </TouchableOpacity>
                             </View>
@@ -139,7 +138,7 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
                             <View style={styles.customForm}>
                                 {/* Frequency & Interval */}
                                 <View style={styles.formRow}>
-                                    <Text style={styles.label}>Repeat every</Text>
+                                    <Text style={styles.label}>{t('editor.repeatEvery')}</Text>
                                     <View style={styles.intervalRow}>
                                         <TextInput
                                             style={styles.intervalInput}
@@ -148,10 +147,6 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
                                             onChangeText={setInterval}
                                             textAlign="center"
                                         />
-                                        <View style={styles.freqTabs}>
-                                            {// Simple dropdown logic replaced by tabs for UX
-                                            }
-                                        </View>
                                     </View>
                                 </View>
 
@@ -173,7 +168,7 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
                                 {/* Weekday Selector (Only if Weekly) */}
                                 {frequency === 'weekly' && (
                                     <View style={styles.weekdaysContainer}>
-                                        <Text style={styles.label}>Repeats on</Text>
+                                        <Text style={styles.label}>{t('editor.repeatsOn')}</Text>
                                         <View style={styles.weekdaysRow}>
                                             {WEEKDAYS.map(day => (
                                                 <TouchableOpacity
@@ -189,9 +184,6 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
                                         </View>
                                     </View>
                                 )}
-
-
-
                             </View>
                         )}
                     </ScrollView>
@@ -200,11 +192,11 @@ export default function RecurrencePickerModal({ visible, onClose, onSave, initia
                     {viewMode === 'custom' && (
                         <View style={styles.footer}>
                             <TouchableOpacity onPress={() => setViewMode('presets')} style={styles.cancelButton}>
-                                <Text style={styles.cancelButtonText}>Back</Text>
+                                <Text style={styles.cancelButtonText}>{t('common.back')}</Text>
                             </TouchableOpacity>
                             <View style={{ flex: 1 }} />
                             <TouchableOpacity onPress={handleSaveCustom} style={styles.saveButton}>
-                                <Text style={styles.saveButtonText}>Confirm</Text>
+                                <Text style={styles.saveButtonText}>{t('common.confirm')}</Text>
                             </TouchableOpacity>
                         </View>
                     )}

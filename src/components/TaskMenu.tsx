@@ -11,6 +11,7 @@ import {
     Platform
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -35,6 +36,7 @@ export interface TaskMenuProps {
 }
 
 export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isSubtask = false, onEdit, onMoveToDate, enableSubtasks = true }: TaskMenuProps) {
+    const { t } = useTranslation();
     const panY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
     useEffect(() => {
@@ -84,7 +86,7 @@ export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isS
                                         <View style={styles.optionIconContainer}>
                                             <MaterialCommunityIcons name="subdirectory-arrow-right" size={22} color={THEME.textPrimary} />
                                         </View>
-                                        <Text style={styles.optionText}>Add Subtask</Text>
+                                        <Text style={styles.optionText}>{t('home.addSubtask')}</Text>
                                     </TouchableOpacity>
 
                                     <View style={styles.separator} />
@@ -101,7 +103,7 @@ export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isS
                                 <View style={styles.optionIconContainer}>
                                     <MaterialCommunityIcons name="pencil-outline" size={22} color={THEME.textPrimary} />
                                 </View>
-                                <Text style={styles.optionText}>Edit</Text>
+                                <Text style={styles.optionText}>{t('common.edit')}</Text>
                             </TouchableOpacity>
 
                             <View style={styles.separator} />
@@ -119,7 +121,7 @@ export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isS
                                         <View style={styles.optionIconContainer}>
                                             <MaterialCommunityIcons name="calendar-arrow-right" size={22} color={THEME.textPrimary} />
                                         </View>
-                                        <Text style={styles.optionText}>Move to Date</Text>
+                                        <Text style={styles.optionText}>{t('home.moveTaskToDate')}</Text>
                                     </TouchableOpacity>
 
                                     <View style={styles.separator} />
@@ -136,7 +138,7 @@ export default function TaskMenu({ visible, onClose, onAddSubtask, onDelete, isS
                                 <View style={styles.optionIconContainer}>
                                     <Ionicons name="trash-outline" size={22} color="#C53030" />
                                 </View>
-                                <Text style={[styles.optionText, styles.deleteText]}>{isSubtask ? 'Delete Subtask' : 'Delete Task'}</Text>
+                                <Text style={[styles.optionText, styles.deleteText]}>{isSubtask ? t('common.deleteSubtask') : t('common.deleteTask')}</Text>
                             </TouchableOpacity>
 
                             {/* Bottom Safety Spacer */}

@@ -9,6 +9,7 @@ import {
     Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 const THEME = {
     bg: '#FAFAF6',
@@ -36,6 +37,7 @@ export default function TimePickerModal({
     onSelectTime,
     initialTime,
 }: TimePickerModalProps) {
+    const { t } = useTranslation();
     const [selectedHour, setSelectedHour] = useState(() => {
         if (initialTime) {
             const [h] = initialTime.split(':').map(Number);
@@ -54,7 +56,7 @@ export default function TimePickerModal({
     });
 
     const formatHour = (hour: number) => {
-        const period = hour >= 12 ? 'PM' : 'AM';
+        const period = hour >= 12 ? t('common.pm') : t('common.am');
         const displayHour = hour % 12 || 12;
         return `${displayHour} ${period}`;
     };
@@ -83,11 +85,11 @@ export default function TimePickerModal({
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Text style={styles.cancelText}>Cancel</Text>
+                        <Text style={styles.cancelText}>{t('common.cancel')}</Text>
                     </TouchableOpacity>
-                    <Text style={styles.title}>Set Reminder</Text>
+                    <Text style={styles.title}>{t('editor.setReminder')}</Text>
                     <TouchableOpacity onPress={handleConfirm} style={styles.closeButton}>
-                        <Text style={styles.doneText}>Done</Text>
+                        <Text style={styles.doneText}>{t('common.done')}</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -100,7 +102,7 @@ export default function TimePickerModal({
                 </View>
 
                 {/* Hour Picker */}
-                <Text style={styles.sectionLabel}>Hour</Text>
+                <Text style={styles.sectionLabel}>{t('common.hour')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pickerRow}>
                     {HOURS.map(hour => (
                         <TouchableOpacity
@@ -116,7 +118,7 @@ export default function TimePickerModal({
                 </ScrollView>
 
                 {/* Minute Picker */}
-                <Text style={styles.sectionLabel}>Minute</Text>
+                <Text style={styles.sectionLabel}>{t('common.minute')}</Text>
                 <View style={styles.minuteRow}>
                     {MINUTES.map(minute => (
                         <TouchableOpacity
@@ -134,7 +136,7 @@ export default function TimePickerModal({
                 {/* Clear Button */}
                 <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
                     <Ionicons name="close-circle-outline" size={20} color="#C53030" />
-                    <Text style={styles.clearText}>Remove Reminder</Text>
+                    <Text style={styles.clearText}>{t('editor.removeReminder')}</Text>
                 </TouchableOpacity>
             </View>
         </Modal>

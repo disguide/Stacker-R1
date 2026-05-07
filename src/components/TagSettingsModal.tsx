@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TagDefinition } from '../services/storage';
+import { useTranslation } from 'react-i18next';
 
 const THEME = {
     bg: '#FAFAF6',
@@ -26,6 +27,7 @@ const COLORS = [
 const PRESET_EMOJIS = ['🏷️', '📚', '💼', '💪', '🏠', '🛒', '✈️', '🎉', '❤️', '⭐'];
 
 export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }: TagSettingsModalProps) {
+    const { t } = useTranslation();
     const [localTags, setLocalTags] = useState<TagDefinition[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editLabel, setEditLabel] = useState('');
@@ -73,10 +75,10 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
     };
 
     const handleDelete = (id: string) => {
-        Alert.alert('Delete Tag', 'Are you sure?', [
-            { text: 'Cancel', style: 'cancel' },
+        Alert.alert(t('settings.tags.deleteTitle'), t('settings.tags.deleteConfirm'), [
+            { text: t('common.cancel'), style: 'cancel' },
             {
-                text: 'Delete',
+                text: t('common.delete'),
                 style: 'destructive',
                 onPress: () => {
                     setLocalTags(localTags.filter(t => t.id !== id));
@@ -95,16 +97,16 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
         <Modal visible={visible} animationType="fade" transparent onRequestClose={handleClose}>
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
                 <View style={styles.container} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.title}>Manage Tags</Text>
+                    <Text style={styles.title}>{t('settings.tags.title')}</Text>
 
                     <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
                         {/* Editor Section */}
                         <View style={styles.editorContainer}>
-                            <Text style={styles.sectionTitle}>{editingId ? 'Edit Tag' : 'New Tag'}</Text>
+                            <Text style={styles.sectionTitle}>{editingId ? t('settings.tags.editTag') : t('settings.tags.newTag')}</Text>
 
                             <TextInput
                                 style={styles.input}
-                                placeholder="Tag Name (e.g. Work)"
+                                placeholder={t('settings.tags.placeholder')}
                                 placeholderTextColor="#94A3B8"
                                 value={editLabel}
                                 onChangeText={setEditLabel}
@@ -112,7 +114,7 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
 
                             {/* Symbol Input */}
                             <View style={styles.symbolRow}>
-                                <Text style={styles.label}>Symbol:</Text>
+                                <Text style={styles.label}>{t('settings.tags.symbol')}:</Text>
                                 <TextInput
                                     style={styles.symbolInput}
                                     placeholder="🏷️"
@@ -129,7 +131,7 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
                             </View>
 
                             {/* Color Picker */}
-                            <Text style={styles.label}>Color:</Text>
+                            <Text style={styles.label}>{t('settings.tags.color')}:</Text>
                             <View style={styles.colorsGrid}>
                                 {COLORS.map(c => (
                                     <TouchableOpacity
@@ -146,13 +148,13 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
                                 disabled={!editLabel}
                             >
                                 <Text style={[styles.actionBtnText, { color: editLabel ? '#FFF' : '#94A3B8' }]}>
-                                    {editingId ? 'Update Tag' : 'Add Tag'}
+                                    {editingId ? t('settings.tags.updateTag') : t('settings.tags.addTag')}
                                 </Text>
                             </TouchableOpacity>
 
                             {editingId && (
                                 <TouchableOpacity style={styles.cancelEditBtn} onPress={resetEdit}>
-                                    <Text style={styles.cancelEditText}>Cancel Edit</Text>
+                                    <Text style={styles.cancelEditText}>{t('settings.tags.cancelEdit')}</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -161,9 +163,9 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
 
                         {/* List of Tags */}
                         <View style={styles.listContainer}>
-                            <Text style={styles.sectionTitle}>Your Tags</Text>
+                            <Text style={styles.sectionTitle}>{t('settings.tags.yourTags')}</Text>
                             {localTags.length === 0 && (
-                                <Text style={styles.emptyText}>No tags created yet.</Text>
+                                <Text style={styles.emptyText}>{t('settings.tags.empty')}</Text>
                             )}
                             {localTags.map(tag => (
                                 <View key={tag.id} style={styles.tagRow}>
@@ -188,11 +190,11 @@ export default function TagSettingsModal({ visible, onClose, tags, onSaveTags }:
                     {/* Footer — Unified pattern */}
                     <View style={styles.footer}>
                         <TouchableOpacity onPress={handleClose} style={styles.cancelButton}>
-                            <Text style={styles.cancelButtonText}>Close</Text>
+                            <Text style={styles.cancelButtonText}>{t('common.close')}</Text>
                         </TouchableOpacity>
                         <View style={{ flex: 1 }} />
                         <TouchableOpacity onPress={handleClose} style={styles.saveButton}>
-                            <Text style={styles.saveButtonText}>Done</Text>
+                            <Text style={styles.saveButtonText}>{t('common.done')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

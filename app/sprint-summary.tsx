@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Modal, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { Task, StorageService } from '../src/services/storage';
 import { toISODateString } from '../src/utils/dateHelpers';
 
@@ -12,17 +13,17 @@ const THEME = {
     textSecondary: '#64748B',
     success: '#0EA5E9',
     successBg: '#F0F9FF', // Light blue background for completion
-    accent: '#0EA5E9', 
-    border: 'rgba(255, 255, 255, 0.5)', 
+    accent: '#0EA5E9',
+    border: 'rgba(255, 255, 255, 0.5)',
     cardBg: 'rgba(255, 255, 255, 0.98)',
 };
 
 // Helper for remaining time display
-const calculateRemainingTime = (estimatedTime: string, progress: number) => {
+const calculateRemainingTime = (estimatedTime: string, progress: number, t: any) => {
     if (!estimatedTime) return null;
-    // If progress is near 100, we consider it done for visual purposes in calculation, 
+    // If progress is near 100, we consider it done for visual purposes in calculation,
     // but the row handles the "Done" text state.
-    if (progress >= 99) return 'Done';
+    if (progress >= 99) return t('common.done');
 
     let totalMinutes = 0;
     const hoursMatch = estimatedTime.match(/(\d+(?:[.,]\d+)?)\s*h/i);
@@ -46,8 +47,8 @@ const calculateRemainingTime = (estimatedTime: string, progress: number) => {
     const h = Math.floor(remaining / 60);
     const m = remaining % 60;
 
-    if (h > 0) return m > 0 ? `${h}h${m}` : `${h}h`;
-    return `${m}min`;
+    if (h > 0) return m > 0 ? `${h}${t('journal.h')}${m}${t('journal.m')}` : `${h}${t('journal.h')}`;
+    return `${m}${t('sprints.min')}`;
 };
 
 // --- SLIDER ROW COMPONENT ---
@@ -64,6 +65,7 @@ const SprintSummaryTaskRow = ({
     isSubtask?: boolean,
     isLast?: boolean
 }) => {
+    const { t } = useTranslation();
     // Use task status for initialization
     const initialProgress = task.isCompleted ? 100 : (task.progress || 0);
     const [progress, setProgress] = useState(initialProgress);
@@ -152,7 +154,7 @@ const SprintSummaryTaskRow = ({
     return (
         <View
             style={[
-                styles.taskItemContainer, 
+                styles.taskItemContainer,
                 !isLast && { borderBottomWidth: 1, borderBottomColor: '#CBD5E1' }
             ]}
             onLayout={(e) => widthRef.current = e.nativeEvent.layout.width}
@@ -192,7 +194,7 @@ const SprintSummaryTaskRow = ({
                     </Text>
                     <View style={styles.metaRow}>
                         <Text style={styles.metaText}>
-                            {isConfirmed ? 'Completed' : `${Math.round(progress)}% done`}
+                            {isConfirmed ? t('profile.completed') : t('sprints.percentDone', { percent: Math.round(progress) })}
                         </Text>
                     </View>
                 </View>
@@ -202,6 +204,7 @@ const SprintSummaryTaskRow = ({
 };
 
 export default function SprintSummaryScreen() {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -256,14 +259,14 @@ export default function SprintSummaryScreen() {
 
     const handleStatusChange = (taskId: string, isConfirmed: boolean, parentId?: string) => {
         // Find title for timeline entry
-        let title = 'Task';
+        let title = t('sprints.task');
         if (parentId) {
             const parent = initialSprintTasks.find(t => t.id === parentId);
             const sub = parent?.subtasks?.find(st => st.id === taskId);
-            title = sub ? sub.title : 'Subtask';
+            title = sub ? sub.title : t('sprints.subtask');
         } else {
             const task = initialSprintTasks.find(t => t.id === taskId);
-            title = task ? task.title : 'Task';
+            title = task ? task.title : t('sprints.task');
         }
 
         // Add "Review" marker if confirmed
@@ -271,7 +274,7 @@ export default function SprintSummaryScreen() {
             const now = Date.now();
             const newEvent = {
                 type: 'task',
-                title: `Review: ${title}`,
+                title: `${t('sprints.review')}: ${title}`,
                 startTime: now,
                 endTime: now,
                 durationSeconds: 0 // Duration is 0 for post-sprint adjustments
@@ -308,8 +311,8 @@ export default function SprintSummaryScreen() {
     };
 
     const getLongestTask = () => {
-        if (!timelineEvents || timelineEvents.length === 0) return 'Focus Session';
-        
+        if (!timelineEvents || timelineEvents.length === 0) return t('journal.defaultFocusTitle');
+
         const taskDurations: { [key: string]: number } = {};
         timelineEvents.forEach(event => {
             if (event.type === 'task' && event.title) {
@@ -327,7 +330,7 @@ export default function SprintSummaryScreen() {
             }
         });
 
-        return longestTitle || 'Focus Session';
+        return longestTitle || t('journal.defaultFocusTitle');
     };
 
     const handleSaveSprint = async () => {
@@ -359,7 +362,7 @@ export default function SprintSummaryScreen() {
             setSavedSprintId(newId);
         } catch (error) {
             console.error("Failed to save sprint:", error);
-            Alert.alert("Error", "Could not save sprint. Please try again.");
+            Alert.alert(t('common.error'), t('profile.failedToAddGoal')); // Reusing error
         }
     };
 
@@ -459,9 +462,9 @@ export default function SprintSummaryScreen() {
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
         const s = seconds % 60;
-        if (h > 0) return `${h}h ${m}m ${s}s`;
-        if (m > 0) return `${m}m ${s}s`;
-        return `${s}s`;
+        if (h > 0) return `${h}${t('journal.h')} ${m}${t('journal.m')} ${s}${t('journal.s')}`;
+        if (m > 0) return `${m}${t('journal.m')} ${s}${t('journal.s')}`;
+        return `${s}${t('journal.s')}`;
     };
 
     return (
@@ -470,10 +473,10 @@ export default function SprintSummaryScreen() {
                 <TouchableOpacity onPress={handleFinish} style={styles.exitButton}>
                     <Ionicons name="close" size={20} color={THEME.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Sprint Summary</Text>
+                <Text style={styles.headerTitle}>{t('sprints.summaryTitle')}</Text>
                 <TouchableOpacity onPress={handleSaveSprint} style={styles.headerSaveButton}>
                     <Text style={[styles.headerSaveText, !!savedSprintId && { color: THEME.success }]}>
-                        {savedSprintId ? 'Saved' : 'Save'}
+                        {savedSprintId ? t('journal.savedToast') : t('common.save')}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -481,20 +484,20 @@ export default function SprintSummaryScreen() {
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.summaryHeader}>
                     <View style={styles.statContainer}>
-                        <Text style={styles.summaryLabel}>FOCUS TIME</Text>
+                        <Text style={styles.summaryLabel}>{t('sprints.focusTime')}</Text>
                         <Text style={[styles.scaryBigTime, { color: '#166534' }]}>{formatDuration(workSeconds)}</Text>
                     </View>
-                    
+
                     <View style={styles.statDivider} />
 
                     <View style={styles.statContainer}>
-                        <Text style={styles.summaryLabel}>BREAK TIME</Text>
+                        <Text style={styles.summaryLabel}>{t('sprints.breakTime')}</Text>
                         <Text style={[styles.scaryBigTime, { color: '#3B82F6' }]}>{formatDuration(breakSeconds)}</Text>
                     </View>
                 </View>
 
-                <Text style={styles.sectionHeader}>REVIEW PROGRESS</Text>
-                
+                <Text style={styles.sectionHeader}>{t('sprints.reviewProgress')}</Text>
+
                 <View style={styles.taskListContainer}>
                     {initialSprintTasks.map((task, index) => {
                         const hasSubs = !!task.subtasks && task.subtasks.length > 0;
@@ -533,14 +536,14 @@ export default function SprintSummaryScreen() {
                         onPress={() => setShowTimeline(true)}
                     >
                         <MaterialCommunityIcons name="timeline-clock-outline" size={20} color={THEME.textSecondary} />
-                        <Text style={styles.timelineButtonText}>See Timeline</Text>
+                        <Text style={styles.timelineButtonText}>{t('sprints.seeTimeline')}</Text>
                     </TouchableOpacity>
                 )}
             </ScrollView>
 
             <View style={styles.footer}>
                 <TouchableOpacity style={styles.doneButton} onPress={handleFinish} activeOpacity={0.8}>
-                    <Text style={styles.doneButtonText}>Finish Sprint</Text>
+                    <Text style={styles.doneButtonText}>{t('sprints.finishSprint')}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -549,7 +552,7 @@ export default function SprintSummaryScreen() {
                 <View style={styles.timelineModalOverlay}>
                     <View style={styles.timelineModalContent}>
                         <View style={styles.timelineModalHeader}>
-                            <Text style={styles.timelineModalTitle}>Sprint Timeline</Text>
+                            <Text style={styles.timelineModalTitle}>{t('sprints.timelineTitle')}</Text>
                             <TouchableOpacity onPress={() => setShowTimeline(false)} style={styles.timelineCloseBtn}>
                                 <Ionicons name="close" size={24} color={THEME.textPrimary} />
                             </TouchableOpacity>
@@ -588,12 +591,12 @@ const styles = StyleSheet.create({
     header: { padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     headerTitle: { fontSize: 16, fontWeight: '700', color: THEME.textPrimary },
     exitButton: { padding: 6, backgroundColor: '#F1F5F9', borderRadius: 20 },
-    headerSaveButton: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
+    headerSaveButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: 'transparent',
-        paddingHorizontal: 8, 
-        paddingVertical: 6, 
+        paddingHorizontal: 8,
+        paddingVertical: 6,
     },
     headerSaveText: { color: THEME.accent, fontWeight: '600', fontSize: 14 },
     content: { padding: 16, paddingBottom: 100 },
@@ -621,42 +624,40 @@ const styles = StyleSheet.create({
         height: 40,
         backgroundColor: 'rgba(226, 232, 240, 0.8)',
     },
-    summaryLabel: { 
-        fontSize: 10, 
-        color: THEME.textSecondary, 
-        fontWeight: '900', 
-        letterSpacing: 1.5, 
+    summaryLabel: {
+        fontSize: 10,
+        color: THEME.textSecondary,
+        fontWeight: '900',
+        letterSpacing: 1.5,
         marginBottom: 4,
-        textTransform: 'uppercase',
     },
     scaryBigTime: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-    sectionHeader: { 
-        fontSize: 10, 
-        fontWeight: '900', 
-        color: THEME.textSecondary, 
-        marginBottom: 12, 
-        letterSpacing: 1.5, 
+    sectionHeader: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: THEME.textSecondary,
+        marginBottom: 12,
+        letterSpacing: 1.5,
         marginLeft: 8,
-        textTransform: 'uppercase',
     },
-    taskListContainer: { 
-        backgroundColor: '#FFFFFF', 
+    taskListContainer: {
+        backgroundColor: '#FFFFFF',
         borderRadius: 4, // Subtle rounding
-        borderWidth: 1, 
+        borderWidth: 1,
         borderColor: '#CBD5E1', // Softer border color
         overflow: 'hidden',
-        marginBottom: 24, 
+        marginBottom: 24,
     },
     taskItemContainer: {
-        height: 60, 
-        justifyContent: 'center', 
-        backgroundColor: '#FFFFFF', 
+        height: 60,
+        justifyContent: 'center',
+        backgroundColor: '#FFFFFF',
     },
-    progressFill: { 
-        position: 'absolute', 
-        top: 0, 
-        left: 0, 
-        bottom: 0, 
+    progressFill: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        bottom: 0,
         zIndex: 0,
         borderRightWidth: 1,
         borderRightColor: 'rgba(14, 165, 233, 0.2)', // Edge definition for progress
@@ -667,10 +668,10 @@ const styles = StyleSheet.create({
     metaText: { fontSize: 12, color: THEME.textSecondary },
     footer: { padding: 16, paddingBottom: 32, backgroundColor: THEME.bg },
     doneButton: {
-        backgroundColor: '#0F172A', 
-        borderRadius: 16, 
-        height: 56, 
-        alignItems: 'center', 
+        backgroundColor: '#0F172A',
+        borderRadius: 16,
+        height: 56,
+        alignItems: 'center',
         justifyContent: 'center',
     },
     doneButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },

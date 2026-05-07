@@ -14,6 +14,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { StorageService, DailyData } from '../src/services/storage';
 import { toISODateString } from '../src/utils/dateHelpers';
 
@@ -50,6 +51,7 @@ const getMoodColor = (rating: number) => {
 };
 
 const MoodCounterButton = ({ day, onPress }: { day: LogDay, onPress: () => void }) => {
+    const { t } = useTranslation();
     const scale = useRef(new Animated.Value(1)).current;
     const tilt = useRef(new Animated.Value(0)).current;
 
@@ -74,7 +76,7 @@ const MoodCounterButton = ({ day, onPress }: { day: LogDay, onPress: () => void 
             onPress={handlePress}
             activeOpacity={0.7}
         >
-            <Text style={styles.moodLabelText}>MOOD</Text>
+            <Text style={styles.moodLabelText}>{t('journal.mood')}</Text>
             <Animated.View style={{ transform: [{ scale }, { rotate: rotation }] }}>
                 <Text style={[styles.moodNumberText, { color: getMoodColor(day.rating) }]}>{`${day.rating}/10`}</Text>
             </Animated.View>
@@ -83,6 +85,7 @@ const MoodCounterButton = ({ day, onPress }: { day: LogDay, onPress: () => void 
 };
 
 export default function SavedScreen() {
+    const { t, i18n } = useTranslation();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [loading, setLoading] = useState(true);
@@ -190,12 +193,12 @@ export default function SavedScreen() {
 
     const toggleStar = async (dayDate: string, currentStatus: boolean) => {
         Alert.alert(
-            "Remove from Memories",
-            "Are you sure you want to remove this day from Memories?",
+            t('memories.removeTitle'),
+            t('memories.removeMsg'),
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t('common.cancel'), style: "cancel" },
                 { 
-                    text: "Remove", 
+                    text: t('memories.remove'), 
                     style: "destructive",
                     onPress: async () => {
                         setLogDays(prev => prev.filter(d => d.date !== dayDate));
@@ -307,7 +310,7 @@ export default function SavedScreen() {
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <Ionicons name="chevron-back" size={28} color="#1E293B" />
                     </TouchableOpacity>
-                    <Text style={[styles.headerTitle, { marginLeft: 12 }]}>Memories</Text>
+                    <Text style={[styles.headerTitle, { marginLeft: 12 }]}>{t('memories.title')}</Text>
                 </View>
                 <View style={{ width: 44 }} />
             </View>
@@ -321,7 +324,7 @@ export default function SavedScreen() {
                     const isToday = day.date === toISODateString(new Date());
                     const [y, m, d] = day.date.split('-').map(Number);
                     const dateObj = new Date(y, m - 1, d);
-                    const dateParts = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+                    const dateParts = dateObj.toLocaleDateString(i18n.language, { weekday: 'long', month: 'long', day: 'numeric' });
                     const formattedTitle = `${dateParts} ${getDayCounter(day.date).toUpperCase()}`;
 
                     return (
@@ -346,7 +349,7 @@ export default function SavedScreen() {
                             <View style={[styles.reflectionCard, { marginTop: 0, marginBottom: 24 }]}>
                                 <View style={styles.reflectionHeader}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                        <Text style={styles.reflectionTitle}>Reflection</Text>
+                                        <Text style={styles.reflectionTitle}>{t('journal.reflection')}</Text>
                                         {day.rating > 0 && (
                                             <TouchableOpacity 
                                                 onPress={() => {
@@ -368,7 +371,7 @@ export default function SavedScreen() {
                                 </View>
                                 <TextInput
                                     style={styles.reflectionInput}
-                                    placeholder="Notes for yourself..."
+                                    placeholder={t('journal.notesPlaceholder')}
                                     placeholderTextColor="#ABB5C2"
                                     multiline
                                     scrollEnabled={false}
@@ -385,7 +388,7 @@ export default function SavedScreen() {
                             {/* 3. Tasks Completed (All tasks) */}
                             {day.tasks.length > 0 && (
                                 <View style={styles.listSection}>
-                                    <Text style={styles.sectionHeading}>Tasks Completed</Text>
+                                    <Text style={styles.sectionHeading}>{t('journal.tasksCompleted')}</Text>
                                     <View style={{ gap: 10 }}>
                                         {day.tasks.map((task) => (
                                             <TouchableOpacity 
@@ -411,7 +414,7 @@ export default function SavedScreen() {
                             {/* 4. Sprints Completed */}
                             {day.sprints.length > 0 && (
                                 <View style={styles.listSection}>
-                                    <Text style={styles.sectionHeading}>Focus Sessions</Text>
+                                    <Text style={styles.sectionHeading}>{t('journal.focusSessions')}</Text>
                                     <View style={{ gap: 8 }}>
                                     {day.sprints.map((sprint, sIdx) => (
                                         <View key={sprint.id || sIdx} style={styles.sprintItemRow}>
@@ -419,10 +422,10 @@ export default function SavedScreen() {
                                                 <Ionicons name="flash-outline" size={16} color="#3B82F6" />
                                             </View>
                                             <View style={{ flex: 1 }}>
-                                                <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
+                                                <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || t('journal.defaultFocusTitle')}</Text>
                                                 {sprint.note && <Text style={styles.sprintLogNote}>"{sprint.note}"</Text>}
                                             </View>
-                                            <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}m</Text>
+                                            <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}{t('journal.m')}</Text>
                                         </View>
                                     ))}
                                     </View>

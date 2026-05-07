@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ScrollView, UIManager, Platform, Dimensions, Alert, Animated, PanResponder, LayoutAnimation } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import SwipeableTaskRow from '../../../components/SwipeableTaskRow';
+import { useTranslation } from 'react-i18next';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { styles } from '../../../styles/taskListStyles';
 import { THEME } from '../../../constants/theme';
@@ -574,6 +575,7 @@ const DraggableRow = React.memo(function DraggableRow({
 
 // ============ Main Component ============
 export function TaskListSection({ dates, calendarItems, sortOption, setSortOption, isReorderMode, setIsReorderMode, isClumped, setIsClumped, form, ops }: TaskListSectionProps) {
+    const { t, i18n } = useTranslation();
     const inputRef = useRef<TextInput>(null);
     const mainScrollY = useRef(0);
     const scrollRef = useRef<ScrollView>(null);
@@ -623,13 +625,13 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
         });
         const timePart = totalMinutes > 0 ? formatMinutesAsTime(totalMinutes) : '';
         let summaryString = '';
-        if (timePart && tasksWithoutTimeCount > 0) summaryString = `${timePart} + ${tasksWithoutTimeCount} tasks`;
+        if (timePart && tasksWithoutTimeCount > 0) summaryString = `${timePart} + ${t('home.tasksCount', { count: tasksWithoutTimeCount })}`;
         else if (timePart) summaryString = timePart;
-        else summaryString = `${tasksWithoutTimeCount} tasks`;
+        else summaryString = t('home.tasksCount', { count: tasksWithoutTimeCount });
         return (
             <View style={[styles.dateHeader, isTodayDate && styles.todayHeader]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={[styles.dayName, isTodayDate && styles.todayDayName]}>{date.getDate()} {date.toLocaleDateString('en-US', { month: 'long' })}</Text>
+                    <Text style={[styles.dayName, isTodayDate && styles.todayDayName]}>{date.getDate()} {date.toLocaleDateString(i18n.language, { month: 'long' })}</Text>
                     <Text style={[styles.dateSubtext, { marginLeft: 8 }]}>• {getDaysDifference(date)} - {getDayName(date)}</Text>
                 </View>
                 <View style={styles.dailyTimeContainer}><Text style={styles.dailyTimeSum}>{summaryString}</Text></View>
@@ -738,7 +740,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         <TouchableOpacity style={styles.addTaskSpace} onPress={() => form.startAddingTask(dateString)}>
                             <Ionicons name="add" style={styles.addTaskIcon} />
                             <View style={styles.addTaskTextContainer}>
-                                <Text style={styles.addTaskText}>Add Task</Text>
+                                <Text style={styles.addTaskText}>{t('home.addTask')}</Text>
                                 <View style={styles.addTaskUnderline} />
                             </View>
                         </TouchableOpacity>
@@ -747,7 +749,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         <View style={styles.addTaskContainer}>
                             <View style={styles.addTaskRow}>
                                 <View style={styles.checkboxPlaceholder} />
-                                <TextInput ref={inputRef} style={styles.addTaskInput} placeholder="What needs to be done?"
+                                <TextInput ref={inputRef} style={styles.addTaskInput} placeholder={t('home.whatNeedsToBeDone')}
                                     placeholderTextColor="#999" value={form.newTaskTitle} onChangeText={form.setNewTaskTitle}
                                     onSubmitEditing={() => form.handleAddTask(dateString)} blurOnSubmit={false} />
                                 <TouchableOpacity onPress={form.cancelAddingTask}>
@@ -760,22 +762,22 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                                         onPress={() => { form.setCalendarMode('new'); form.setIsCalendarVisible(true); }}>
                                         <Ionicons name="calendar-outline" size={16} color={form.newTaskDeadline ? THEME.bg : THEME.textSecondary} />
                                         <Text style={[styles.addOptionText, form.newTaskDeadline && { color: THEME.bg }]}>
-                                            {form.newTaskDeadline ? formatDeadline(form.newTaskDeadline) : "Date"}</Text>
+                                            {form.newTaskDeadline ? formatDeadline(form.newTaskDeadline) : t('common.date')}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={[styles.addOptionChip, form.newTaskEstimatedTime && styles.addOptionChipActive]}
                                         onPress={() => { form.setDurationMode('new'); form.setIsDurationPickerVisible(true); }}>
                                         <Feather name="clock" size={16} color={form.newTaskEstimatedTime ? THEME.bg : THEME.textSecondary} />
                                         <Text style={[styles.addOptionText, form.newTaskEstimatedTime && { color: THEME.bg }]}>
-                                            {form.newTaskEstimatedTime || "Duration"}</Text>
+                                            {form.newTaskEstimatedTime || t('common.duration')}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={[styles.addOptionChip, form.newTaskReminderTime && styles.addOptionChipActive]}
                                         onPress={() => form.setIsTimePickerVisible(true)}>
                                         <Ionicons name="notifications-outline" size={16} color={form.newTaskReminderTime ? THEME.bg : THEME.textSecondary} />
                                         <Text style={[styles.addOptionText, form.newTaskReminderTime && { color: THEME.bg }]}>
-                                            {form.newTaskReminderTime ? "Times" : "Remind"}</Text>
+                                            {form.newTaskReminderTime ? t('common.times') : t('common.remind')}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.addSaveButton} onPress={() => form.handleAddTask(dateString)}>
-                                        <Text style={styles.addSaveText}>Add</Text>
+                                        <Text style={styles.addSaveText}>{t('common.add')}</Text>
                                     </TouchableOpacity>
                                 </ScrollView>
                             </View>
@@ -822,7 +824,7 @@ export function TaskListSection({ dates, calendarItems, sortOption, setSortOptio
                         paddingHorizontal: 32, paddingVertical: 14, borderRadius: 28,
                         shadowColor: THEME.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8
                     }}>
-                    <Text style={{ color: THEME.bg, fontSize: 16, fontWeight: 'bold' }}>Done Reordering</Text>
+                    <Text style={{ color: THEME.bg, fontSize: 16, fontWeight: 'bold' }}>{t('common.doneReordering')}</Text>
                 </TouchableOpacity>
             </View>
         );

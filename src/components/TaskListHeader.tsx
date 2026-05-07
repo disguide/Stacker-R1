@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, Image, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -36,6 +37,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
     onOrganize,
     isOrganizeMenuVisible
 }) => {
+    const { t } = useTranslation();
     const insets = useSafeAreaInsets();
     const rotateAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -175,7 +177,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                     style={styles.viewLabelButton}
                     onPress={handleViewPress}
                 >
-                    <Text style={styles.viewLabel}>{VIEW_CONFIG[viewMode].label}</Text>
+                    <Text style={styles.viewLabel}>{t('common.' + viewMode)}</Text>
                     <Animated.View style={{ transform: [{ rotate: viewRotation }] }}>
                         <Ionicons name="chevron-down" size={16} color="#666" style={{ marginTop: 2 }} />
                     </Animated.View>
@@ -202,7 +204,7 @@ export const TaskListHeader: React.FC<TaskListHeaderProps> = ({
                         styles.sprintHeaderButtonText,
                         isSprintSelectionMode && styles.sprintHeaderButtonTextActive
                     ]}>
-                        {isSprintSelectionMode ? "Cancel" : "Sprint"}
+                        {isSprintSelectionMode ? t('common.cancel') : t('common.sprint')}
                     </Text>
                 </TouchableOpacity>
 

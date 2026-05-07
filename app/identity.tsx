@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +14,7 @@ import { toISODateString, formatDeadline } from '../src/utils/dateHelpers';
 export default function IdentityScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { t } = useTranslation();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const { tasks, addTask, deleteTask, toggleTask, updateTask } = useTaskController();
 
@@ -83,11 +85,11 @@ export default function IdentityScreen() {
 
     const handleAddMilestone = (monthsOffset: number, customDate?: Date) => {
         if (!newMilestoneTitle.trim()) {
-            Alert.alert('Error', 'Please enter a milestone title.');
+            Alert.alert(t('common.error'), t('identity.enterTitle'));
             return;
         }
         if (!identityTagId) {
-            Alert.alert('Error', 'Identity system not initialized yet. Please wait a moment.');
+            Alert.alert(t('common.error'), t('identity.notInitialized'));
             ensureIdentityTag(); // Retry
             return;
         }
@@ -121,7 +123,7 @@ export default function IdentityScreen() {
             setIsAddModalVisible(false);
             // Optional: Alert.alert('Success', 'Milestone added!'); 
         } catch (e) {
-            Alert.alert('Error', 'Failed to add milestone.');
+            Alert.alert(t('common.error'), t('identity.failedToAdd'));
             if (__DEV__) console.error(e);
         }
     };
@@ -132,7 +134,7 @@ export default function IdentityScreen() {
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <Ionicons name="arrow-back" size={24} color="#0F172A" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Identity Engineering</Text>
+                <Text style={styles.headerTitle}>{t('identity.engineering')}</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -147,7 +149,7 @@ export default function IdentityScreen() {
                         {/* MILESTONES SECTION */}
                         <View style={styles.milestonesContainer}>
                             <View style={styles.sectionHeaderRow}>
-                                <Text style={styles.sectionTitle}>IDENTITY MILESTONES</Text>
+                                <Text style={styles.sectionTitle}>{t('identity.milestones')}</Text>
                                 <TouchableOpacity
                                     onPress={() => {
                                         if (identityTagId) setIsAddModalVisible(true);
@@ -156,7 +158,7 @@ export default function IdentityScreen() {
                                     disabled={!identityTagId}
                                 >
                                     <Ionicons name="add" size={16} color="#FFF" />
-                                    <Text style={styles.addBtnText}>Add</Text>
+                                    <Text style={styles.addBtnText}>{t('common.add')}</Text>
                                 </TouchableOpacity>
                             </View>
 
@@ -164,11 +166,11 @@ export default function IdentityScreen() {
                                 <View style={styles.emptyState}>
                                     {identityTagId ? (
                                         <>
-                                            <Text style={styles.emptyText}>No active milestones.</Text>
-                                            <Text style={styles.emptySub}>Set a target to prove your new identity.</Text>
+                                            <Text style={styles.emptyText}>{t('identity.noMilestones')}</Text>
+                                            <Text style={styles.emptySub}>{t('identity.setTargetSub')}</Text>
                                         </>
                                     ) : (
-                                        <Text style={styles.emptyText}>Initializing Identity System...</Text>
+                                        <Text style={styles.emptyText}>{t('identity.initializing')}</Text>
                                     )}
                                 </View>
                             ) : (
@@ -196,7 +198,7 @@ export default function IdentityScreen() {
                     </>
                 ) : (
                     <View style={styles.loading}>
-                        <Text>Loading...</Text>
+                        <Text>{t('common.loading')}</Text>
                     </View>
                 )}
             </ScrollView>
@@ -206,7 +208,7 @@ export default function IdentityScreen() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalCard}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>New Milestone</Text>
+                            <Text style={styles.modalTitle}>{t('identity.newMilestone')}</Text>
                             <TouchableOpacity onPress={() => setIsAddModalVisible(false)}>
                                 <Ionicons name="close" size={24} color="#64748B" />
                             </TouchableOpacity>
@@ -214,18 +216,18 @@ export default function IdentityScreen() {
 
                         <TextInput
                             style={styles.input}
-                            placeholder="What is the achievement?"
+                            placeholder={t('identity.achievementPlaceholder')}
                             value={newMilestoneTitle}
                             onChangeText={setNewMilestoneTitle}
                             autoFocus
                         />
 
-                        <Text style={styles.label}>Timeline</Text>
+                        <Text style={styles.label}>{t('identity.timeline')}</Text>
                         <View style={styles.quickDates}>
-                            <QuickDateBtn label="1 Month" onPress={() => handleAddMilestone(1)} color="#3B82F6" />
-                            <QuickDateBtn label="3 Months" onPress={() => handleAddMilestone(3)} color="#8B5CF6" />
-                            <QuickDateBtn label="6 Months" onPress={() => handleAddMilestone(6)} color="#EC4899" />
-                            <QuickDateBtn label="1 Year" onPress={() => handleAddMilestone(12)} color="#F59E0B" />
+                            <QuickDateBtn label={t('identity.oneMonth')} onPress={() => handleAddMilestone(1)} color="#3B82F6" />
+                            <QuickDateBtn label={t('identity.threeMonths')} onPress={() => handleAddMilestone(3)} color="#8B5CF6" />
+                            <QuickDateBtn label={t('identity.sixMonths')} onPress={() => handleAddMilestone(6)} color="#EC4899" />
+                            <QuickDateBtn label={t('identity.oneYear')} onPress={() => handleAddMilestone(12)} color="#F59E0B" />
                         </View>
                     </View>
                 </View>

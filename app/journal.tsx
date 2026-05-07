@@ -98,8 +98,8 @@ export default function JournalScreen() {
     const formatDuration = (seconds: number) => {
         const h = Math.floor(seconds / 3600);
         const m = Math.floor((seconds % 3600) / 60);
-        if (h > 0) return `${h}h ${m}m`;
-        return `${m}m`;
+        if (h > 0) return `${h}${t('journal.h')} ${m}${t('journal.m')}`;
+        return `${m}${t('journal.m')}`;
     };
 
     // Shared Element Entry Animation
@@ -349,15 +349,9 @@ export default function JournalScreen() {
     const getDayCounter = (dateStr: string) => {
         const today = new Date();
         today.setHours(0,0,0,0);
-        const [y, m, d] = dateStr.split('-').map(Number);
-        const target = new Date(y, m - 1, d);
-        target.setHours(0,0,0,0);
-        
-        const diffTime = target.getTime() - today.getTime();
-        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 0) return '-0D';
-        return `${diffDays}D`; // Will already include '-' for negative (past) days
+        const diff = Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
+        if (diff === 0) return `-0${t('journal.d')}`;
+        return `-${diff}${t('journal.d')}`;
     };
 
     if (loading) {
@@ -395,7 +389,7 @@ export default function JournalScreen() {
                     const [y, m, d] = day.date.split('-').map(Number);
                     const dateObj = new Date(y, m - 1, d);
                     const dateParts = dateObj.toLocaleDateString(i18n.language, { weekday: 'long', month: 'long', day: 'numeric' });
-                    const formattedTitle = `${dateParts} ${getDayCounter(day.date).toUpperCase()}`;
+                    const formattedTitle = `${dateParts} ${getDayCounter(day.date)}`;
 
                     // Entry animation only for the first day block
                     const isFirstBlock = dayIndex === 0;
@@ -523,7 +517,7 @@ export default function JournalScreen() {
                                                     <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || t('journal.defaultFocusTitle')}</Text>
                                                     {sprint.note && <Text style={styles.sprintLogNote}>"{sprint.note}"</Text>}
                                                 </View>
-                                                <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}m</Text>
+                                                <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}{t('journal.m')}</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity
                                                 onPress={() => handleDeleteSprint(sprint.id, day.date)}
@@ -691,6 +685,7 @@ const styles = StyleSheet.create({
         fontFamily: 'Georgia',
         color: '#000000',
         letterSpacing: 0.5,
+        textTransform: 'uppercase',
     },
     starCircleButton: {
         width: 40,
