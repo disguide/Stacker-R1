@@ -540,5 +540,10 @@
         "description": "Completa tu primer sprint de enfoque."
       }
     }
+  },
+  "friends": {
+    "title": "Amigos",
+    "underConstruction": "En Construcción",
+    "placeholder": "La función de Amigos se está construyendo actualmente. ¡Vuelve pronto!"
   }
 }

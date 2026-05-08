@@ -610,5 +610,10 @@
         "description": "Accomplissez votre premier sprint de concentration."
       }
     }
+  },
+  "friends": {
+    "title": "Amis",
+    "underConstruction": "En Construction",
+    "placeholder": "La fonctionnalité Amis est en cours de développement. Revenez bientôt !"
   }
 }

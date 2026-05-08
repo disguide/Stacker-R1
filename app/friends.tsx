@@ -3,19 +3,21 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 export default function FriendsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { t } = useTranslation();
 
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.headerBackBtn}>
                     <Ionicons name="chevron-back" size={28} color="#007AFF" />
-                    <Text style={styles.headerBackText}>Back</Text>
+                    <Text style={styles.headerBackText}>{t('common.back')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Friends</Text>
+                <Text style={styles.headerTitle}>{t('friends.title')}</Text>
                 <View style={styles.headerRightBtn} />
             </View>
 
@@ -23,9 +25,9 @@ export default function FriendsScreen() {
                 <View style={styles.iconContainer}>
                     <MaterialCommunityIcons name="traffic-cone" size={64} color="#F59E0B" />
                 </View>
-                <Text style={styles.title}>Under Construction</Text>
+                <Text style={styles.title}>{t('friends.underConstruction')}</Text>
                 <Text style={styles.placeholderText}>
-                    The Friends feature is currently being built. Check back soon!
+                    {t('friends.placeholder')}
                 </Text>
             </View>
         </SafeAreaView>

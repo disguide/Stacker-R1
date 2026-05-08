@@ -579,5 +579,10 @@
         "description": "Complete your first focus sprint."
       }
     }
+  },
+  "friends": {
+    "title": "Friends",
+    "underConstruction": "Under Construction",
+    "placeholder": "The Friends feature is currently being built. Check back soon!"
   }
 }

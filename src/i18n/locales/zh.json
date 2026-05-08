@@ -539,5 +539,10 @@
         "description": "完成您的第一次焦点冲刺。"
       }
     }
+  },
+  "friends": {
+    "title": "好友",
+    "underConstruction": "正在建设中",
+    "placeholder": "好友功能目前正在建设中。请稍后再来！"
   }
 }
