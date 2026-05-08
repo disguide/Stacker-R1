@@ -217,9 +217,10 @@ export default function JournalScreen() {
         
         // Save to Storage
         const extData = await StorageService.loadDailyData(dayDate);
-        const dataToSave = extData || { date: dayDate, updated_at: Date.now() };
+        const now = new Date().getTime();
+        const dataToSave = extData || { date: dayDate, updated_at: now };
         dataToSave.isStarred = newStatus;
-        dataToSave.updated_at = Date.now();
+        dataToSave.updated_at = now;
         await StorageService.saveDailyData(dayDate, dataToSave);
     };
 
