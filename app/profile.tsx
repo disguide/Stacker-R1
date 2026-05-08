@@ -185,8 +185,8 @@ export default function ProfileScreen() {
 
         // Find the one that's been active longest (earliest created_at)
         return [...allActive].sort((a, b) => {
-            const aTime = a.created_at || Date.now();
-            const bTime = b.created_at || Date.now();
+            const aTime = a.created_at || Number.MAX_SAFE_INTEGER;
+            const bTime = b.created_at || Number.MAX_SAFE_INTEGER;
             return aTime - bTime;
         })[0];
     }, [profile.goals, profile.antigoals]);

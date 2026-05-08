@@ -96,7 +96,7 @@ export default function ColorSettingsScreen() {
             return;
         }
         const newColor: ColorDefinition = {
-            id: `custom_${Date.now()}`,
+            id: 'custom_new',
             color: hex.toUpperCase(),
             label: ''
         };
@@ -109,7 +109,7 @@ export default function ColorSettingsScreen() {
 
     const handleAddPresetColor = (hex: string) => {
         const newColor: ColorDefinition = {
-            id: `custom_${Date.now()}`,
+            id: 'custom_new',
             color: hex.toUpperCase(),
             label: ''
         };
