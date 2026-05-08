@@ -173,7 +173,7 @@ export default function TimelineScreen() {
         }
 
         return finalEvs;
-    }, [profile]);
+    }, [profile, t]);
 
     const deleteEvent = async (goalId: string, eventId: string, type: GoalEventType) => {
         if (!profile) return;
