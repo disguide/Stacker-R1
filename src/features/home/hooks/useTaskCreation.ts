@@ -156,7 +156,7 @@ export function useTaskCreation({
 
         addTask(newTask);
         cancelAddingTask();
-    }, [newTaskTitle, newTaskDeadline, newTaskEstimatedTime, newTaskRecurrence, newTaskReminderTime, tasks, addTask, updateTask, cancelAddingTask, setNewTaskTitle, userColors, colorSettings]);
+    }, [newTaskTitle, newTaskDeadline, newTaskEstimatedTime, newTaskRecurrence, newTaskReminderTime, tasks, addTask, updateTask, cancelAddingTask, setNewTaskTitle, userColors]);
 
     const saveEditedTask = useCallback((updatedTask: Task, shouldClose: boolean = true, editingTask: any) => {
         // 1. HANDLE NEW TASK CREATION
@@ -303,7 +303,7 @@ export function useTaskCreation({
             setEditingTask(null);
             setIsDrawerVisible(false);
         }
-    }, [tasks, addTask, updateTask, setEditingTask, setIsDrawerVisible]);
+    }, [tasks, addTask, updateTask, setEditingTask, setIsDrawerVisible, userColors]);
 
     const saveSubtask = useCallback((subtaskData: any, editingSubtask: any, addingSubtaskToParentId: string | null) => {
         const isNewTemp = editingSubtask?.subtask?.id?.startsWith('new_temp_');
