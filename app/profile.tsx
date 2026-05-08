@@ -1272,7 +1272,7 @@ export default function ProfileScreen() {
                                                             <Text style={styles.sprintItemText} numberOfLines={1}>{sprint.primaryTask || 'Focus Session'}</Text>
                                                             {sprint.note && <Text style={styles.sprintLogNote}>"{sprint.note}"</Text>}
                                                         </View>
-                                                        <Text style={styles.sprintCardDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}{t('journal.m')}</Text>
+                                                        <Text style={styles.completedSprintDuration}>{Math.floor((sprint.durationSeconds || 0) / 60)}{t('journal.m')}</Text>
                                                     </View>
                                                 ))}
                                             </View>
